@@ -66,10 +66,14 @@ export function Canvas() {
   const [polyPts, setPolyPts] = useState<[number, number][]>([]);
   const [polyPreview, setPolyPreview] = useState<[number, number] | null>(null);
   const [isSpaceDown, setIsSpaceDown] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
 
   // Tooltip hover state
   const [hoveredAreaId, setHoveredAreaId] = useState<string | null>(null);
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
+
+  // Last pointer position for space-hold panning (no click required)
+  const lastSpacePanPos = useRef<{ x: number; y: number } | null>(null);
 
   // Drag state (refs to avoid re-renders during drag)
   const drag = useRef<{
@@ -180,7 +184,11 @@ export function Canvas() {
       }
     }
     function onKeyUp(e: KeyboardEvent) {
-      if (e.key === " ") { spaceHeld.current = false; setIsSpaceDown(false); }
+      if (e.key === " ") {
+        spaceHeld.current = false;
+        setIsSpaceDown(false);
+        lastSpacePanPos.current = null;
+      }
     }
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
@@ -232,6 +240,7 @@ export function Canvas() {
     if (spaceHeld.current || e.button === 1) {
       svg.setPointerCapture(e.pointerId);
       drag.current = { type: "pan", startSvg: sp, startContent: cp, panBefore: { x: panX, y: panY } };
+      setIsPanning(true);
       return;
     }
 
@@ -239,6 +248,7 @@ export function Canvas() {
       // Background drag = pan; short tap = deselect (disambiguated in onSvgPointerUp)
       svg.setPointerCapture(e.pointerId);
       drag.current = { type: "pan", startSvg: sp, startContent: cp, panBefore: { x: panX, y: panY } };
+      setIsPanning(true);
     } else if (activeTool === "rect") {
       svg.setPointerCapture(e.pointerId);
       drag.current = {
@@ -307,22 +317,32 @@ export function Canvas() {
 
   function onSvgPointerMove(e: React.PointerEvent<SVGSVGElement>) {
     // Track cursor for tooltip positioning
-    if (svgRef.current) {
-      const sp = svgPoint(e, svgRef.current);
-      setHoverPos(sp);
-    }
+    if (!svgRef.current) return;
+    const svgEl = svgRef.current;
+    const sp = svgPoint(e, svgEl);
+    setHoverPos(sp);
 
-    if (!svgRef.current || !drag.current) {
+    // Space-hold pan: no mouse button required — pan by pointer delta
+    if (spaceHeld.current && !drag.current) {
+      if (lastSpacePanPos.current) {
+        const dx = sp.x - lastSpacePanPos.current.x;
+        const dy = sp.y - lastSpacePanPos.current.y;
+        const cur = useStore.getState().project.editor?.pan ?? { x: 0, y: 0 };
+        useStore.getState().setEditorState({ pan: { x: cur.x + dx, y: cur.y + dy } });
+      }
+      lastSpacePanPos.current = sp;
+      return;
+    }
+    lastSpacePanPos.current = null;
+
+    if (!drag.current) {
       // Update polygon cursor preview
-      if (activeTool === "polygon" && svgRef.current) {
-        const sp = svgPoint(e, svgRef.current);
+      if (activeTool === "polygon") {
         const cp = toContent(sp);
         setPolyPreview([cp.x, cp.y]);
       }
       return;
     }
-    const svg = svgRef.current;
-    const sp = svgPoint(e, svg);
     const cp = toContent(sp);
     const d = drag.current;
 
@@ -382,6 +402,8 @@ export function Canvas() {
     const d = drag.current;
     drag.current = null;
 
+    setIsPanning(false);
+
     if (d.type === "pan") {
       // If barely moved in select mode, treat as a background click → deselect
       if (activeTool === "select") {
@@ -423,6 +445,7 @@ export function Canvas() {
   }
 
   const cursorClass =
+    isPanning ? "cursor-grabbing" :
     isSpaceDown ? "cursor-grab" :
     activeTool === "rect" ? "cursor-crosshair" :
     activeTool === "polygon" ? "cursor-crosshair" :
