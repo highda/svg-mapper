@@ -228,21 +228,17 @@ export function Canvas() {
     const sp = svgPoint(e, svg);
     const cp = toContent(sp);
 
+    // Space or middle-button always pans
     if (spaceHeld.current || e.button === 1) {
-      // Pan
       svg.setPointerCapture(e.pointerId);
-      drag.current = {
-        type: "pan",
-        startSvg: sp,
-        startContent: cp,
-        panBefore: { x: panX, y: panY },
-      };
+      drag.current = { type: "pan", startSvg: sp, startContent: cp, panBefore: { x: panX, y: panY } };
       return;
     }
 
     if (activeTool === "select") {
-      // Click on background → deselect
-      setSelectedAreaId(null);
+      // Background drag = pan; short tap = deselect (disambiguated in onSvgPointerUp)
+      svg.setPointerCapture(e.pointerId);
+      drag.current = { type: "pan", startSvg: sp, startContent: cp, panBefore: { x: panX, y: panY } };
     } else if (activeTool === "rect") {
       svg.setPointerCapture(e.pointerId);
       drag.current = {
@@ -386,7 +382,14 @@ export function Canvas() {
     const d = drag.current;
     drag.current = null;
 
-    if (d.type === "draw-rect") {
+    if (d.type === "pan") {
+      // If barely moved in select mode, treat as a background click → deselect
+      if (activeTool === "select") {
+        const dx = sp.x - d.startSvg.x;
+        const dy = sp.y - d.startSvg.y;
+        if (Math.abs(dx) < 4 && Math.abs(dy) < 4) setSelectedAreaId(null);
+      }
+    } else if (d.type === "draw-rect") {
       const rx = Math.min(d.startContent.x, cp.x);
       const ry = Math.min(d.startContent.y, cp.y);
       const rw = Math.abs(cp.x - d.startContent.x);
