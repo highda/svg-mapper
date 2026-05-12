@@ -4,17 +4,17 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from `agent:ready`)
-Branch:       main
-Started:      —
+Issue:        #2 — renderer: build vanilla-TS core runtime against example fixtures
+Branch:       feat/2-renderer-core
+Started:      2026-05-12
 Last commit:  —
 
 ### What's done
-- Labels bootstrapped (agent:*, type:*, p0–p3) and milestones created (MVP, Phase 2, Phase 3).
-- Issues #1–#10 created for all MVP build-order items; #1 (shared types) merged.
+- Branch created; building renderer at `/renderer` + example fixtures at `/examples/campus/`.
 
 ### What's next
-- Claim #2 (renderer: vanilla-TS core runtime against example fixtures).
+- Scaffold `/renderer` with esbuild + tsconfig; implement core runtime.
+- Write hand-rolled `map.json` fixture with ≥ 2 Views, ≥ 3 Areas in `/examples/campus/`.
 
 ### Notes / gotchas
 - Renderer must remain framework-free; do not introduce React or Tailwind into `/renderer`.
