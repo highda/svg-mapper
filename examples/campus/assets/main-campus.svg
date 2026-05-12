@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
+  <!-- Background -->
+  <rect width="800" height="500" fill="#e8f0e0"/>
+
+  <!-- Roads -->
+  <rect x="0" y="220" width="800" height="30" fill="#c8c8c8"/>
+  <rect x="380" y="0" width="30" height="220" fill="#c8c8c8"/>
+  <rect x="380" y="250" width="30" height="250" fill="#c8c8c8"/>
+
+  <!-- Campus green -->
+  <ellipse cx="200" cy="350" rx="60" ry="40" fill="#b8d8a0"/>
+
+  <!-- Building A -->
+  <rect x="50" y="50" width="280" height="150" fill="#8ab0c8" rx="4"/>
+  <rect x="60" y="60" width="260" height="130" fill="#a0c4dc" rx="2"/>
+  <text x="190" y="135" text-anchor="middle" font-family="system-ui,sans-serif" font-size="22" font-weight="bold" fill="#1a3a5c">Building A</text>
+
+  <!-- Building B -->
+  <rect x="440" y="50" width="280" height="150" fill="#c8a08a" rx="4"/>
+  <rect x="450" y="60" width="260" height="130" fill="#dcc0a8" rx="2"/>
+  <text x="580" y="135" text-anchor="middle" font-family="system-ui,sans-serif" font-size="22" font-weight="bold" fill="#5c2a1a">Building B</text>
+
+  <!-- Parking Lot -->
+  <rect x="100" y="300" width="200" height="160" fill="#b0b0b8" rx="4"/>
+  <!-- Parking stripes -->
+  <line x1="130" y1="310" x2="130" y2="450" stroke="#888" stroke-width="1"/>
+  <line x1="160" y1="310" x2="160" y2="450" stroke="#888" stroke-width="1"/>
+  <line x1="190" y1="310" x2="190" y2="450" stroke="#888" stroke-width="1"/>
+  <line x1="220" y1="310" x2="220" y2="450" stroke="#888" stroke-width="1"/>
+  <line x1="250" y1="310" x2="250" y2="450" stroke="#888" stroke-width="1"/>
+  <line x1="280" y1="310" x2="280" y2="450" stroke="#888" stroke-width="1"/>
+  <text x="200" y="490" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" fill="#444">Parking Lot A</text>
+
+  <!-- Labels -->
+  <text x="400" y="492" text-anchor="middle" font-family="system-ui,sans-serif" font-size="12" fill="#666">Main Campus — click a building to explore</text>
+</svg>
