@@ -4,17 +4,16 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #2 — renderer: build vanilla-TS core runtime against example fixtures
-Branch:       feat/2-renderer-core
-Started:      2026-05-12
+Issue:        (none — pick from `agent:ready`)
+Branch:       main
+Started:      —
 Last commit:  —
 
 ### What's done
-- Branch created; building renderer at `/renderer` + example fixtures at `/examples/campus/`.
+- #1 (shared types) and #2 (renderer core) merged.
 
 ### What's next
-- Scaffold `/renderer` with esbuild + tsconfig; implement core runtime.
-- Write hand-rolled `map.json` fixture with ≥ 2 Views, ≥ 3 Areas in `/examples/campus/`.
+- Claim #3 (editor shell: Vite + React + Tailwind + Zustand).
 
 ### Notes / gotchas
 - Renderer must remain framework-free; do not introduce React or Tailwind into `/renderer`.
@@ -23,5 +22,6 @@ Last commit:  —
 ---
 
 ## Ledger (most recent first)
+- 2026-05-12 — closed #2 — renderer: 3.4 KB gzipped IIFE, rect/polygon/hover/goToView/URL/back-btn/responsive/events; campus fixture 2 views 6 areas; PR #12.
 - 2026-05-12 — closed #1 — `/shared` types: all geometry/action/view/area/project types + `ClickMapDefinition` + `ClickMapInstance` API; `strict: true`; merged via PR #11.
 - 2026-05-12 — Bootstrap: reworked `ASSIGNMENT.md`, authored `AGENTS.md`, stubbed `HANDOFF.md`, renamed `master → main`, configured `origin`.
