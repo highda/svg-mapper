@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
+  <!-- Background -->
+  <rect width="800" height="500" fill="#f5f0e8"/>
+
+  <!-- Floor outline -->
+  <rect x="60" y="60" width="680" height="380" fill="#fff" stroke="#888" stroke-width="3" rx="4"/>
+
+  <!-- Corridor -->
+  <rect x="60" y="220" width="680" height="60" fill="#e0dcd4"/>
+  <text x="400" y="256" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" fill="#888">Corridor</text>
+
+  <!-- Room 101 -->
+  <rect x="80" y="80" width="280" height="120" fill="#d4e8f8" stroke="#6090b0" stroke-width="2" rx="2"/>
+  <text x="220" y="148" text-anchor="middle" font-family="system-ui,sans-serif" font-size="18" font-weight="bold" fill="#2a5070">Room 101</text>
+  <text x="220" y="168" text-anchor="middle" font-family="system-ui,sans-serif" font-size="12" fill="#4a7090">Lecture Hall</text>
+
+  <!-- Room 102 -->
+  <rect x="440" y="80" width="280" height="120" fill="#d4f8d4" stroke="#609060" stroke-width="2" rx="2"/>
+  <text x="580" y="148" text-anchor="middle" font-family="system-ui,sans-serif" font-size="18" font-weight="bold" fill="#2a5030">Room 102</text>
+  <text x="580" y="168" text-anchor="middle" font-family="system-ui,sans-serif" font-size="12" fill="#4a7050">Computer Lab</text>
+
+  <!-- Room 103 -->
+  <rect x="80" y="300" width="180" height="120" fill="#f8e8d4" stroke="#b08060" stroke-width="2" rx="2"/>
+  <text x="170" y="368" text-anchor="middle" font-family="system-ui,sans-serif" font-size="16" font-weight="bold" fill="#70402a">Room 103</text>
+  <text x="170" y="386" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" fill="#90604a">Staff Office</text>
+
+  <!-- Title -->
+  <text x="400" y="480" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" fill="#666">Building A — Floor 1 — click a room for details</text>
+</svg>

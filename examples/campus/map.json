@@ -1,0 +1,362 @@
+{
+  "schemaVersion": "1.0.0",
+  "project": {
+    "id": "project_campus",
+    "name": "Campus Interactive Map",
+    "createdAt": "2026-05-12T12:00:00.000Z",
+    "updatedAt": "2026-05-12T12:00:00.000Z"
+  },
+  "settings": {
+    "initialViewId": "view_main_campus",
+    "responsive": true,
+    "maintainAspectRatio": true,
+    "theme": "default",
+    "enableHistory": true,
+    "enableKeyboardNavigation": true
+  },
+  "assets": [
+    {
+      "id": "asset_main_campus_svg",
+      "type": "image/svg+xml",
+      "name": "main-campus.svg",
+      "src": "assets/main-campus.svg",
+      "width": 800,
+      "height": 500,
+      "inline": false
+    },
+    {
+      "id": "asset_building_a_floor1_svg",
+      "type": "image/svg+xml",
+      "name": "building-a-floor-1.svg",
+      "src": "assets/building-a-floor-1.svg",
+      "width": 800,
+      "height": 500,
+      "inline": false
+    }
+  ],
+  "views": [
+    {
+      "id": "view_main_campus",
+      "name": "Main Campus",
+      "slug": "main-campus",
+      "background": {
+        "assetId": "asset_main_campus_svg",
+        "fit": "contain"
+      },
+      "width": 800,
+      "height": 500,
+      "viewport": {
+        "minZoom": 1,
+        "maxZoom": 4,
+        "initialZoom": 1,
+        "panEnabled": true,
+        "zoomEnabled": true
+      },
+      "ui": {
+        "showBackButton": false,
+        "showBreadcrumbs": false,
+        "showTitle": true
+      },
+      "layers": [
+        {
+          "id": "layer_buildings",
+          "name": "Buildings",
+          "visible": true,
+          "locked": false,
+          "opacity": 1,
+          "areas": [
+            {
+              "id": "area_building_a",
+              "name": "Building A",
+              "geometry": {
+                "type": "rect",
+                "x": 50,
+                "y": 50,
+                "width": 280,
+                "height": 150
+              },
+              "style": {
+                "default": {
+                  "fill": "rgba(0, 100, 200, 0)",
+                  "stroke": "rgba(0, 100, 200, 0)",
+                  "strokeWidth": 2
+                },
+                "hover": {
+                  "fill": "rgba(0, 100, 200, 0.2)",
+                  "stroke": "rgba(0, 100, 200, 0.8)",
+                  "strokeWidth": 2
+                },
+                "active": {
+                  "fill": "rgba(0, 100, 200, 0.35)",
+                  "stroke": "rgba(0, 100, 200, 1)",
+                  "strokeWidth": 3
+                }
+              },
+              "tooltip": {
+                "enabled": true,
+                "title": "Building A",
+                "body": "Click to explore Building A — Floor 1."
+              },
+              "action": {
+                "type": "goToView",
+                "targetViewId": "view_building_a_floor1",
+                "transition": "fade"
+              },
+              "accessibility": {
+                "ariaLabel": "Open Building A floor plan",
+                "tabIndex": 0
+              },
+              "metadata": { "category": "building" }
+            },
+            {
+              "id": "area_building_b",
+              "name": "Building B",
+              "geometry": {
+                "type": "rect",
+                "x": 440,
+                "y": 50,
+                "width": 280,
+                "height": 150
+              },
+              "style": {
+                "default": {
+                  "fill": "rgba(200, 80, 0, 0)",
+                  "stroke": "rgba(200, 80, 0, 0)",
+                  "strokeWidth": 2
+                },
+                "hover": {
+                  "fill": "rgba(200, 80, 0, 0.2)",
+                  "stroke": "rgba(200, 80, 0, 0.8)",
+                  "strokeWidth": 2
+                },
+                "active": {
+                  "fill": "rgba(200, 80, 0, 0.35)",
+                  "stroke": "rgba(200, 80, 0, 1)",
+                  "strokeWidth": 3
+                }
+              },
+              "tooltip": {
+                "enabled": true,
+                "title": "Building B",
+                "body": "Visit the Building B website for details."
+              },
+              "action": {
+                "type": "url",
+                "href": "https://example.com/building-b",
+                "target": "_blank"
+              },
+              "accessibility": {
+                "ariaLabel": "Open Building B website (new tab)",
+                "tabIndex": 0
+              },
+              "metadata": { "category": "building" }
+            },
+            {
+              "id": "area_parking_a",
+              "name": "Parking Lot A",
+              "geometry": {
+                "type": "rect",
+                "x": 100,
+                "y": 300,
+                "width": 200,
+                "height": 160
+              },
+              "style": {
+                "default": {
+                  "fill": "rgba(80, 80, 120, 0)",
+                  "stroke": "rgba(80, 80, 120, 0)",
+                  "strokeWidth": 2
+                },
+                "hover": {
+                  "fill": "rgba(80, 80, 120, 0.2)",
+                  "stroke": "rgba(80, 80, 120, 0.8)",
+                  "strokeWidth": 2
+                },
+                "active": {
+                  "fill": "rgba(80, 80, 120, 0.35)",
+                  "stroke": "rgba(80, 80, 120, 1)",
+                  "strokeWidth": 3
+                }
+              },
+              "tooltip": {
+                "enabled": true,
+                "title": "Parking Lot A",
+                "body": "Open 7am–10pm daily. 200 spaces."
+              },
+              "action": {
+                "type": "none"
+              },
+              "accessibility": {
+                "ariaLabel": "Parking Lot A — open 7am to 10pm",
+                "tabIndex": 0
+              },
+              "metadata": { "category": "parking" }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "view_building_a_floor1",
+      "name": "Building A — Floor 1",
+      "slug": "building-a-floor-1",
+      "background": {
+        "assetId": "asset_building_a_floor1_svg",
+        "fit": "contain"
+      },
+      "width": 800,
+      "height": 500,
+      "viewport": {
+        "minZoom": 1,
+        "maxZoom": 4,
+        "initialZoom": 1,
+        "panEnabled": true,
+        "zoomEnabled": true
+      },
+      "ui": {
+        "showBackButton": true,
+        "showBreadcrumbs": true,
+        "showTitle": true
+      },
+      "layers": [
+        {
+          "id": "layer_rooms",
+          "name": "Rooms",
+          "visible": true,
+          "locked": false,
+          "opacity": 1,
+          "areas": [
+            {
+              "id": "area_room_101",
+              "name": "Room 101",
+              "geometry": {
+                "type": "rect",
+                "x": 80,
+                "y": 80,
+                "width": 280,
+                "height": 120
+              },
+              "style": {
+                "default": {
+                  "fill": "rgba(0, 100, 200, 0)",
+                  "stroke": "rgba(0, 100, 200, 0)",
+                  "strokeWidth": 2
+                },
+                "hover": {
+                  "fill": "rgba(0, 100, 200, 0.25)",
+                  "stroke": "rgba(0, 100, 200, 0.9)",
+                  "strokeWidth": 2
+                },
+                "active": {
+                  "fill": "rgba(0, 100, 200, 0.4)",
+                  "stroke": "rgba(0, 100, 200, 1)",
+                  "strokeWidth": 3
+                }
+              },
+              "tooltip": {
+                "enabled": true,
+                "title": "Room 101 — Lecture Hall",
+                "body": "Capacity: 120 students. Projector and whiteboard available."
+              },
+              "action": {
+                "type": "none"
+              },
+              "accessibility": {
+                "ariaLabel": "Room 101 — Lecture Hall, capacity 120",
+                "tabIndex": 0
+              },
+              "metadata": { "category": "classroom" }
+            },
+            {
+              "id": "area_room_102",
+              "name": "Room 102",
+              "geometry": {
+                "type": "rect",
+                "x": 440,
+                "y": 80,
+                "width": 280,
+                "height": 120
+              },
+              "style": {
+                "default": {
+                  "fill": "rgba(0, 160, 0, 0)",
+                  "stroke": "rgba(0, 160, 0, 0)",
+                  "strokeWidth": 2
+                },
+                "hover": {
+                  "fill": "rgba(0, 160, 0, 0.25)",
+                  "stroke": "rgba(0, 160, 0, 0.9)",
+                  "strokeWidth": 2
+                },
+                "active": {
+                  "fill": "rgba(0, 160, 0, 0.4)",
+                  "stroke": "rgba(0, 160, 0, 1)",
+                  "strokeWidth": 3
+                }
+              },
+              "tooltip": {
+                "enabled": true,
+                "title": "Room 102 — Computer Lab",
+                "body": "30 workstations. Booking required."
+              },
+              "action": {
+                "type": "none"
+              },
+              "accessibility": {
+                "ariaLabel": "Room 102 — Computer Lab, 30 workstations",
+                "tabIndex": 0
+              },
+              "metadata": { "category": "lab" }
+            },
+            {
+              "id": "area_room_103",
+              "name": "Room 103",
+              "geometry": {
+                "type": "polygon",
+                "points": [
+                  [80, 300],
+                  [260, 300],
+                  [260, 420],
+                  [80, 420]
+                ]
+              },
+              "style": {
+                "default": {
+                  "fill": "rgba(200, 120, 0, 0)",
+                  "stroke": "rgba(200, 120, 0, 0)",
+                  "strokeWidth": 2
+                },
+                "hover": {
+                  "fill": "rgba(200, 120, 0, 0.25)",
+                  "stroke": "rgba(200, 120, 0, 0.9)",
+                  "strokeWidth": 2
+                },
+                "active": {
+                  "fill": "rgba(200, 120, 0, 0.4)",
+                  "stroke": "rgba(200, 120, 0, 1)",
+                  "strokeWidth": 3
+                }
+              },
+              "tooltip": {
+                "enabled": true,
+                "title": "Room 103 — Staff Office",
+                "body": "Please knock before entering."
+              },
+              "action": {
+                "type": "none"
+              },
+              "accessibility": {
+                "ariaLabel": "Room 103 — Staff Office",
+                "tabIndex": 0
+              },
+              "metadata": { "category": "office" }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "popups": [],
+  "sharedStyles": {},
+  "customEvents": []
+}

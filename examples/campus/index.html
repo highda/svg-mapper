@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Campus Interactive Map — ClickMap Example</title>
+  <link rel="stylesheet" href="../../renderer/clickmap-renderer.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background: #f0f0f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+      min-height: 100vh;
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin: 0 0 16px;
+    }
+    #map-container {
+      width: 100%;
+      max-width: 900px;
+      background: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.12);
+    }
+    #event-log {
+      width: 100%;
+      max-width: 900px;
+      margin-top: 16px;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      font-size: 12px;
+      font-family: monospace;
+      padding: 12px;
+      border-radius: 6px;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+    #event-log p { margin: 0 0 4px; }
+    #event-log p:last-child { margin-bottom: 0; }
+    .log-ready    { color: #4ec9b0; }
+    .log-view     { color: #569cd6; }
+    .log-hover    { color: #9cdcfe; }
+    .log-click    { color: #ce9178; }
+  </style>
+</head>
+<body>
+  <h1>Campus Interactive Map</h1>
+
+  <div id="map-container"></div>
+
+  <div id="event-log">
+    <p style="color:#666">Events will appear here…</p>
+  </div>
+
+  <!-- Load the renderer built output -->
+  <script src="../../renderer/dist/clickmap-renderer.js"></script>
+
+  <script>
+    const log = document.getElementById('event-log');
+    function addLog(cls, msg) {
+      const p = document.createElement('p');
+      p.className = cls;
+      p.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+      if (log.children.length === 1 && log.children[0].style.color === '#666') {
+        log.innerHTML = '';
+      }
+      log.appendChild(p);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    // Load inline definition (works with file:// and http://)
+    fetch('map.json')
+      .then(function(r) { return r.json(); })
+      .then(function(definition) {
+        var map = ClickMapRenderer.create({
+          container: '#map-container',
+          definition: definition
+        });
+
+        map.on('ready', function(e) {
+          addLog('log-ready', 'ready — ' + e.definition.project.name);
+        });
+        map.on('view:change', function(e) {
+          addLog('log-view', 'view:change — ' + e.previousViewId + ' → ' + e.currentViewId);
+        });
+        map.on('area:hover', function(e) {
+          addLog('log-hover', 'area:hover — ' + e.areaName + ' (' + e.areaId + ')');
+        });
+        map.on('area:click', function(e) {
+          addLog('log-click', 'area:click — ' + e.areaName + ' action:' + e.action.type);
+        });
+        map.on('error', function(e) {
+          addLog('log-click', 'error — ' + e.code + ': ' + e.message);
+        });
+      })
+      .catch(function(err) {
+        document.getElementById('map-container').textContent = 'Failed to load map.json: ' + err.message +
+          ' (serve this directory over HTTP rather than opening file:// directly)';
+      });
+  </script>
+</body>
+</html>
