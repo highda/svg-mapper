@@ -4,25 +4,24 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #1 — shared: define TypeScript types for the data model
-Branch:       feat/1-shared-types
-Started:      2026-05-12
+Issue:        (none — pick from `agent:ready`)
+Branch:       main
+Started:      —
 Last commit:  —
 
 ### What's done
 - Labels bootstrapped (agent:*, type:*, p0–p3) and milestones created (MVP, Phase 2, Phase 3).
-- Issues #1–#10 created for all MVP build-order items, labelled `agent:ready` + type + priority + milestone MVP.
-- Issue #1 claimed; branch `feat/1-shared-types` created.
+- Issues #1–#10 created for all MVP build-order items; #1 (shared types) merged.
 
 ### What's next
-- Implement `/shared` TypeScript types per issue #1 acceptance criteria.
-- After merging #1, claim #2 (renderer core runtime).
+- Claim #2 (renderer: vanilla-TS core runtime against example fixtures).
 
 ### Notes / gotchas
 - Renderer must remain framework-free; do not introduce React or Tailwind into `/renderer`.
-- Recommended build order is in [ASSIGNMENT.md "Build Order"](./ASSIGNMENT.md#build-order-suggested): shared types → renderer → editor.
+- Recommended build order: shared types ✓ → renderer → editor shell → design screen → inspector/layers → view linking → preview → validation → export → polish.
 
 ---
 
 ## Ledger (most recent first)
+- 2026-05-12 — closed #1 — `/shared` types: all geometry/action/view/area/project types + `ClickMapDefinition` + `ClickMapInstance` API; `strict: true`; merged via PR #11.
 - 2026-05-12 — Bootstrap: reworked `ASSIGNMENT.md`, authored `AGENTS.md`, stubbed `HANDOFF.md`, renamed `master → main`, configured `origin`.
