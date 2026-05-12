@@ -114,6 +114,14 @@ function snapshot(state: AppState): HistorySnapshot {
   };
 }
 
+// Push a history entry and bump historyVersion so inspector inputs reset.
+// Call this before any mutation that should be undoable.
+function pushHistory(s: AppState): void {
+  s.past.push(snapshot(s));
+  s.future = [];
+  s.historyVersion += 1;
+}
+
 function ensureDefaultLayer(view: View): View {
   if (view.layers.length > 0) return view;
   const layer: Layer = {
@@ -277,8 +285,7 @@ export const useStore = create<AppState>()(
 
     importAsset(asset: Asset) {
       set((s) => {
-        s.past.push(snapshot(s));
-        s.future = [];
+        pushHistory(s);
         s.project.assets.push(asset);
       });
     },
@@ -287,8 +294,7 @@ export const useStore = create<AppState>()(
       set((s) => {
         const view = s.project.views.find((v) => v.id === viewId);
         if (!view) return;
-        s.past.push(snapshot(s));
-        s.future = [];
+        pushHistory(s);
         view.background = { assetId, fit: "contain" };
         if (view.layers.length === 0) {
           view.layers.push({
@@ -307,8 +313,7 @@ export const useStore = create<AppState>()(
 
     addView() {
       set((s) => {
-        s.past.push(snapshot(s));
-        s.future = [];
+        pushHistory(s);
         const view = createDefaultView();
         view.name = `View ${s.project.views.length + 1}`;
         view.slug = view.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
@@ -323,8 +328,7 @@ export const useStore = create<AppState>()(
       set((s) => {
         const view = s.project.views.find((v) => v.id === viewId);
         if (!view) return;
-        s.past.push(snapshot(s));
-        s.future = [];
+        pushHistory(s);
         view.name = name;
         view.slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-") || view.slug;
       });
@@ -335,8 +339,7 @@ export const useStore = create<AppState>()(
         if (s.project.views.length <= 1) return;
         const idx = s.project.views.findIndex((v) => v.id === viewId);
         if (idx === -1) return;
-        s.past.push(snapshot(s));
-        s.future = [];
+        pushHistory(s);
         s.project.views.splice(idx, 1);
         if (s.activeViewId === viewId) {
           const nextView = s.project.views[Math.max(0, idx - 1)];
@@ -351,8 +354,7 @@ export const useStore = create<AppState>()(
       set((s) => {
         const view = s.project.views.find((v) => v.id === viewId);
         if (!view) return;
-        s.past.push(snapshot(s));
-        s.future = [];
+        pushHistory(s);
         view.width = width;
         view.height = height;
       });
@@ -362,8 +364,7 @@ export const useStore = create<AppState>()(
       set((s) => {
         const view = s.project.views.find((v) => v.id === viewId);
         if (!view) return;
-        s.past.push(snapshot(s));
-        s.future = [];
+        pushHistory(s);
         view.viewport = { ...view.viewport, ...patch };
       });
     },
@@ -374,8 +375,7 @@ export const useStore = create<AppState>()(
       set((s) => {
         const view = s.project.views.find((v) => v.id === viewId);
         if (!view) return;
-        s.past.push(snapshot(s));
-        s.future = [];
+        pushHistory(s);
         const layer: Layer = {
           id: `layer_${Math.random().toString(36).slice(2, 10)}`,
           name: `Layer ${view.layers.length + 1}`,
@@ -394,8 +394,7 @@ export const useStore = create<AppState>()(
       set((s) => {
         const loc = findLayerInViews(s.project.views as unknown as View[], layerId);
         if (!loc) return;
-        s.past.push(snapshot(s));
-        s.future = [];
+        pushHistory(s);
         s.project.views[loc.viewIdx].layers[loc.layerIdx].name = name;
       });
     },
@@ -406,8 +405,7 @@ export const useStore = create<AppState>()(
         if (!loc) return;
         const view = s.project.views[loc.viewIdx];
         if (view.layers.length <= 1) return;
-        s.past.push(snapshot(s));
-        s.future = [];
+        pushHistory(s);
         view.layers.splice(loc.layerIdx, 1);
         if (s.selectedLayerId === layerId) s.selectedLayerId = null;
       });
@@ -417,8 +415,7 @@ export const useStore = create<AppState>()(
       set((s) => {
         const loc = findLayerInViews(s.project.views as unknown as View[], layerId);
         if (!loc) return;
-        s.past.push(snapshot(s));
-        s.future = [];
+        pushHistory(s);
         const layer = s.project.views[loc.viewIdx].layers[loc.layerIdx];
         layer.visible = !layer.visible;
       });
@@ -428,8 +425,7 @@ export const useStore = create<AppState>()(
       set((s) => {
         const loc = findLayerInViews(s.project.views as unknown as View[], layerId);
         if (!loc) return;
-        s.past.push(snapshot(s));
-        s.future = [];
+        pushHistory(s);
         const layer = s.project.views[loc.viewIdx].layers[loc.layerIdx];
         layer.locked = !layer.locked;
       });
@@ -439,8 +435,7 @@ export const useStore = create<AppState>()(
       set((s) => {
         const loc = findLayerInViews(s.project.views as unknown as View[], layerId);
         if (!loc) return;
-        s.past.push(snapshot(s));
-        s.future = [];
+        pushHistory(s);
         s.project.views[loc.viewIdx].layers[loc.layerIdx].opacity = Math.max(
           0,
           Math.min(1, opacity),
@@ -455,8 +450,7 @@ export const useStore = create<AppState>()(
         if (fromIdx === toIdx) return;
         if (fromIdx < 0 || fromIdx >= view.layers.length) return;
         if (toIdx < 0 || toIdx >= view.layers.length) return;
-        s.past.push(snapshot(s));
-        s.future = [];
+        pushHistory(s);
         const [moved] = view.layers.splice(fromIdx, 1);
         view.layers.splice(toIdx, 0, moved);
       });
@@ -468,8 +462,7 @@ export const useStore = create<AppState>()(
       set((s) => {
         const view = s.project.views.find((v) => v.id === s.activeViewId);
         if (!view) return;
-        s.past.push(snapshot(s));
-        s.future = [];
+        pushHistory(s);
         if (view.layers.length === 0) {
           view.layers.push({
             id: `layer_${Math.random().toString(36).slice(2, 10)}`,
@@ -480,7 +473,10 @@ export const useStore = create<AppState>()(
             areas: [],
           });
         }
-        view.layers[0].areas.push(area);
+        const targetLayer =
+          (s.selectedLayerId && view.layers.find((l) => l.id === s.selectedLayerId)) ||
+          view.layers[0];
+        targetLayer.areas.push(area);
         s.selectedAreaId = area.id;
         s.selectedLayerId = null;
         s.activeTool = "select";
@@ -491,8 +487,7 @@ export const useStore = create<AppState>()(
       set((s) => {
         const loc = findAreaLocation(s.project.views as unknown as View[], areaId);
         if (!loc) return;
-        s.past.push(snapshot(s));
-        s.future = [];
+        pushHistory(s);
         const area = s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx];
         area.geometry = moveGeometry(area.geometry as Area["geometry"], dx, dy) as typeof area.geometry;
       });
@@ -502,8 +497,7 @@ export const useStore = create<AppState>()(
       set((s) => {
         const loc = findAreaLocation(s.project.views as unknown as View[], areaId);
         if (!loc) return;
-        s.past.push(snapshot(s));
-        s.future = [];
+        pushHistory(s);
         const area = s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx];
         area.geometry = geometry as typeof area.geometry;
       });
@@ -513,8 +507,7 @@ export const useStore = create<AppState>()(
       set((s) => {
         const loc = findAreaLocation(s.project.views as unknown as View[], areaId);
         if (!loc) return;
-        s.past.push(snapshot(s));
-        s.future = [];
+        pushHistory(s);
         s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx].name = name;
       });
     },
@@ -523,8 +516,7 @@ export const useStore = create<AppState>()(
       set((s) => {
         const loc = findAreaLocation(s.project.views as unknown as View[], areaId);
         if (!loc) return;
-        s.past.push(snapshot(s));
-        s.future = [];
+        pushHistory(s);
         s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx].style =
           style as unknown as typeof s.project.views[0]["layers"][0]["areas"][0]["style"];
       });
@@ -534,8 +526,7 @@ export const useStore = create<AppState>()(
       set((s) => {
         const loc = findAreaLocation(s.project.views as unknown as View[], areaId);
         if (!loc) return;
-        s.past.push(snapshot(s));
-        s.future = [];
+        pushHistory(s);
         s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx].tooltip =
           tooltip as typeof s.project.views[0]["layers"][0]["areas"][0]["tooltip"];
       });
@@ -545,8 +536,7 @@ export const useStore = create<AppState>()(
       set((s) => {
         const loc = findAreaLocation(s.project.views as unknown as View[], areaId);
         if (!loc) return;
-        s.past.push(snapshot(s));
-        s.future = [];
+        pushHistory(s);
         s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx].action =
           action as typeof s.project.views[0]["layers"][0]["areas"][0]["action"];
       });
@@ -556,8 +546,7 @@ export const useStore = create<AppState>()(
       set((s) => {
         const loc = findAreaLocation(s.project.views as unknown as View[], areaId);
         if (!loc) return;
-        s.past.push(snapshot(s));
-        s.future = [];
+        pushHistory(s);
         s.project.views[loc.viewIdx].layers[loc.layerIdx].areas.splice(loc.areaIdx, 1);
         if (s.selectedAreaId === areaId) s.selectedAreaId = null;
       });
@@ -581,8 +570,7 @@ export const useStore = create<AppState>()(
                 }
               : original.geometry,
         };
-        s.past.push(snapshot(s));
-        s.future = [];
+        pushHistory(s);
         s.project.views[loc.viewIdx].layers[loc.layerIdx].areas.splice(
           loc.areaIdx + 1,
           0,

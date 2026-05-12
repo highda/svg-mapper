@@ -10,7 +10,7 @@ const SCREENS: { id: Screen; label: string }[] = [
 ];
 
 export function TopBar() {
-  const { project, screen, newProject, loadProject, saveProject, setProjectName, setScreen } =
+  const { project, screen, newProject, loadProject, saveProject, setProjectName, setScreen, undo, redo, past, future } =
     useStore();
 
   const [editingName, setEditingName] = useState(false);
@@ -87,6 +87,26 @@ export function TopBar() {
           </button>
         ))}
       </nav>
+
+      {/* Undo / redo */}
+      <div className="flex items-center gap-0.5">
+        <button
+          onClick={undo}
+          disabled={past.length === 0}
+          title="Undo (Cmd+Z)"
+          className="rounded px-2 py-0.5 text-xs text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200 disabled:cursor-not-allowed disabled:opacity-30"
+        >
+          ↩
+        </button>
+        <button
+          onClick={redo}
+          disabled={future.length === 0}
+          title="Redo (Cmd+Shift+Z)"
+          className="rounded px-2 py-0.5 text-xs text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200 disabled:cursor-not-allowed disabled:opacity-30"
+        >
+          ↪
+        </button>
+      </div>
 
       {/* Actions */}
       <div className="flex items-center gap-1">
