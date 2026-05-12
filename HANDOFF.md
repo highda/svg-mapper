@@ -10,18 +10,21 @@ Started:      —
 Last commit:  —
 
 ### What's done
-- #1 (shared types), #2 (renderer core), #3 (editor shell) merged.
+- #1 (shared types), #2 (renderer core), #3 (editor shell), #4 (design screen) merged.
 
 ### What's next
-- Claim #4: image/SVG import and Design screen (Rect + Polygon tools).
+- Claim #5: Inspector sidebar and Layers/Views tree.
 
 ### Notes / gotchas
 - Renderer must remain framework-free; do not introduce React or Tailwind into `/renderer`.
-- Recommended build order: shared types ✓ → renderer ✓ → editor shell ✓ → design screen → inspector/layers → view linking → preview → validation → export → polish.
+- Recommended build order: shared types ✓ → renderer ✓ → editor shell ✓ → design screen ✓ → inspector/layers → view linking → preview → validation → export → polish.
+- Canvas uses SVG transform: `translate(calc(50% + panX px), calc(50% + panY px)) scale(zoom)`. All coordinate math must account for this.
+- Undo/redo uses `current()` from immer (not raw draft refs) to snapshot views+assets before mutations — must continue this pattern in future area/layer mutations.
 
 ---
 
 ## Ledger (most recent first)
+- 2026-05-12 — closed #4 — design screen: SVG sanitizer, asset import, Canvas (pan/zoom), Select/Rect/Polygon tools, move/resize/delete/duplicate, undo/redo; 16 new tests; PR #14.
 - 2026-05-12 — closed #3 — editor shell: Vite + React 19 + TS strict + Tailwind v4 + Zustand v5; app shell (TopBar/panels/Workspace/BottomBar); New/Open/Save; 14 tests; PR #13.
 - 2026-05-12 — closed #2 — renderer: 3.4 KB gzipped IIFE, rect/polygon/hover/goToView/URL/back-btn/responsive/events; campus fixture 2 views 6 areas; PR #12.
 - 2026-05-12 — closed #1 — `/shared` types: all geometry/action/view/area/project types + `ClickMapDefinition` + `ClickMapInstance` API; `strict: true`; merged via PR #11.
