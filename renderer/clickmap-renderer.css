@@ -130,6 +130,14 @@
   color: #666;
 }
 
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .clickmap-view,
+  .clickmap-back-btn {
+    transition: none !important;
+  }
+}
+
 /* Error state */
 .clickmap-root--error::after {
   content: attr(data-error);

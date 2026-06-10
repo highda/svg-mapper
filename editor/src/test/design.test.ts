@@ -185,3 +185,65 @@ describe("store: undo/redo", () => {
     expect(useStore.getState().future).toHaveLength(0);
   });
 });
+
+// ── Copy / paste ───────────────────────────────────────────────────────────
+
+describe("store: copyArea / pasteArea", () => {
+  beforeEach(resetStore);
+
+  it("copyArea stores the area in clipboardArea", () => {
+    const area = createRectArea(10, 20, 100, 80);
+    useStore.getState().addArea(area);
+    useStore.getState().copyArea(area.id);
+    const { clipboardArea } = useStore.getState();
+    expect(clipboardArea).not.toBeNull();
+    expect(clipboardArea!.id).toBe(area.id);
+  });
+
+  it("pasteArea creates a new area with a different id and offset", () => {
+    const area = createRectArea(10, 20, 100, 80);
+    useStore.getState().addArea(area);
+    useStore.getState().copyArea(area.id);
+    useStore.getState().pasteArea();
+
+    const view = useStore.getState().project.views[0];
+    const areas = view.layers.flatMap((l) => l.areas);
+    expect(areas).toHaveLength(2);
+    const pasted = areas[1];
+    expect(pasted.id).not.toBe(area.id);
+    expect(pasted.name).toContain("copy");
+    if (pasted.geometry.type === "rect" && area.geometry.type === "rect") {
+      expect(pasted.geometry.x).toBe(area.geometry.x + 10);
+      expect(pasted.geometry.y).toBe(area.geometry.y + 10);
+    }
+  });
+
+  it("pasteArea selects the pasted area", () => {
+    const area = createRectArea(0, 0, 50, 50);
+    useStore.getState().addArea(area);
+    useStore.getState().copyArea(area.id);
+    useStore.getState().pasteArea();
+    const { selectedAreaId } = useStore.getState();
+    const view = useStore.getState().project.views[0];
+    const areas = view.layers.flatMap((l) => l.areas);
+    expect(selectedAreaId).toBe(areas[1].id);
+  });
+
+  it("pasteArea is undoable", () => {
+    const area = createRectArea(0, 0, 50, 50);
+    useStore.getState().addArea(area);
+    useStore.getState().copyArea(area.id);
+    useStore.getState().pasteArea();
+    useStore.getState().undo();
+    const view = useStore.getState().project.views[0];
+    const areas = view.layers.flatMap((l) => l.areas);
+    expect(areas).toHaveLength(1);
+  });
+
+  it("pasteArea does nothing when clipboard is empty", () => {
+    useStore.getState().pasteArea();
+    const view = useStore.getState().project.views[0];
+    const areas = view.layers.flatMap((l) => l.areas);
+    expect(areas).toHaveLength(0);
+  });
+});

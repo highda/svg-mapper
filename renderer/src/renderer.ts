@@ -40,6 +40,7 @@ class Renderer implements ClickMapInstance {
   private backBtn: HTMLButtonElement | null = null;
 
   private ro!: ResizeObserver;
+  private roTimer: ReturnType<typeof setTimeout> | null = null;
   private viewW = 1;
   private viewH = 1;
   private hoveredId: string | null = null;
@@ -61,7 +62,10 @@ class Renderer implements ClickMapInstance {
     this.buildDOM();
     this.renderView(this.currentViewId);
 
-    this.ro = new ResizeObserver(() => this.updateScale());
+    this.ro = new ResizeObserver(() => {
+      if (this.roTimer !== null) clearTimeout(this.roTimer);
+      this.roTimer = setTimeout(() => { this.roTimer = null; this.updateScale(); }, 16);
+    });
     this.ro.observe(this.container);
 
     this.emitter.emit({ type: "ready", definition: def });
@@ -501,6 +505,7 @@ class Renderer implements ClickMapInstance {
   }
 
   destroy() {
+    if (this.roTimer !== null) clearTimeout(this.roTimer);
     this.ro.disconnect();
     this.root.remove();
   }

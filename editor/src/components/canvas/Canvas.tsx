@@ -219,6 +219,8 @@ export function Canvas() {
     addArea,
     deleteArea,
     duplicateArea,
+    copyArea,
+    pasteArea,
     undo,
     redo,
     setEditorState,
