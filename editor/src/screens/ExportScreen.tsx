@@ -6,10 +6,9 @@ import {
 } from "@svg-mapper/shared";
 import { useStore } from "../store";
 import { toDefinition } from "../lib/project";
-
-// Export screen for the MVP: runs the validation pipeline (ASSIGNMENT §9) and
-// gates the export action on it. Errors block; warnings prompt for
-// confirmation. The actual deployment-package generation lands in #9.
+import { generateExportPackage } from "../lib/export-package";
+import rendererJs from "../../../renderer/dist/clickmap-renderer.js?raw";
+import rendererCss from "../../../renderer/dist/clickmap-renderer.css?raw";
 
 function ResultRow({ result }: { result: ValidationResult }) {
   const revealValidationRef = useStore((s) => s.revealValidationRef);
@@ -41,19 +40,56 @@ function ResultRow({ result }: { result: ValidationResult }) {
   );
 }
 
+function CopyButton({ text, label }: { text: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+
+  function copy() {
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }
+
+  return (
+    <button
+      onClick={copy}
+      className="rounded border border-neutral-700 px-3 py-1 text-xs text-neutral-300 hover:bg-neutral-700"
+    >
+      {copied ? "Copied!" : label}
+    </button>
+  );
+}
+
 export function ExportScreen() {
   const project = useStore((s) => s.project);
   const [confirmingWarnings, setConfirmingWarnings] = useState(false);
-  const [exported, setExported] = useState(false);
+  const [inlineAssets, setInlineAssets] = useState(true);
+  const [minifyRenderer, setMinifyRenderer] = useState(false);
 
-  const results = useMemo(() => validateProject(toDefinition(project)), [project]);
+  const definition = useMemo(() => toDefinition(project), [project]);
+  const results = useMemo(() => validateProject(definition), [definition]);
   const errors = results.filter((r) => r.severity === "error");
   const warnings = results.filter((r) => r.severity === "warning");
   const blocked = hasBlockingErrors(results);
 
+  const mapJsonPreview = useMemo(() => JSON.stringify(definition, null, 2), [definition]);
+
   function doExport() {
-    // Real package generation arrives in #9. For now, confirm the gate passed.
-    setExported(true);
+    const pkg = generateExportPackage(definition, rendererJs, rendererCss, {
+      inlineAssets,
+      minifyRenderer,
+    });
+
+    // Trigger download.
+    const blob = new Blob([pkg.zip.buffer as ArrayBuffer], { type: "application/zip" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const slug = definition.project.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    a.href = url;
+    a.download = `${slug}-export.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+
     setConfirmingWarnings(false);
   }
 
@@ -66,9 +102,16 @@ export function ExportScreen() {
     doExport();
   }
 
+  const embedSnippet = useMemo(
+    () =>
+      generateExportPackage(definition, "", "", { inlineAssets, minifyRenderer }).embedSnippet,
+    [definition, inlineAssets, minifyRenderer],
+  );
+
   return (
     <main className="relative flex min-w-0 flex-1 flex-col bg-neutral-800" data-testid="export-screen">
       <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 overflow-y-auto p-6">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-neutral-200">Export</h2>
           <div className="flex items-center gap-2">
@@ -91,11 +134,12 @@ export function ExportScreen() {
               data-testid="export-button"
               className="rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-neutral-700 disabled:text-neutral-500"
             >
-              Export package
+              Download ZIP
             </button>
           </div>
         </div>
 
+        {/* Validation */}
         {blocked && (
           <p className="rounded border border-red-800 bg-red-950/50 px-3 py-2 text-xs text-red-300">
             Fix all errors before exporting. Click an entry to jump to the offending object.
@@ -135,11 +179,46 @@ export function ExportScreen() {
           </div>
         )}
 
-        {exported && (
-          <p className="rounded border border-emerald-800 bg-emerald-950/40 px-3 py-2 text-xs text-emerald-300">
-            ✓ Validation gate passed. Package generation arrives in the export pipeline.
-          </p>
-        )}
+        {/* Options */}
+        <section className="rounded border border-neutral-700 p-3">
+          <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+            Package options
+          </h3>
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-neutral-300">
+            <input
+              type="checkbox"
+              checked={inlineAssets}
+              onChange={(e) => setInlineAssets(e.target.checked)}
+              className="accent-blue-500"
+            />
+            Inline assets into map.json (larger file, no separate assets/ folder)
+          </label>
+          <label className="mt-1.5 flex cursor-pointer items-center gap-2 text-xs text-neutral-400">
+            <input
+              type="checkbox"
+              checked={minifyRenderer}
+              onChange={(e) => setMinifyRenderer(e.target.checked)}
+              className="accent-blue-500"
+              disabled
+            />
+            Use minified renderer (not yet available — coming soon)
+          </label>
+        </section>
+
+        {/* Quick copy actions */}
+        <section className="rounded border border-neutral-700 p-3">
+          <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+            Quick copy
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            <CopyButton text={embedSnippet} label="Copy embed snippet" />
+            <CopyButton text={mapJsonPreview} label="Copy map.json" />
+          </div>
+
+          <pre className="mt-3 overflow-x-auto rounded bg-neutral-900 p-2 text-[10px] leading-relaxed text-neutral-400">
+            {embedSnippet}
+          </pre>
+        </section>
       </div>
 
       {/* Warnings confirmation dialog */}

@@ -4,16 +4,16 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #8 — editor: validation pipeline (pre-export checks)
-Branch:       feat/8-validation
+Issue:        #9 — export: generate deployment package
+Branch:       feat/9-export
 Started:      2026-06-10
 Last commit:  (claim)
 
 ### What's done
-- #1–#7 merged; PR #16 (bugfixes), #17 (view linking + Flow), #18 (Preview) merged.
+- #1–#8 merged; PR #19 (validation pipeline) merged.
 
 ### What's next
-- `validateProject` in /shared; Export screen with error/warning list, reveal links, gated Export button + warning confirmation.
+- ZIP generation with fflate; ExportScreen UI with download, copy snippet, copy map.json, inline/external toggle.
 
 ### Notes / gotchas
 - Renderer must remain framework-free; do not introduce React or Tailwind into `/renderer`.
@@ -27,6 +27,7 @@ Last commit:  (claim)
 ---
 
 ## Ledger (most recent first)
+- 2026-06-10 — closed #8 — validation pipeline: validateProject() in /shared, ExportScreen with gated export + reveal links, BottomBar live badge, 10 new tests (88 total); PR #19.
 - 2026-05-12 — closed #5 — inspector sidebar + layers/views tree: View/Layer CRUD, area property updates, 22 new tests, 56 total; PR #15.
 - 2026-05-12 — closed #4 — design screen: SVG sanitizer, asset import, Canvas (pan/zoom), Select/Rect/Polygon tools, move/resize/delete/duplicate, undo/redo; 16 new tests; PR #14.
 - 2026-05-12 — closed #3 — editor shell: Vite + React 19 + TS strict + Tailwind v4 + Zustand v5; app shell (TopBar/panels/Workspace/BottomBar); New/Open/Save; 14 tests; PR #13.
