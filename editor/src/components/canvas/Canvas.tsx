@@ -52,6 +52,8 @@ export function Canvas() {
     duplicateArea,
     undo,
     redo,
+    copyArea,
+    pasteArea,
     setEditorState,
   } = useStore();
 
@@ -141,6 +143,16 @@ export function Canvas() {
       if ((e.metaKey || e.ctrlKey) && e.key === "d" && selectedAreaId) {
         e.preventDefault();
         duplicateArea(selectedAreaId);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "c" && selectedAreaId) {
+        e.preventDefault();
+        copyArea(selectedAreaId);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "v") {
+        e.preventDefault();
+        pasteArea();
         return;
       }
       // Redo: Cmd/Ctrl+Shift+Z (e.key is "Z" when Shift is held on most platforms)

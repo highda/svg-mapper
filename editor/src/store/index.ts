@@ -102,6 +102,11 @@ export interface AppState {
   undo: () => void;
   redo: () => void;
 
+  // ── Clipboard ────────────────────────────────────────────────────────────
+  clipboardArea: Area | null;
+  copyArea: (areaId: string) => void;
+  pasteArea: () => void;
+
   // ── Validation ─────────────────────────────────────────────────────────────
   revealValidationRef: (ref: ValidationRef) => void;
 }
@@ -173,6 +178,7 @@ export const useStore = create<AppState>()(
     past: [],
     future: [],
     historyVersion: 0,
+    clipboardArea: null,
 
     // ── Project lifecycle ──────────────────────────────────────────────────
 
@@ -608,6 +614,42 @@ export const useStore = create<AppState>()(
           duped,
         );
         s.selectedAreaId = duped.id;
+        s.selectedLayerId = null;
+      });
+    },
+
+    // ── Clipboard ──────────────────────────────────────────────────────────
+
+    copyArea(areaId: string) {
+      const views = get().project.views as unknown as View[];
+      const loc = findAreaLocation(views, areaId);
+      if (!loc) return;
+      const area = views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx];
+      set((s) => {
+        s.clipboardArea = area as typeof s.clipboardArea;
+      });
+    },
+
+    pasteArea() {
+      set((s) => {
+        if (!s.clipboardArea) return;
+        const original = s.clipboardArea;
+        const pasted: typeof original = {
+          ...original,
+          id: `area_${Math.random().toString(36).slice(2, 10)}`,
+          name: original.name + " copy",
+          geometry:
+            original.geometry.type === "rect"
+              ? { ...original.geometry, x: (original.geometry as { x: number }).x + 10, y: (original.geometry as { y: number }).y + 10 }
+              : original.geometry,
+        };
+        const viewIdx = s.project.views.findIndex((v) => v.id === s.activeViewId);
+        if (viewIdx === -1) return;
+        const layers = s.project.views[viewIdx].layers;
+        if (layers.length === 0) return;
+        pushHistory(s);
+        layers[0].areas.push(pasted as typeof layers[0]["areas"][0]);
+        s.selectedAreaId = pasted.id;
         s.selectedLayerId = null;
       });
     },
