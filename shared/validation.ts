@@ -165,7 +165,6 @@ export function validateProject(project: ClickMapDefinition): ValidationResult[]
   const views = project.views ?? [];
   const assetsById = new Map(project.assets.map((a) => [a.id, a]));
   const viewIds = new Set(views.map((v) => v.id));
-  const popupIds = new Set((project.popups ?? []).map((p) => p.id));
   const layerIds = new Set<string>();
   for (const v of views) for (const l of v.layers) layerIds.add(l.id);
 
@@ -233,13 +232,7 @@ export function validateProject(project: ClickMapDefinition): ValidationResult[]
             }
             break;
           case "popup":
-            if (!popupIds.has(area.action.popupId)) {
-              err(
-                "BROKEN_POPUP",
-                `Area "${area.name}" opens missing Popup "${area.action.popupId}".`,
-                ref,
-              );
-            }
+            // Inline popup content — no external popup reference needed.
             break;
           case "toggleLayer":
             if (!layerIds.has(area.action.targetLayerId)) {

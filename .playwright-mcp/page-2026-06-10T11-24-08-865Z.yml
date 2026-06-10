@@ -1,0 +1,39 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - button "Untitled Map" [ref=e6]
+    - navigation [ref=e7]:
+      - button "Design" [ref=e8]
+      - button "Tree" [ref=e9]
+      - button "Flow" [ref=e10]
+      - button "Preview" [active] [ref=e11]
+      - button "Export" [ref=e12]
+    - generic [ref=e13]:
+      - button "↩" [ref=e14]
+      - button "↪" [disabled] [ref=e15]
+    - generic [ref=e16]:
+      - button "New" [ref=e17]
+      - button "Open" [ref=e18]
+      - button "Save" [ref=e19]
+  - main [ref=e213]:
+    - generic [ref=e214]:
+      - generic [ref=e215]:
+        - button "Full" [ref=e216]
+        - button "Tablet 768" [ref=e217]
+        - button "Mobile 375" [ref=e218]
+      - generic [ref=e219] [cursor=pointer]:
+        - checkbox "Block outbound URLs" [checked] [ref=e220]
+        - text: Block outbound URLs
+      - generic [ref=e221]:
+        - generic [ref=e222]: "View: Main View"
+        - generic [ref=e223]: "Last event: ready"
+    - iframe [ref=e225]:
+      - generic [active] [ref=f3e1]:
+        - button "Area" [ref=f3e7]
+        - status
+  - contentinfo [ref=e81]:
+    - generic [ref=e82]: "Zoom: 100%"
+    - generic [ref=e83]: "Views: 1"
+    - 'button "Validation: 1 warning" [ref=e211]':
+      - generic [ref=e85]: "Validation:"
+      - generic [ref=e212]: 1 warning
+    - generic [ref=e87]: svg-mapper editor

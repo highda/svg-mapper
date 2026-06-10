@@ -57,6 +57,17 @@
   outline: none;
 }
 
+/* Disabled areas */
+.clickmap-areas [aria-disabled="true"] {
+  opacity: 0.5;
+}
+
+/* Area labels */
+.clickmap-area-label {
+  user-select: none;
+  pointer-events: none;
+}
+
 /* Tooltip */
 .clickmap-tooltip {
   position: absolute;
@@ -89,6 +100,72 @@
   opacity: 0.85;
 }
 
+/* Popover */
+.clickmap-popover {
+  position: absolute;
+  z-index: 200;
+  background: #fff;
+  color: #111;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.4;
+  max-width: 220px;
+  min-width: 140px;
+  display: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  border: 1px solid #e5e7eb;
+}
+
+.clickmap-popover--visible {
+  display: block;
+}
+
+/* Popover arrow (pseudo-element) */
+.clickmap-popover--top::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #fff;
+  border-bottom: none;
+}
+
+.clickmap-popover--bottom::after {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-bottom-color: #fff;
+  border-top: none;
+}
+
+.clickmap-popover--left::after {
+  content: "";
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 6px solid transparent;
+  border-left-color: #fff;
+  border-right: none;
+}
+
+.clickmap-popover--right::after {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 6px solid transparent;
+  border-right-color: #fff;
+  border-left: none;
+}
+
 /* Back button */
 .clickmap-back-btn {
   position: absolute;
@@ -113,6 +190,120 @@
 }
 
 .clickmap-back-btn:focus-visible {
+  outline: 2px solid #005fcc;
+  outline-offset: 2px;
+}
+
+/* Scene switcher */
+.clickmap-scene-switcher {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  flex-wrap: wrap;
+}
+
+.clickmap-scene-switcher--top-left    { top: 10px; left: 10px; }
+.clickmap-scene-switcher--top-right   { top: 10px; right: 10px; }
+.clickmap-scene-switcher--top-center  { top: 10px; left: 50%; transform: translateX(-50%); }
+.clickmap-scene-switcher--bottom-left { bottom: 10px; left: 10px; }
+.clickmap-scene-switcher--bottom-right{ bottom: 10px; right: 10px; }
+.clickmap-scene-switcher--bottom-center{ bottom: 10px; left: 50%; transform: translateX(-50%); }
+
+.clickmap-scene-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #333;
+  transition: background 0.1s;
+  white-space: nowrap;
+}
+
+.clickmap-scene-btn:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+.clickmap-scene-btn--active {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+
+.clickmap-scene-btn:focus-visible {
+  outline: 2px solid #005fcc;
+  outline-offset: 2px;
+}
+
+.clickmap-scene-switcher--tabs .clickmap-scene-btn {
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+}
+
+.clickmap-scene-switcher--tabs .clickmap-scene-btn--active {
+  border-bottom-color: #2563eb;
+  color: #2563eb;
+  background: transparent;
+}
+
+.clickmap-scene-dropdown {
+  padding: 4px 6px;
+  font-size: 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+}
+
+/* Zoom controls */
+.clickmap-zoom-controls {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.clickmap-zoom-controls--top-left    { top: 10px; left: 10px; }
+.clickmap-zoom-controls--top-right   { top: 10px; right: 10px; }
+.clickmap-zoom-controls--bottom-left { bottom: 10px; left: 10px; }
+.clickmap-zoom-controls--bottom-right{ bottom: 10px; right: 10px; }
+
+.clickmap-zoom-in,
+.clickmap-zoom-out,
+.clickmap-zoom-reset {
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: background 0.1s;
+  padding: 0;
+}
+
+.clickmap-zoom-in:hover,
+.clickmap-zoom-out:hover,
+.clickmap-zoom-reset:hover {
+  background: #fff;
+}
+
+.clickmap-zoom-in:focus-visible,
+.clickmap-zoom-out:focus-visible,
+.clickmap-zoom-reset:focus-visible {
   outline: 2px solid #005fcc;
   outline-offset: 2px;
 }

@@ -1,7 +1,11 @@
 import type {
   Action,
+  AreaLabel,
   AreaStyle,
   AreaStyleState,
+  AreaTrigger,
+  CircleGeometry,
+  PopupAction,
   RectGeometry,
   PolygonGeometry,
   Tooltip,
@@ -368,6 +372,20 @@ function GeometryEditor({
     );
   }
 
+  if (geometry.type === "circle") {
+    const g = geometry as unknown as CircleGeometry & { type: "circle" };
+    function setC(patch: Partial<CircleGeometry>) {
+      updateAreaGeometry(areaId, { ...g, ...patch });
+    }
+    return (
+      <div className="space-y-1">
+        <Row label="CX"><NumberField defaultValue={g.cx} onCommit={(v) => setC({ cx: v })} /></Row>
+        <Row label="CY"><NumberField defaultValue={g.cy} onCommit={(v) => setC({ cy: v })} /></Row>
+        <Row label="R"><NumberField defaultValue={g.r} min={1} onCommit={(v) => setC({ r: v })} /></Row>
+      </div>
+    );
+  }
+
   if (geometry.type === "polygon") {
     const g = geometry as unknown as PolygonGeometry & { type: "polygon" };
     return (
@@ -426,6 +444,74 @@ function UrlField({
   );
 }
 
+function PopupContentEditor({
+  areaId,
+  action,
+}: {
+  areaId: string;
+  action: PopupAction;
+}) {
+  const { updateAreaAction } = useStore();
+  const update = (patch: Partial<PopupAction["content"]>) =>
+    updateAreaAction(areaId, { ...action, content: { ...action.content, ...patch } });
+
+  return (
+    <div className="space-y-1 pl-2">
+      <Row label="Title">
+        <TextField
+          defaultValue={action.content.title ?? ""}
+          onCommit={(v) => update({ title: v })}
+          placeholder="Popup title"
+        />
+      </Row>
+      <Row label="Body">
+        <textarea
+          defaultValue={action.content.body ?? ""}
+          onBlur={(e) => update({ body: e.target.value })}
+          rows={3}
+          placeholder="HTML allowed"
+          className="w-full resize-none rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+        />
+      </Row>
+      <Row label="Image URL">
+        <TextField
+          defaultValue={action.content.imageUrl ?? ""}
+          onCommit={(v) => update({ imageUrl: v || undefined })}
+          placeholder="https://…"
+        />
+      </Row>
+      <Row label="Link URL">
+        <TextField
+          defaultValue={action.content.linkHref ?? ""}
+          onCommit={(v) => update({ linkHref: v || undefined })}
+          placeholder="https://…"
+        />
+      </Row>
+      <Row label="Link label">
+        <TextField
+          defaultValue={action.content.linkLabel ?? ""}
+          onCommit={(v) => update({ linkLabel: v || undefined })}
+        />
+      </Row>
+      <Row label="Position">
+        <select
+          value={action.position ?? "auto"}
+          onChange={(e) =>
+            updateAreaAction(areaId, { ...action, position: e.target.value as PopupAction["position"] })
+          }
+          className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+        >
+          <option value="auto">Auto</option>
+          <option value="top">Top</option>
+          <option value="bottom">Bottom</option>
+          <option value="left">Left</option>
+          <option value="right">Right</option>
+        </select>
+      </Row>
+    </div>
+  );
+}
+
 function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
   const { updateAreaAction, project } = useStore();
 
@@ -438,6 +524,9 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
         break;
       case "url":
         updateAreaAction(areaId, { type: "url", href: "", target: "_blank" });
+        break;
+      case "popup":
+        updateAreaAction(areaId, { type: "popup", content: {}, position: "auto" });
         break;
       case "goToView": {
         const { activeViewId } = useStore.getState();
@@ -464,6 +553,7 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
         >
           <option value="none">None</option>
           <option value="url">URL</option>
+          <option value="popup">Popup</option>
           <option value="goToView">Go to View</option>
         </select>
       </Row>
@@ -489,6 +579,10 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
             </select>
           </Row>
         </>
+      )}
+
+      {action.type === "popup" && (
+        <PopupContentEditor areaId={areaId} action={action} />
       )}
 
       {action.type === "goToView" && (
@@ -546,16 +640,148 @@ function TooltipEditor({ areaId, tooltip }: { areaId: string; tooltip: Tooltip |
               onCommit={(v) => updateAreaTooltip(areaId, { ...tooltip, title: v })}
             />
           </Row>
-          <Row label="Body">
+          <Row label="Body (HTML)">
             <textarea
               defaultValue={tooltip.body ?? ""}
               onBlur={(e) => updateAreaTooltip(areaId, { ...tooltip, body: e.target.value })}
               rows={3}
+              placeholder="HTML allowed"
               className="w-full resize-none rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+            />
+          </Row>
+          <Row label="Image URL">
+            <TextField
+              defaultValue={tooltip.imageUrl ?? ""}
+              onCommit={(v) => updateAreaTooltip(areaId, { ...tooltip, imageUrl: v || undefined })}
+              placeholder="https://…"
             />
           </Row>
         </>
       )}
+    </div>
+  );
+}
+
+function InteractionEditor({ areaId, area }: { areaId: string; area: { trigger?: AreaTrigger; alwaysHighlight?: boolean; disabled?: boolean } }) {
+  const { updateAreaInteraction } = useStore();
+
+  return (
+    <div className="space-y-1.5">
+      <Row label="Trigger">
+        <select
+          value={area.trigger ?? "both"}
+          onChange={(e) =>
+            updateAreaInteraction(areaId, { trigger: e.target.value as AreaTrigger })
+          }
+          className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+        >
+          <option value="both">Both (hover + click)</option>
+          <option value="hover">Hover only</option>
+          <option value="click">Click only</option>
+        </select>
+      </Row>
+      <CheckToggle
+        checked={area.alwaysHighlight ?? false}
+        onChange={(v) => updateAreaInteraction(areaId, { alwaysHighlight: v })}
+        label="Always highlighted"
+      />
+      <CheckToggle
+        checked={area.disabled ?? false}
+        onChange={(v) => updateAreaInteraction(areaId, { disabled: v })}
+        label="Disabled (non-interactive)"
+      />
+    </div>
+  );
+}
+
+function MetadataEditor({ areaId, metadata }: { areaId: string; metadata: Record<string, unknown> | undefined }) {
+  const { updateAreaMetadata } = useStore();
+  const [newKey, setNewKey] = useState("");
+  const entries = Object.entries(metadata ?? {});
+
+  function addRow() {
+    const k = newKey.trim();
+    if (!k) return;
+    updateAreaMetadata(areaId, { ...(metadata ?? {}), [k]: "" });
+    setNewKey("");
+  }
+
+  function updateRow(key: string, value: string) {
+    updateAreaMetadata(areaId, { ...(metadata ?? {}), [key]: value });
+  }
+
+  function deleteRow(key: string) {
+    const next = { ...(metadata ?? {}) };
+    delete next[key];
+    updateAreaMetadata(areaId, next);
+  }
+
+  return (
+    <div className="space-y-1">
+      {entries.map(([k, v]) => (
+        <div key={k} className="flex items-center gap-1">
+          <span className="w-16 shrink-0 truncate text-[10px] text-neutral-500" title={k}>{k}</span>
+          <input
+            type="text"
+            defaultValue={String(v)}
+            onBlur={(e) => updateRow(k, e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+            className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-800 px-1 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+          />
+          <button
+            onClick={() => deleteRow(k)}
+            className="text-[10px] text-neutral-600 hover:text-red-400"
+            title="Delete"
+          >✕</button>
+        </div>
+      ))}
+      <div className="flex items-center gap-1 pt-0.5">
+        <input
+          type="text"
+          value={newKey}
+          onChange={(e) => setNewKey(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") addRow(); }}
+          placeholder="key"
+          className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-800 px-1 py-0.5 text-[10px] text-neutral-400 outline-none focus:border-blue-500"
+        />
+        <button
+          onClick={addRow}
+          className="rounded px-1.5 py-0.5 text-[10px] text-neutral-500 hover:bg-neutral-700 hover:text-neutral-200"
+        >+ Add</button>
+      </div>
+    </div>
+  );
+}
+
+function LabelEditor({ areaId, label }: { areaId: string; label: AreaLabel | undefined }) {
+  const { updateAreaLabel } = useStore();
+
+  return (
+    <div className="space-y-1.5">
+      <Row label="Label text">
+        <TextField
+          defaultValue={label?.text ?? ""}
+          onCommit={(v) => updateAreaLabel(areaId, v ? { ...label, text: v } : { ...label, text: undefined })}
+          placeholder="(uses area name)"
+        />
+      </Row>
+      <Row label="Visibility">
+        <select
+          value={label?.visible === true ? "show" : label?.visible === false ? "hide" : "inherit"}
+          onChange={(e) => {
+            const v = e.target.value;
+            updateAreaLabel(areaId, {
+              ...label,
+              visible: v === "show" ? true : v === "hide" ? false : undefined,
+            });
+          }}
+          className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+        >
+          <option value="inherit">Follow project setting</option>
+          <option value="show">Always show</option>
+          <option value="hide">Always hide</option>
+        </select>
+      </Row>
     </div>
   );
 }
@@ -616,6 +842,15 @@ function AreaInspector() {
         styleState={style.active}
         onChange={(s) => updateStyleState("active", s)}
       />
+
+      <SectionHeader title="Interaction" />
+      <InteractionEditor areaId={a.id} area={a} />
+
+      <SectionHeader title="Label" />
+      <LabelEditor areaId={a.id} label={a.label} />
+
+      <SectionHeader title="Metadata" />
+      <MetadataEditor areaId={a.id} metadata={a.metadata} />
 
       <SectionHeader title="Tooltip" />
       <TooltipEditor areaId={a.id} tooltip={tooltip} />

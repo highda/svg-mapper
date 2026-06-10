@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "../../store";
 import type { Layer, View } from "@svg-mapper/shared";
 
@@ -331,7 +331,30 @@ function ViewSection({ view, isActive }: { view: View; isActive: boolean }) {
 // ---------------------------------------------------------------------------
 
 export function LeftPanel() {
-  const { project, activeViewId, addView } = useStore();
+  const { project, activeViewId, addView, setSelectedAreaId, setActiveViewId } = useStore();
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // "/" shortcut focuses the search input (issue #28 I5)
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "/" && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Filter views/areas by search query
+  const query = searchQuery.trim().toLowerCase();
+
+  function handleAreaSearchClick(viewId: string, areaId: string) {
+    setActiveViewId(viewId);
+    setSelectedAreaId(areaId);
+    setSearchQuery("");
+  }
 
   return (
     <aside className="flex w-56 flex-col border-r border-neutral-700 bg-neutral-900">
@@ -347,12 +370,48 @@ export function LeftPanel() {
         </button>
       </div>
 
-      {/* Tree */}
-      <div className="flex-1 overflow-y-auto p-1.5">
-        {project.views.map((view) => (
-          <ViewSection key={view.id} view={view} isActive={view.id === activeViewId} />
-        ))}
+      {/* Search (issue #28 I5) */}
+      <div className="border-b border-neutral-700 px-2 py-1.5">
+        <input
+          ref={searchRef}
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search areas… (/)"
+          className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-[10px] text-neutral-300 placeholder-neutral-600 outline-none focus:border-blue-500"
+        />
       </div>
+
+      {/* Search results */}
+      {query && (
+        <div className="max-h-48 overflow-y-auto border-b border-neutral-700 p-1">
+          {project.views.flatMap((view) =>
+            view.layers.flatMap((layer) =>
+              layer.areas
+                .filter((a) => a.name.toLowerCase().includes(query))
+                .map((a) => (
+                  <button
+                    key={a.id}
+                    onClick={() => handleAreaSearchClick(view.id, a.id)}
+                    className="flex w-full items-center gap-1 rounded px-2 py-0.5 text-left text-[10px] text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200"
+                  >
+                    <span className="truncate flex-1">{a.name}</span>
+                    <span className="shrink-0 text-neutral-600">{view.name}</span>
+                  </button>
+                ))
+            )
+          ).slice(0, 50)}
+        </div>
+      )}
+
+      {/* Tree (hidden when searching) */}
+      {!query && (
+        <div className="flex-1 overflow-y-auto p-1.5">
+          {project.views.map((view) => (
+            <ViewSection key={view.id} view={view} isActive={view.id === activeViewId} />
+          ))}
+        </div>
+      )}
     </aside>
   );
 }

@@ -1,0 +1,93 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - button "Untitled Map" [ref=e6]
+    - navigation [ref=e7]:
+      - button "Design" [ref=e8]
+      - button "Tree" [ref=e9]
+      - button "Flow" [active] [ref=e10]
+      - button "Preview" [ref=e11]
+      - button "Export" [ref=e12]
+    - generic [ref=e13]:
+      - button "↩" [ref=e14]
+      - button "↪" [disabled] [ref=e15]
+    - generic [ref=e16]:
+      - button "New" [ref=e17]
+      - button "Open" [ref=e18]
+      - button "Save" [ref=e19]
+  - generic [ref=e20]:
+    - complementary [ref=e21]:
+      - generic [ref=e22]:
+        - generic [ref=e23]: Views & Layers
+        - button "+ View" [ref=e24]
+      - generic [ref=e26]:
+        - generic [ref=e27] [cursor=pointer]:
+          - button "▾" [ref=e28]
+          - generic "Main View" [ref=e29]
+          - button "⧉" [ref=e30]
+        - generic [ref=e31]:
+          - generic [ref=e149]:
+            - generic [ref=e150]:
+              - generic "Drag to reorder" [ref=e151]: ⠿
+              - button "▾" [ref=e152]
+              - generic "Layer 1" [ref=e153]
+              - button "○" [ref=e154]
+              - button "🔓" [ref=e155]
+            - button "▸ Area" [ref=e177]:
+              - generic [ref=e178]: ▸
+              - generic [ref=e179]: Area
+          - button "+ Add Layer" [ref=e32]
+    - main [ref=e537]:
+      - application [ref=e538]:
+        - group [ref=e541]:
+          - generic [ref=e542]:
+            - generic [ref=e544]:
+              - generic [ref=e545]: Main View
+              - generic "Initial view" [ref=e546]: START
+            - generic [ref=e547]: 1 area
+        - img
+        - generic "Control Panel" [ref=e549]:
+          - button "Zoom In" [disabled]:
+            - img
+          - button "Zoom Out" [ref=e550] [cursor=pointer]:
+            - img [ref=e551]
+          - button "Fit View" [ref=e553] [cursor=pointer]:
+            - img [ref=e554]
+    - complementary [ref=e45]:
+      - generic [ref=e46]: Inspector
+      - generic [ref=e501]:
+        - generic [ref=e502]: View
+        - generic [ref=e503]:
+          - generic [ref=e504]: Name
+          - textbox [ref=e506]: Main View
+        - generic [ref=e507]:
+          - generic [ref=e508]: Background
+          - combobox [ref=e510]:
+            - option "— none —" [selected]
+        - generic [ref=e511]: Dimensions
+        - generic [ref=e512]:
+          - generic [ref=e513]: Width
+          - spinbutton [ref=e515]: "1600"
+        - generic [ref=e516]:
+          - generic [ref=e517]: Height
+          - spinbutton [ref=e519]: "900"
+        - generic [ref=e520]: Viewport
+        - generic [ref=e521]:
+          - generic [ref=e522] [cursor=pointer]:
+            - checkbox "Pan enabled" [checked] [ref=e523]
+            - text: Pan enabled
+          - generic [ref=e524] [cursor=pointer]:
+            - checkbox "Zoom enabled" [checked] [ref=e525]
+            - text: Zoom enabled
+          - generic [ref=e526]:
+            - generic [ref=e527]: Min zoom
+            - spinbutton [ref=e529]: "1"
+          - generic [ref=e530]:
+            - generic [ref=e531]: Max zoom
+            - spinbutton [ref=e533]: "4"
+  - contentinfo [ref=e81]:
+    - generic [ref=e82]: "Zoom: 100%"
+    - generic [ref=e83]: "Views: 1"
+    - 'button "Validation: ✓ clean" [ref=e534]':
+      - generic [ref=e85]: "Validation:"
+      - generic [ref=e535]: ✓ clean
+    - generic [ref=e87]: svg-mapper editor

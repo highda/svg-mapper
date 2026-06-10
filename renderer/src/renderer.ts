@@ -4,10 +4,12 @@ import type {
   ClickMapEventType,
   ClickMapInstance,
   RendererOptions,
+  ChoroplethOptions,
   View,
   Area,
   Action,
   AreaStyleState,
+  Settings,
 } from "../../shared/types.js";
 import { Emitter } from "./emitter.js";
 
@@ -22,6 +24,88 @@ function escId(id: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// HTML sanitiser (strips script tags and event-handler attributes)
+// ---------------------------------------------------------------------------
+
+function sanitiseHtml(raw: string): string {
+  const div = document.createElement("div");
+  div.innerHTML = raw;
+  // Remove <script> tags and elements with event handlers
+  div.querySelectorAll("script,iframe,object,embed").forEach((el) => el.remove());
+  div.querySelectorAll("*").forEach((el) => {
+    for (const attr of Array.from(el.attributes)) {
+      if (/^on/i.test(attr.name)) el.removeAttribute(attr.name);
+      if (attr.value && /javascript:/i.test(attr.value)) el.removeAttribute(attr.name);
+    }
+  });
+  return div.innerHTML;
+}
+
+// ---------------------------------------------------------------------------
+// Mustache-style template engine ({{name}}, {{metadata.key}})
+// ---------------------------------------------------------------------------
+
+function renderTemplate(
+  template: string,
+  vars: { name: string; id: string; metadata?: Record<string, unknown>; viewName?: string }
+): string {
+  return template.replace(/\{\{([\w.]+)\}\}/g, (_, key: string) => {
+    if (key === "name") return vars.name;
+    if (key === "id") return vars.id;
+    if (key === "viewName") return vars.viewName ?? "";
+    if (key.startsWith("metadata.")) {
+      const mk = key.slice(9);
+      return String(vars.metadata?.[mk] ?? "");
+    }
+    return "";
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Colour interpolation for choropleth
+// ---------------------------------------------------------------------------
+
+function hexToRgb(hex: string): [number, number, number] | null {
+  const clean = hex.replace(/^#/, "");
+  if (clean.length === 3) {
+    const r = parseInt(clean[0]! + clean[0], 16);
+    const g = parseInt(clean[1]! + clean[1], 16);
+    const b = parseInt(clean[2]! + clean[2], 16);
+    return [r, g, b];
+  }
+  if (clean.length === 6) {
+    const r = parseInt(clean.slice(0, 2), 16);
+    const g = parseInt(clean.slice(2, 4), 16);
+    const b = parseInt(clean.slice(4, 6), 16);
+    return [r, g, b];
+  }
+  return null;
+}
+
+function lerpColor(
+  low: string,
+  high: string,
+  t: number
+): string {
+  const lo = hexToRgb(low);
+  const hi = hexToRgb(high);
+  if (!lo || !hi) return low;
+  const r = Math.round(lo[0] + (hi[0] - lo[0]) * t);
+  const g = Math.round(lo[1] + (hi[1] - lo[1]) * t);
+  const b = Math.round(lo[2] + (hi[2] - lo[2]) * t);
+  return `rgb(${r},${g},${b})`;
+}
+
+// ---------------------------------------------------------------------------
+// CSS for renderer (used when shadow DOM is enabled)
+// ---------------------------------------------------------------------------
+
+let _inlinedCSS = "";
+function getInlinedCSS(): string {
+  return _inlinedCSS;
+}
+
+// ---------------------------------------------------------------------------
 // Core renderer
 // ---------------------------------------------------------------------------
 
@@ -31,13 +115,20 @@ class Renderer implements ClickMapInstance {
   private emitter = new Emitter();
   private history: string[] = [];
   private currentViewId: string;
+  private options: RendererOptions;
 
+  // DOM nodes (attached to root or shadow root depending on shadowDom option)
   private root!: HTMLDivElement;
   private viewEl!: HTMLDivElement;
   private bgEl!: HTMLDivElement;
   private svgEl!: SVGSVGElement;
   private tooltipEl!: HTMLDivElement;
+  private popoverEl!: HTMLDivElement;
   private backBtn: HTMLButtonElement | null = null;
+  private sceneSwitcherEl: HTMLDivElement | null = null;
+  private zoomControlsEl: HTMLDivElement | null = null;
+  private ariaLiveEl!: HTMLDivElement;
+  private shadowRoot: ShadowRoot | null = null;
 
   private ro!: ResizeObserver;
   private roTimer: ReturnType<typeof setTimeout> | null = null;
@@ -45,8 +136,22 @@ class Renderer implements ClickMapInstance {
   private viewH = 1;
   private hoveredId: string | null = null;
 
+  // Choropleth
+  private choroplethData: Map<string, number> = new Map();
+  private choroplethOptions: ChoroplethOptions | null = null;
+
+  // Spacebar pan state
+  private spaceHeld = false;
+  private panStart: { x: number; y: number } | null = null;
+  private panStartViewBox: { x: number; y: number; w: number; h: number } | null = null;
+  private currentViewBox: { x: number; y: number; w: number; h: number } | null = null;
+
+  // Popover state
+  private openPopoverId: string | null = null;
+
   constructor(options: RendererOptions, def: ClickMapDefinition) {
     this.def = def;
+    this.options = options;
 
     const raw = options.container;
     const container =
@@ -61,8 +166,22 @@ class Renderer implements ClickMapInstance {
     this.currentViewId = def.settings.initialViewId;
     this.viewW = def.settings.canvasSize.width;
     this.viewH = def.settings.canvasSize.height;
+
+    // Choropleth initial data
+    if (options.choropleth) {
+      this.choroplethOptions = options.choropleth;
+      for (const d of options.choropleth.data) {
+        this.choroplethData.set(d.id, d.value);
+      }
+    }
+
     this.buildDOM();
     this.renderView(this.currentViewId);
+
+    // Deep linking: restore from hash on load
+    if (options.deepLink?.enabled) {
+      this.initDeepLink();
+    }
 
     this.ro = new ResizeObserver(() => {
       if (this.roTimer !== null) clearTimeout(this.roTimer);
@@ -96,11 +215,34 @@ class Renderer implements ClickMapInstance {
     this.tooltipEl.setAttribute("role", "tooltip");
     this.tooltipEl.setAttribute("aria-hidden", "true");
 
+    this.popoverEl = document.createElement("div");
+    this.popoverEl.className = "clickmap-popover";
+    this.popoverEl.setAttribute("aria-hidden", "true");
+
+    this.ariaLiveEl = document.createElement("div");
+    this.ariaLiveEl.setAttribute("aria-live", "polite");
+    this.ariaLiveEl.setAttribute("aria-atomic", "true");
+    this.ariaLiveEl.className = "clickmap-aria-live";
+    this.ariaLiveEl.style.cssText =
+      "position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;";
+
     this.viewEl.appendChild(this.bgEl);
     this.viewEl.appendChild(this.svgEl);
     this.root.appendChild(this.viewEl);
     this.root.appendChild(this.tooltipEl);
-    this.container.appendChild(this.root);
+    this.root.appendChild(this.popoverEl);
+    this.root.appendChild(this.ariaLiveEl);
+
+    // Shadow DOM mode (issue #29)
+    if (this.options.shadowDom) {
+      this.shadowRoot = this.container.attachShadow({ mode: "open" });
+      const styleEl = document.createElement("style");
+      styleEl.textContent = getInlinedCSS() + (this.options.css ?? "");
+      this.shadowRoot.appendChild(styleEl);
+      this.shadowRoot.appendChild(this.root);
+    } else {
+      this.container.appendChild(this.root);
+    }
 
     // Delegated pointer + keyboard events on the SVG
     this.svgEl.addEventListener("pointerover", (e) => this.onPointerOver(e));
@@ -108,6 +250,25 @@ class Renderer implements ClickMapInstance {
     this.svgEl.addEventListener("pointermove", (e) => this.onPointerMove(e));
     this.svgEl.addEventListener("click", (e) => this.onClick(e));
     this.svgEl.addEventListener("keydown", (e) => this.onKeyDown(e));
+
+    // Spacebar pan (issue #27 G3)
+    window.addEventListener("keydown", this.onWindowKeyDown);
+    window.addEventListener("keyup", this.onWindowKeyUp);
+    this.svgEl.addEventListener("pointerdown", (e) => this.onPanStart(e));
+    window.addEventListener("pointermove", (e) => this.onPanMove(e));
+    window.addEventListener("pointerup", () => this.onPanEnd());
+
+    // Close popover on outside click
+    document.addEventListener("click", (e) => {
+      if (this.openPopoverId !== null && !this.popoverEl.contains(e.target as Node)) {
+        this.closePopover();
+      }
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && this.openPopoverId !== null) {
+        this.closePopover();
+      }
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -127,11 +288,15 @@ class Renderer implements ClickMapInstance {
 
     this.hoveredId = null;
     this.hideTooltip();
+    this.closePopover();
 
     this.renderBackground(view);
     this.renderAreas(view);
     this.renderBackButton(view);
+    this.renderSceneSwitcher();
+    this.renderZoomControls();
     this.updateScale();
+    this.applyChoropleth();
   }
 
   private renderBackground(view: View) {
@@ -143,8 +308,9 @@ class Renderer implements ClickMapInstance {
     );
     if (!asset) return;
 
+    const fit = view.background.fit ?? "contain";
+
     if (asset.type === "image/svg+xml" && asset.inline) {
-      // Inline SVG markup stored in src
       this.bgEl.innerHTML = asset.src;
       const inlineSvg = this.bgEl.querySelector("svg");
       if (inlineSvg) {
@@ -157,14 +323,30 @@ class Renderer implements ClickMapInstance {
       img.className = "clickmap-bg-img";
       img.alt = "";
       img.setAttribute("aria-hidden", "true");
+      // Wire up background fit mode (issue #27 G2)
+      img.style.objectFit = fit;
       this.bgEl.appendChild(img);
     }
   }
 
   private renderAreas(view: View) {
     this.svgEl.innerHTML = "";
+
     const { width, height } = this.def.settings.canvasSize;
-    this.svgEl.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    const pad = this.def.settings.padding;
+    if (pad) {
+      this.svgEl.setAttribute(
+        "viewBox",
+        `${-pad.left} ${-pad.top} ${width + pad.left + pad.right} ${height + pad.top + pad.bottom}`
+      );
+    } else {
+      this.svgEl.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    }
+    this.currentViewBox = pad
+      ? { x: -pad.left, y: -pad.top, w: width + pad.left + pad.right, h: height + pad.top + pad.bottom }
+      : { x: 0, y: 0, w: width, h: height };
+
+    const labelSettings = this.def.settings.areaLabels;
 
     for (const layer of view.layers) {
       if (!layer.visible) continue;
@@ -180,6 +362,90 @@ class Renderer implements ClickMapInstance {
 
       this.svgEl.appendChild(g);
     }
+
+    // Area labels (issue #26)
+    if (labelSettings?.enabled) {
+      const labelsG = svgEl<SVGGElement>("g");
+      labelsG.setAttribute("class", "clickmap-area-labels");
+      labelsG.setAttribute("pointer-events", "none");
+
+      for (const layer of view.layers) {
+        if (!layer.visible) continue;
+        for (const area of layer.areas) {
+          if (area.label?.visible === false) continue;
+          const bbox = this.getAreaBBox(area);
+          if (!bbox) continue;
+          const text = svgEl<SVGTextElement>("text");
+          text.setAttribute("class", "clickmap-area-label");
+          text.setAttribute("x", String(bbox.cx));
+          text.setAttribute("y", String(bbox.cy));
+          text.setAttribute("text-anchor", "middle");
+          text.setAttribute("dominant-baseline", "central");
+          text.setAttribute("fill", labelSettings.color ?? "#000000");
+          text.setAttribute("font-size", String(labelSettings.fontSize ?? 14));
+          text.setAttribute("font-weight", labelSettings.fontWeight ?? "normal");
+          text.setAttribute("pointer-events", "none");
+          text.setAttribute("data-label-area", area.id);
+          text.textContent = area.label?.text ?? area.name;
+          labelsG.appendChild(text);
+        }
+      }
+
+      this.svgEl.appendChild(labelsG);
+
+      // After paint: hide labels wider than their area (done in a rAF so text is measured)
+      if (labelSettings.hideWhenSmaller !== false) {
+        requestAnimationFrame(() => this.updateLabelVisibility());
+      }
+    }
+  }
+
+  private updateLabelVisibility() {
+    const view = this.def.views.find((v) => v.id === this.currentViewId);
+    if (!view) return;
+    const labelsG = this.svgEl.querySelector<SVGGElement>(".clickmap-area-labels");
+    if (!labelsG) return;
+    const zoom = this.getViewBoxZoom();
+    for (const textEl of Array.from(labelsG.querySelectorAll<SVGTextElement>("[data-label-area]"))) {
+      const areaId = textEl.getAttribute("data-label-area")!;
+      const area = this.findAreaInView(areaId, view);
+      if (!area) continue;
+      const bbox = this.getAreaBBox(area);
+      if (!bbox) continue;
+      // getBBox() works in SVG coordinate space
+      try {
+        const tb = (textEl as SVGTextElement).getBBox();
+        textEl.setAttribute("visibility", tb.width > bbox.w * zoom ? "hidden" : "visible");
+      } catch {
+        // getBBox unavailable in non-rendered context (tests) — skip
+      }
+    }
+  }
+
+  private getViewBoxZoom(): number {
+    if (!this.currentViewBox) return 1;
+    const containerW = this.container.clientWidth || 1;
+    return containerW / this.currentViewBox.w;
+  }
+
+  private getAreaBBox(area: Area): { cx: number; cy: number; w: number; h: number } | null {
+    const g = area.geometry;
+    switch (g.type) {
+      case "rect":
+        return { cx: g.x + g.width / 2, cy: g.y + g.height / 2, w: g.width, h: g.height };
+      case "circle":
+        return { cx: g.cx, cy: g.cy, w: g.r * 2, h: g.r * 2 };
+      case "polygon": {
+        if (!g.points.length) return null;
+        const xs = g.points.map((p) => p[0]);
+        const ys = g.points.map((p) => p[1]);
+        const minX = Math.min(...xs), maxX = Math.max(...xs);
+        const minY = Math.min(...ys), maxY = Math.max(...ys);
+        return { cx: (minX + maxX) / 2, cy: (minY + maxY) / 2, w: maxX - minX, h: maxY - minY };
+      }
+      default:
+        return null;
+    }
   }
 
   private renderBackButton(view: View) {
@@ -194,6 +460,176 @@ class Renderer implements ClickMapInstance {
     btn.addEventListener("click", () => this.goBack());
     this.root.appendChild(btn);
     this.backBtn = btn;
+  }
+
+  // -------------------------------------------------------------------------
+  // Scene switcher (issue #25 D3)
+  // -------------------------------------------------------------------------
+
+  private renderSceneSwitcher() {
+    this.sceneSwitcherEl?.remove();
+    this.sceneSwitcherEl = null;
+
+    const ss = this.def.settings.sceneSwitcher;
+    if (!ss?.enabled) return;
+
+    const el = document.createElement("div");
+    el.className = `clickmap-scene-switcher clickmap-scene-switcher--${ss.position ?? "bottom-center"} clickmap-scene-switcher--${ss.style ?? "buttons"}`;
+
+    const views = this.def.views;
+    views.forEach((view) => {
+      if (ss.style === "dropdown") return; // handled below
+      const btn = document.createElement("button");
+      btn.textContent = view.name;
+      btn.setAttribute("type", "button");
+      btn.setAttribute("data-view-id", view.id);
+      btn.className = "clickmap-scene-btn";
+      if (view.id === this.currentViewId) btn.classList.add("clickmap-scene-btn--active");
+      btn.addEventListener("click", () => this.goToView(view.id));
+      el.appendChild(btn);
+    });
+
+    if (ss.style === "dropdown") {
+      const sel = document.createElement("select");
+      sel.className = "clickmap-scene-dropdown";
+      views.forEach((view) => {
+        const opt = document.createElement("option");
+        opt.value = view.id;
+        opt.textContent = view.name;
+        if (view.id === this.currentViewId) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      sel.addEventListener("change", () => this.goToView(sel.value));
+      el.appendChild(sel);
+    }
+
+    // Keyboard: arrow keys move between buttons (tabs behaviour)
+    el.addEventListener("keydown", (e) => {
+      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return;
+      const btns = Array.from(el.querySelectorAll<HTMLButtonElement>(".clickmap-scene-btn"));
+      const idx = btns.findIndex((b) => b === document.activeElement);
+      if (idx === -1) return;
+      const next = (e.key === "ArrowRight" || e.key === "ArrowDown")
+        ? btns[(idx + 1) % btns.length]
+        : btns[(idx - 1 + btns.length) % btns.length];
+      next?.focus();
+      e.preventDefault();
+    });
+
+    this.root.appendChild(el);
+    this.sceneSwitcherEl = el;
+  }
+
+  // -------------------------------------------------------------------------
+  // Zoom controls (issue #27 G1)
+  // -------------------------------------------------------------------------
+
+  private renderZoomControls() {
+    this.zoomControlsEl?.remove();
+    this.zoomControlsEl = null;
+
+    const zc = this.def.settings.zoomControls;
+    if (!zc?.enabled) return;
+
+    const el = document.createElement("div");
+    el.className = `clickmap-zoom-controls clickmap-zoom-controls--${zc.position ?? "top-right"}`;
+
+    const makeBtn = (cls: string, label: string, onClick: () => void) => {
+      const btn = document.createElement("button");
+      btn.className = cls;
+      btn.setAttribute("aria-label", label);
+      btn.setAttribute("type", "button");
+      btn.textContent = label === "Zoom in" ? "+" : label === "Zoom out" ? "−" : "⊙";
+      btn.addEventListener("click", onClick);
+      return btn;
+    };
+
+    el.appendChild(makeBtn("clickmap-zoom-in", "Zoom in", () => this.adjustZoom(1.2)));
+    el.appendChild(makeBtn("clickmap-zoom-out", "Zoom out", () => this.adjustZoom(1 / 1.2)));
+    el.appendChild(makeBtn("clickmap-zoom-reset", "Reset zoom", () => this.resetZoom()));
+
+    this.root.appendChild(el);
+    this.zoomControlsEl = el;
+  }
+
+  private adjustZoom(factor: number) {
+    if (!this.currentViewBox) return;
+    const vb = this.currentViewBox;
+    const cx = vb.x + vb.w / 2;
+    const cy = vb.y + vb.h / 2;
+    const newW = vb.w / factor;
+    const newH = vb.h / factor;
+    this.currentViewBox = {
+      x: cx - newW / 2,
+      y: cy - newH / 2,
+      w: newW,
+      h: newH,
+    };
+    this.applyViewBox();
+  }
+
+  private resetZoom() {
+    const { width, height } = this.def.settings.canvasSize;
+    const pad = this.def.settings.padding;
+    this.currentViewBox = pad
+      ? { x: -pad.left, y: -pad.top, w: width + pad.left + pad.right, h: height + pad.top + pad.bottom }
+      : { x: 0, y: 0, w: width, h: height };
+    this.applyViewBox();
+  }
+
+  private applyViewBox() {
+    if (!this.currentViewBox) return;
+    const { x, y, w, h } = this.currentViewBox;
+    this.svgEl.setAttribute("viewBox", `${x} ${y} ${w} ${h}`);
+  }
+
+  // -------------------------------------------------------------------------
+  // Spacebar pan (issue #27 G3)
+  // -------------------------------------------------------------------------
+
+  private onWindowKeyDown = (e: KeyboardEvent) => {
+    if (e.code === "Space" && !e.repeat) {
+      // Only activate when the renderer container is focused or hovered
+      if (this.root.contains(document.activeElement) || this.root.matches(":hover")) {
+        this.spaceHeld = true;
+        e.preventDefault();
+      }
+    }
+  };
+
+  private onWindowKeyUp = (e: KeyboardEvent) => {
+    if (e.code === "Space") {
+      this.spaceHeld = false;
+      this.panStart = null;
+      this.panStartViewBox = null;
+    }
+  };
+
+  private onPanStart(e: PointerEvent) {
+    if (!this.spaceHeld || !this.currentViewBox) return;
+    this.panStart = { x: e.clientX, y: e.clientY };
+    this.panStartViewBox = { ...this.currentViewBox };
+    this.svgEl.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  }
+
+  private onPanMove(e: PointerEvent) {
+    if (!this.panStart || !this.panStartViewBox || !this.currentViewBox) return;
+    const containerW = this.container.clientWidth || 1;
+    const scale = this.panStartViewBox.w / containerW;
+    const dx = (e.clientX - this.panStart.x) * scale;
+    const dy = (e.clientY - this.panStart.y) * scale;
+    this.currentViewBox = {
+      ...this.panStartViewBox,
+      x: this.panStartViewBox.x - dx,
+      y: this.panStartViewBox.y - dy,
+    };
+    this.applyViewBox();
+  }
+
+  private onPanEnd() {
+    this.panStart = null;
+    this.panStartViewBox = null;
   }
 
   // -------------------------------------------------------------------------
@@ -236,27 +672,119 @@ class Renderer implements ClickMapInstance {
         break;
       }
       default:
-        // marker — skip for now (no visual SVG shape)
         return null;
     }
 
-    this.applyStyle(shape, area.style.default);
+    const isDisabled = area.disabled === true;
+    const alwaysHL = area.alwaysHighlight === true;
+
+    // Choose initial style
+    const initialStyle = isDisabled
+      ? (area.style.disabled ?? this.makeDisabledStyle(area.style.default))
+      : alwaysHL
+        ? area.style.hover
+        : area.style.default;
+
+    this.applyStyle(shape, initialStyle);
     shape.setAttribute("data-area-id", area.id);
-    shape.setAttribute("tabindex", String(area.accessibility?.tabIndex ?? 0));
-    shape.setAttribute("role", "button");
-    shape.setAttribute(
-      "aria-label",
-      area.accessibility?.ariaLabel ?? area.name
-    );
-    shape.style.cursor = area.action.type !== "none" ? "pointer" : "default";
+
+    if (isDisabled) {
+      shape.setAttribute("aria-disabled", "true");
+      shape.style.cursor = "not-allowed";
+      shape.setAttribute("tabindex", "-1");
+    } else {
+      shape.setAttribute("tabindex", String(area.accessibility?.tabIndex ?? 0));
+      shape.setAttribute("role", "button");
+      shape.setAttribute(
+        "aria-label",
+        area.accessibility?.ariaLabel ?? area.name
+      );
+      const trigger = area.trigger ?? "both";
+      const clickable = trigger === "click" || trigger === "both";
+      shape.style.cursor = (area.action.type !== "none" && clickable) ? "pointer" : "default";
+    }
 
     return shape;
+  }
+
+  private makeDisabledStyle(base: AreaStyleState): AreaStyleState {
+    return { ...base, fill: "#9ca3af", stroke: "#6b7280", strokeWidth: base.strokeWidth };
   }
 
   private applyStyle(el: SVGElement, style: AreaStyleState) {
     el.setAttribute("fill", style.fill);
     el.setAttribute("stroke", style.stroke);
     el.setAttribute("stroke-width", String(style.strokeWidth));
+  }
+
+  // -------------------------------------------------------------------------
+  // Choropleth (issue #24 C3)
+  // -------------------------------------------------------------------------
+
+  private applyChoropleth() {
+    const opts = this.choroplethOptions;
+    if (!opts || this.choroplethData.size === 0) return;
+
+    const values = Array.from(this.choroplethData.values());
+    const minV = Math.min(...values);
+    const maxV = Math.max(...values);
+    const range = maxV - minV || 1;
+
+    const view = this.def.views.find((v) => v.id === this.currentViewId);
+    if (!view) return;
+
+    for (const layer of view.layers) {
+      for (const area of layer.areas) {
+        const el = this.findAreaEl(area.id);
+        if (!el) continue;
+        if (this.choroplethData.has(area.id)) {
+          const t = (this.choroplethData.get(area.id)! - minV) / range;
+          const color = lerpColor(opts.colorLow, opts.colorHigh, t);
+          el.setAttribute("fill", color);
+        } else if (opts.noDataColor) {
+          el.setAttribute("fill", opts.noDataColor);
+        }
+      }
+    }
+
+    if (opts.legend) this.renderChoroplethLegend(opts);
+  }
+
+  private renderChoroplethLegend(opts: ChoroplethOptions) {
+    const existing = this.root.querySelector(".clickmap-legend");
+    existing?.remove();
+
+    const legend = document.createElement("div");
+    legend.className = "clickmap-legend";
+    legend.style.cssText =
+      `position:absolute;bottom:10px;right:10px;background:rgba(255,255,255,0.9);` +
+      `border:1px solid #ccc;border-radius:4px;padding:6px 8px;font-size:11px;`;
+
+    const values = Array.from(this.choroplethData.values());
+    const minV = Math.min(...values);
+    const maxV = Math.max(...values);
+
+    const gradient = document.createElement("div");
+    gradient.style.cssText =
+      `width:100px;height:12px;border-radius:2px;margin-bottom:2px;` +
+      `background:linear-gradient(to right, ${opts.colorLow}, ${opts.colorHigh});`;
+
+    const labels = document.createElement("div");
+    labels.style.cssText = "display:flex;justify-content:space-between;width:100px;";
+    labels.innerHTML = `<span>${minV.toFixed(1)}</span><span>${maxV.toFixed(1)}</span>`;
+
+    legend.appendChild(gradient);
+    legend.appendChild(labels);
+    this.root.appendChild(legend);
+  }
+
+  setChoroplethData(data: Array<{ id: string; value: number }>) {
+    this.choroplethData.clear();
+    for (const d of data) this.choroplethData.set(d.id, d.value);
+    if (this.choroplethOptions) {
+      this.choroplethOptions = { ...this.choroplethOptions, data };
+      this.applyChoropleth();
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -278,12 +806,17 @@ class Renderer implements ClickMapInstance {
     if (!id) return null;
     const area = this.findAreaInCurrentView(id);
     if (!area) return null;
+    if (area.disabled) return null;
     return { area, el };
   }
 
   private findAreaInCurrentView(areaId: string): Area | null {
     const view = this.def.views.find((v) => v.id === this.currentViewId);
     if (!view) return null;
+    return this.findAreaInView(areaId, view);
+  }
+
+  private findAreaInView(areaId: string, view: View): Area | null {
     for (const layer of view.layers) {
       const a = layer.areas.find((a) => a.id === areaId);
       if (a) return a;
@@ -299,13 +832,19 @@ class Renderer implements ClickMapInstance {
     const hit = this.getAreaFromEvent(e);
     if (!hit) return;
     const { area, el } = hit;
+
+    const trigger = area.trigger ?? "both";
+    if (trigger === "click") return; // no hover style for click-only
+
     if (this.hoveredId === area.id) return;
 
     // Restore previous
     if (this.hoveredId) {
       const prev = this.findAreaInCurrentView(this.hoveredId);
       const prevEl = prev ? this.findAreaEl(this.hoveredId) : null;
-      if (prev && prevEl) this.applyStyle(prevEl, prev.style.default);
+      if (prev && prevEl) {
+        this.applyStyle(prevEl, prev.alwaysHighlight ? prev.style.hover : prev.style.default);
+      }
     }
 
     this.hoveredId = area.id;
@@ -314,13 +853,11 @@ class Renderer implements ClickMapInstance {
       type: "area:hover",
       areaId: area.id,
       areaName: area.name,
+      metadata: area.metadata,
     });
 
     if (area.tooltip?.enabled) {
-      this.showTooltip(
-        area.tooltip.title ?? area.name,
-        area.tooltip.body ?? ""
-      );
+      this.showTooltip(area);
     }
   }
 
@@ -335,7 +872,9 @@ class Renderer implements ClickMapInstance {
 
     const prev = this.findAreaInCurrentView(this.hoveredId);
     const prevEl = this.findAreaEl(this.hoveredId);
-    if (prev && prevEl) this.applyStyle(prevEl, prev.style.default);
+    if (prev && prevEl) {
+      this.applyStyle(prevEl, prev.alwaysHighlight ? prev.style.hover : prev.style.default);
+    }
 
     this.hoveredId = null;
     this.hideTooltip();
@@ -349,13 +888,18 @@ class Renderer implements ClickMapInstance {
     const hit = this.getAreaFromEvent(e);
     if (!hit) return;
     const { area } = hit;
+
+    const trigger = area.trigger ?? "both";
+    if (trigger === "hover") return; // hover-only: no click action
+
     this.emitter.emit({
       type: "area:click",
       areaId: area.id,
       areaName: area.name,
       action: area.action,
+      metadata: area.metadata,
     });
-    this.dispatchAction(area.action);
+    this.dispatchAction(area.action, area);
   }
 
   private onKeyDown(e: KeyboardEvent) {
@@ -363,16 +907,19 @@ class Renderer implements ClickMapInstance {
     const hit = this.getAreaFromEvent(e);
     if (!hit) return;
     e.preventDefault();
+    const trigger = hit.area.trigger ?? "both";
+    if (trigger === "hover") return;
     this.emitter.emit({
       type: "area:click",
       areaId: hit.area.id,
       areaName: hit.area.name,
       action: hit.area.action,
+      metadata: hit.area.metadata,
     });
-    this.dispatchAction(hit.area.action);
+    this.dispatchAction(hit.area.action, hit.area);
   }
 
-  private dispatchAction(action: Action) {
+  private dispatchAction(action: Action, area: Area) {
     switch (action.type) {
       case "url":
         window.open(action.href, action.target);
@@ -388,6 +935,8 @@ class Renderer implements ClickMapInstance {
         break;
       }
       case "popup":
+        this.openPopover(action, area);
+        break;
       case "toggleLayer":
       case "none":
         break;
@@ -395,11 +944,43 @@ class Renderer implements ClickMapInstance {
   }
 
   // -------------------------------------------------------------------------
-  // Tooltip
+  // Tooltip (issues #22, #23)
   // -------------------------------------------------------------------------
 
-  private showTooltip(title: string, body: string) {
+  private showTooltip(area: Area) {
+    const tt = area.tooltip!;
+    const settings = this.def.settings;
+
+    // Resolve title/body from content template or per-area fields
+    let title: string;
+    let body: string;
+
+    if (settings.contentTemplate) {
+      const view = this.def.views.find((v) => v.id === this.currentViewId);
+      const resolved = renderTemplate(settings.contentTemplate, {
+        name: area.name,
+        id: area.id,
+        metadata: area.metadata,
+        viewName: view?.name,
+      });
+      title = "";
+      body = resolved;
+    } else {
+      title = tt.title ?? area.name;
+      body = tt.body ?? "";
+    }
+
     this.tooltipEl.innerHTML = "";
+
+    // Rich tooltip: optional image (issue #23 B4)
+    if (tt.imageUrl) {
+      const img = document.createElement("img");
+      img.src = tt.imageUrl;
+      img.alt = "";
+      img.style.cssText = "display:block;width:100%;max-height:80px;object-fit:cover;border-radius:2px;margin-bottom:4px;";
+      this.tooltipEl.appendChild(img);
+    }
+
     if (title) {
       const t = document.createElement("strong");
       t.textContent = title;
@@ -407,7 +988,8 @@ class Renderer implements ClickMapInstance {
     }
     if (body) {
       const p = document.createElement("p");
-      p.textContent = body;
+      // Body is HTML — sanitise before inserting
+      p.innerHTML = sanitiseHtml(body);
       this.tooltipEl.appendChild(p);
     }
     this.tooltipEl.setAttribute("aria-hidden", "false");
@@ -426,6 +1008,132 @@ class Renderer implements ClickMapInstance {
   }
 
   // -------------------------------------------------------------------------
+  // Popover (issue #23 B1)
+  // -------------------------------------------------------------------------
+
+  private openPopover(action: import("../../shared/types.js").PopupAction, area: Area) {
+    const content = action.content;
+    this.popoverEl.innerHTML = "";
+
+    // Build content
+    if (content.imageUrl) {
+      const img = document.createElement("img");
+      img.src = content.imageUrl;
+      img.alt = "";
+      img.style.cssText = "display:block;width:100%;max-height:120px;object-fit:cover;border-radius:2px 2px 0 0;margin-bottom:6px;";
+      this.popoverEl.appendChild(img);
+    }
+
+    if (content.title) {
+      const h = document.createElement("strong");
+      h.style.cssText = "display:block;margin-bottom:4px;";
+      h.textContent = content.title;
+      this.popoverEl.appendChild(h);
+    }
+
+    if (content.body) {
+      const p = document.createElement("div");
+      p.innerHTML = sanitiseHtml(content.body);
+      p.style.fontSize = "12px";
+      this.popoverEl.appendChild(p);
+    }
+
+    if (content.linkHref) {
+      const a = document.createElement("a");
+      a.href = content.linkHref;
+      a.textContent = content.linkLabel ?? content.linkHref;
+      a.style.cssText = "display:block;margin-top:6px;font-size:12px;color:#3b82f6;";
+      this.popoverEl.appendChild(a);
+    }
+
+    // Close button
+    const closeBtn = document.createElement("button");
+    closeBtn.textContent = "×";
+    closeBtn.setAttribute("aria-label", "Close");
+    closeBtn.style.cssText =
+      "position:absolute;top:4px;right:6px;background:none;border:none;font-size:16px;cursor:pointer;line-height:1;";
+    closeBtn.addEventListener("click", () => this.closePopover());
+    this.popoverEl.appendChild(closeBtn);
+
+    // Position near area
+    const bbox = this.getAreaBBox(area);
+    const position = action.position ?? "auto";
+    this.positionPopover(bbox, position);
+
+    this.popoverEl.setAttribute("aria-hidden", "false");
+    this.popoverEl.classList.add("clickmap-popover--visible");
+    this.openPopoverId = area.id;
+
+    // Aria live announcement
+    this.ariaLiveEl.textContent = content.title ?? "Popup opened";
+    setTimeout(() => { this.ariaLiveEl.textContent = ""; }, 1000);
+
+    // Focus trap
+    setTimeout(() => closeBtn.focus(), 0);
+  }
+
+  private positionPopover(
+    bbox: { cx: number; cy: number; w: number; h: number } | null,
+    position: string
+  ) {
+    if (!bbox || !this.currentViewBox) {
+      this.popoverEl.style.top = "50%";
+      this.popoverEl.style.left = "50%";
+      this.popoverEl.style.transform = "translate(-50%, -50%)";
+      return;
+    }
+
+    const containerRect = this.container.getBoundingClientRect();
+    const scaleX = containerRect.width / (this.currentViewBox?.w || 1);
+    const scaleY = containerRect.height / (this.currentViewBox?.h || 1);
+    const offsetX = -(this.currentViewBox?.x ?? 0) * scaleX;
+    const offsetY = -(this.currentViewBox?.y ?? 0) * scaleY;
+
+    const cx = bbox.cx * scaleX + offsetX;
+    const cy = bbox.cy * scaleY + offsetY;
+    const areaH = bbox.h * scaleY;
+
+    let resolved = position;
+    if (resolved === "auto") {
+      resolved = cy > containerRect.height / 2 ? "top" : "bottom";
+    }
+
+    this.popoverEl.style.transform = "";
+    this.popoverEl.className = `clickmap-popover clickmap-popover--${resolved} clickmap-popover--visible`;
+
+    switch (resolved) {
+      case "top":
+        this.popoverEl.style.left = `${cx}px`;
+        this.popoverEl.style.top = `${cy - areaH / 2 - 8}px`;
+        this.popoverEl.style.transform = "translate(-50%, -100%)";
+        break;
+      case "bottom":
+        this.popoverEl.style.left = `${cx}px`;
+        this.popoverEl.style.top = `${cy + areaH / 2 + 8}px`;
+        this.popoverEl.style.transform = "translateX(-50%)";
+        break;
+      case "left":
+        this.popoverEl.style.left = `${cx - bbox.w * scaleX / 2 - 8}px`;
+        this.popoverEl.style.top = `${cy}px`;
+        this.popoverEl.style.transform = "translate(-100%, -50%)";
+        break;
+      case "right":
+        this.popoverEl.style.left = `${cx + bbox.w * scaleX / 2 + 8}px`;
+        this.popoverEl.style.top = `${cy}px`;
+        this.popoverEl.style.transform = "translateY(-50%)";
+        break;
+    }
+  }
+
+  private closePopover() {
+    if (this.openPopoverId === null) return;
+    this.openPopoverId = null;
+    this.popoverEl.setAttribute("aria-hidden", "true");
+    this.popoverEl.classList.remove("clickmap-popover--visible");
+    this.popoverEl.innerHTML = "";
+  }
+
+  // -------------------------------------------------------------------------
   // Responsive scaling
   // -------------------------------------------------------------------------
 
@@ -438,6 +1146,9 @@ class Renderer implements ClickMapInstance {
       this.viewEl.style.removeProperty("aspect-ratio");
     } else {
       this.viewEl.style.aspectRatio = `${this.viewW} / ${this.viewH}`;
+    }
+    if (this.def.settings.areaLabels?.enabled && this.def.settings.areaLabels.hideWhenSmaller !== false) {
+      this.updateLabelVisibility();
     }
   }
 
@@ -462,6 +1173,40 @@ class Renderer implements ClickMapInstance {
   }
 
   // -------------------------------------------------------------------------
+  // Deep linking (issue #25 D1)
+  // -------------------------------------------------------------------------
+
+  private initDeepLink() {
+    const hash = window.location.hash.slice(1); // strip #
+    if (!hash) return;
+    const [slugOrId, areaId] = hash.split("/");
+    if (!slugOrId) return;
+
+    const view = this.def.views.find((v) =>
+      v.slug === slugOrId || v.id === slugOrId
+    );
+    if (view && view.id !== this.currentViewId) {
+      this.currentViewId = view.id;
+      this.renderView(view.id);
+    }
+
+    if (areaId) {
+      const el = this.findAreaEl(areaId);
+      el?.setAttribute("data-deep-linked", "true");
+    }
+  }
+
+  private updateDeepLinkHash(viewId: string, areaId?: string) {
+    if (!this.options.deepLink?.enabled) return;
+    const view = this.def.views.find((v) => v.id === viewId);
+    if (!view) return;
+    const useSlug = this.options.deepLink.useSlug !== false;
+    const viewSlug = (useSlug && view.slug) ? view.slug : view.id;
+    const hash = areaId ? `${viewSlug}/${areaId}` : viewSlug;
+    history.replaceState(null, "", `#${hash}`);
+  }
+
+  // -------------------------------------------------------------------------
   // ClickMapInstance public API
   // -------------------------------------------------------------------------
 
@@ -476,6 +1221,7 @@ class Renderer implements ClickMapInstance {
       previousViewId: prev,
       currentViewId: viewId,
     });
+    this.updateDeepLinkHash(viewId);
   }
 
   goBack() {
@@ -489,12 +1235,14 @@ class Renderer implements ClickMapInstance {
       previousViewId: from,
       currentViewId: prev,
     });
+    this.updateDeepLinkHash(prev);
   }
 
   reset() {
     this.history = [];
     this.currentViewId = this.def.settings.initialViewId;
     this.renderView(this.currentViewId);
+    this.updateDeepLinkHash(this.currentViewId);
   }
 
   getCurrentView() {
@@ -508,7 +1256,14 @@ class Renderer implements ClickMapInstance {
   destroy() {
     if (this.roTimer !== null) clearTimeout(this.roTimer);
     this.ro.disconnect();
-    this.root.remove();
+    window.removeEventListener("keydown", this.onWindowKeyDown);
+    window.removeEventListener("keyup", this.onWindowKeyUp);
+    if (this.shadowRoot) {
+      // Remove shadow root by clearing the container's shadow
+      this.root.remove();
+    } else {
+      this.root.remove();
+    }
   }
 
   on<T extends ClickMapEventType>(
@@ -536,7 +1291,8 @@ type QueuedOp =
   | { kind: "goToView"; viewId: string }
   | { kind: "goBack" }
   | { kind: "reset" }
-  | { kind: "destroy" };
+  | { kind: "destroy" }
+  | { kind: "setChoroplethData"; data: Array<{ id: string; value: number }> };
 
 class DeferredRenderer implements ClickMapInstance {
   private inner: Renderer | null = null;
@@ -554,7 +1310,6 @@ class DeferredRenderer implements ClickMapInstance {
       .then((def) => {
         if (this.destroyed) return;
         this.inner = new Renderer(options, def);
-        // Replay queued event registrations first so listeners catch 'ready'
         for (const op of this.queue) {
           if (op.kind === "on")
             this.inner.on(op.type as ClickMapEventType, op.cb as never);
@@ -564,6 +1319,7 @@ class DeferredRenderer implements ClickMapInstance {
           else if (op.kind === "goBack") this.inner.goBack();
           else if (op.kind === "reset") this.inner.reset();
           else if (op.kind === "destroy") this.inner.destroy();
+          else if (op.kind === "setChoroplethData") this.inner.setChoroplethData(op.data);
         }
         this.queue = [];
       })
@@ -591,6 +1347,9 @@ class DeferredRenderer implements ClickMapInstance {
   getDefinition(): ClickMapDefinition {
     if (!this.inner) throw new Error("ClickMapRenderer: definition not yet loaded");
     return this.inner.getDefinition();
+  }
+  setChoroplethData(data: Array<{ id: string; value: number }>) {
+    this.inner ? this.inner.setChoroplethData(data) : this.queue.push({ kind: "setChoroplethData", data });
   }
   destroy() {
     this.destroyed = true;
@@ -626,4 +1385,12 @@ export function create(options: RendererOptions): ClickMapInstance {
   throw new Error(
     "ClickMapRenderer.create: provide either `definition` or `definitionUrl`"
   );
+}
+
+// ---------------------------------------------------------------------------
+// CSS injection helper — called by build to inline the CSS string
+// ---------------------------------------------------------------------------
+
+export function __setInlinedCSS(css: string) {
+  _inlinedCSS = css;
 }

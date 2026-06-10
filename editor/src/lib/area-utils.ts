@@ -30,6 +30,16 @@ export function createPolygonArea(points: [number, number][]): Area {
   };
 }
 
+export function createCircleArea(cx: number, cy: number, r: number): Area {
+  return {
+    id: makeAreaId(),
+    name: "Area",
+    geometry: { type: "circle", cx, cy, r },
+    style: DEFAULT_AREA_STYLE,
+    action: { type: "none" },
+  };
+}
+
 export function moveGeometry(geo: Geometry, dx: number, dy: number): Geometry {
   switch (geo.type) {
     case "rect":

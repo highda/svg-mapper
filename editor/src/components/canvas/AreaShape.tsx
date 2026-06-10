@@ -1,26 +1,42 @@
 import { useState } from "react";
-import type { Area } from "@svg-mapper/shared";
+import type { Area, CircleGeometry } from "@svg-mapper/shared";
 import { geometryToSvgPath, getRectHandles, type RectHandle } from "../../lib/area-utils";
 
 interface Props {
   area: Area;
   selected: boolean;
+  zoom?: number;
   onPointerDown: (e: React.PointerEvent, areaId: string) => void;
   onHandlePointerDown: (e: React.PointerEvent, areaId: string, handle: RectHandle) => void;
+  onCircleHandlePointerDown?: (e: React.PointerEvent, areaId: string) => void;
   onHoverChange: (areaId: string | null) => void;
 }
 
 const SELECTED_STROKE = "rgba(59,130,246,1)";
 const HANDLE_R = 5;
 
-export function AreaShape({ area, selected, onPointerDown, onHandlePointerDown, onHoverChange }: Props) {
+export function AreaShape({
+  area,
+  selected,
+  zoom = 1,
+  onPointerDown,
+  onHandlePointerDown,
+  onCircleHandlePointerDown,
+  onHoverChange,
+}: Props) {
   const [hovered, setHovered] = useState(false);
 
   const d = geometryToSvgPath(area.geometry);
   if (!d) return null;
 
   const isRect = area.geometry.type === "rect";
-  const activeStyle = hovered ? area.style.hover : area.style.default;
+  const isCircle = area.geometry.type === "circle";
+  const isDisabled = area.disabled === true;
+  const alwaysHL = area.alwaysHighlight === true;
+
+  const activeStyle = isDisabled
+    ? (area.style.disabled ?? { ...area.style.default, fill: "#9ca3af", stroke: "#6b7280" })
+    : (hovered || alwaysHL) ? area.style.hover : area.style.default;
 
   function handlePointerEnter() {
     setHovered(true);
@@ -31,16 +47,19 @@ export function AreaShape({ area, selected, onPointerDown, onHandlePointerDown, 
     onHoverChange(null);
   }
 
+  const hw = 1 / zoom; // handle stroke width
+
   return (
-    <g>
-      {/* Main area shape — renders actual user-configured style */}
+    <g style={{ opacity: isDisabled ? 0.6 : 1 }}>
+      {/* Main area shape */}
       <path
         d={d}
         fill={activeStyle.fill}
         stroke={activeStyle.stroke}
         strokeWidth={activeStyle.strokeWidth}
-        style={{ cursor: "move" }}
+        style={{ cursor: isDisabled ? "not-allowed" : "move" }}
         onPointerDown={(e) => {
+          if (isDisabled) return;
           e.stopPropagation();
           onPointerDown(e, area.id);
         }}
@@ -48,19 +67,31 @@ export function AreaShape({ area, selected, onPointerDown, onHandlePointerDown, 
         onPointerLeave={handlePointerLeave}
       />
 
-      {/* Selection overlay — always-visible dashed blue border, no fill */}
+      {/* alwaysHighlight indicator — dashed outline in editor */}
+      {alwaysHL && !selected && (
+        <path
+          d={d}
+          fill="none"
+          stroke="rgba(250,204,21,0.8)"
+          strokeWidth={1.5 / zoom}
+          strokeDasharray={`${4 / zoom},${3 / zoom}`}
+          style={{ pointerEvents: "none" }}
+        />
+      )}
+
+      {/* Selection overlay */}
       {selected && (
         <path
           d={d}
           fill="none"
           stroke={SELECTED_STROKE}
-          strokeWidth={2}
-          strokeDasharray="4,3"
+          strokeWidth={2 / zoom}
+          strokeDasharray={`${4 / zoom},${3 / zoom}`}
           style={{ pointerEvents: "none" }}
         />
       )}
 
-      {/* Resize handles (rects only) */}
+      {/* Rect resize handles */}
       {selected && isRect && (() => {
         const handles = getRectHandles(area.geometry as Parameters<typeof getRectHandles>[0]);
         return (Object.entries(handles) as [RectHandle, { x: number; y: number }][]).map(
@@ -69,10 +100,10 @@ export function AreaShape({ area, selected, onPointerDown, onHandlePointerDown, 
               key={handle}
               cx={pos.x}
               cy={pos.y}
-              r={HANDLE_R}
+              r={HANDLE_R / zoom}
               fill="white"
               stroke={SELECTED_STROKE}
-              strokeWidth={1.5}
+              strokeWidth={hw}
               style={{ cursor: "crosshair" }}
               onPointerDown={(e) => {
                 e.stopPropagation();
@@ -80,6 +111,28 @@ export function AreaShape({ area, selected, onPointerDown, onHandlePointerDown, 
               }}
             />
           ),
+        );
+      })()}
+
+      {/* Circle resize handle (east point) */}
+      {selected && isCircle && (() => {
+        const g = area.geometry as CircleGeometry & { type: "circle" };
+        const ex = g.cx + g.r;
+        const ey = g.cy;
+        return (
+          <circle
+            cx={ex}
+            cy={ey}
+            r={HANDLE_R / zoom}
+            fill="white"
+            stroke={SELECTED_STROKE}
+            strokeWidth={hw}
+            style={{ cursor: "ew-resize" }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              onCircleHandlePointerDown?.(e, area.id);
+            }}
+          />
         );
       })()}
     </g>

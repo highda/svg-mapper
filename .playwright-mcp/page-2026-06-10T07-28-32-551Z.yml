@@ -1,0 +1,172 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - button "Untitled Map" [ref=e6]
+    - navigation [ref=e7]:
+      - button "Design" [ref=e8]
+      - button "Tree" [ref=e9]
+      - button "Flow" [active] [ref=e10]
+      - button "Preview" [ref=e11]
+      - button "Export" [ref=e12]
+    - generic [ref=e13]:
+      - button "↩" [ref=e14]
+      - button "↪" [disabled] [ref=e15]
+    - generic [ref=e16]:
+      - button "New" [ref=e17]
+      - button "Open" [ref=e18]
+      - button "Save" [ref=e19]
+  - generic [ref=e20]:
+    - complementary [ref=e21]:
+      - generic [ref=e22]:
+        - generic [ref=e23]: Views & Layers
+        - button "+ View" [ref=e24]
+      - generic [ref=e25]:
+        - generic [ref=e26]:
+          - generic [ref=e27] [cursor=pointer]:
+            - button "▾" [ref=e28]
+            - generic "Main View" [ref=e29]
+            - button "⧉" [ref=e30]
+            - button "✕" [ref=e377]
+          - generic [ref=e31]:
+            - generic [ref=e85]:
+              - generic [ref=e86]:
+                - generic "Drag to reorder" [ref=e87]: ⠿
+                - button "▾" [ref=e88]
+                - generic "Layer 1" [ref=e89]
+                - button "○" [ref=e90]
+                - button "🔓" [ref=e91]
+              - button "▸ Area" [ref=e93]:
+                - generic [ref=e94]: ▸
+                - generic [ref=e95]: Area
+            - button "+ Add Layer" [ref=e460]
+        - generic [ref=e379] [cursor=pointer]:
+          - button "▾" [ref=e380]
+          - generic "View 2" [ref=e381]
+          - button "⧉" [ref=e382]
+          - button "✕" [ref=e383]
+        - generic [ref=e420] [cursor=pointer]:
+          - button "▾" [ref=e421]
+          - generic "View 3" [ref=e422]
+          - button "⧉" [ref=e423]
+          - button "✕" [ref=e424]
+    - main [ref=e781]:
+      - application [ref=e782]:
+        - generic [ref=e784]:
+          - generic:
+            - generic:
+              - img:
+                - img "Edge from view_o49as7o3 to view_995j0xx3":
+                  - generic [ref=e785]:
+                    - generic: Area
+            - generic:
+              - group [ref=e787]:
+                - generic [ref=e788]:
+                  - generic [ref=e790]:
+                    - generic [ref=e791]: Main View
+                    - generic "Initial view" [ref=e792]: START
+                  - generic [ref=e793]: 1 area
+              - group [ref=e795]:
+                - generic [ref=e796]:
+                  - generic [ref=e799]: View 2
+                  - generic [ref=e800]: 0 areas
+              - group [ref=e802]:
+                - generic [ref=e803]:
+                  - generic [ref=e805]:
+                    - generic [ref=e806]: View 3
+                    - generic "Orphan view — not reachable from the initial view via goToView actions" [ref=e807]: ⚠ ORPHAN
+                  - generic [ref=e808]: 0 areas
+        - img
+        - generic "Control Panel" [ref=e810]:
+          - button "Zoom In" [ref=e811] [cursor=pointer]:
+            - img [ref=e812]
+          - button "Zoom Out" [ref=e814] [cursor=pointer]:
+            - img [ref=e815]
+          - button "Fit View" [ref=e817] [cursor=pointer]:
+            - img [ref=e818]
+    - complementary [ref=e45]:
+      - generic [ref=e46]: Inspector
+      - generic [ref=e688]:
+        - generic [ref=e689]: Area
+        - generic [ref=e690]:
+          - generic [ref=e691]: Name
+          - textbox [ref=e693]: Area
+        - generic [ref=e694]:
+          - generic [ref=e695]: ID
+          - textbox [ref=e697]: area_hhbpiep8
+        - generic [ref=e698]: Geometry
+        - generic [ref=e699]:
+          - generic [ref=e700]:
+            - generic [ref=e701]: X
+            - spinbutton [ref=e703]: "-139.5"
+          - generic [ref=e704]:
+            - generic [ref=e705]: "Y"
+            - spinbutton [ref=e707]: "-218.5"
+          - generic [ref=e708]:
+            - generic [ref=e709]: W
+            - spinbutton [ref=e711]: "120"
+          - generic [ref=e712]:
+            - generic [ref=e713]: H
+            - spinbutton [ref=e715]: "90"
+          - generic [ref=e716]:
+            - generic [ref=e717]: Radius
+            - spinbutton [ref=e719]: "0"
+        - generic [ref=e720]: Style
+        - generic [ref=e721]:
+          - generic [ref=e722]: Default
+          - generic [ref=e723]:
+            - generic [ref=e724]: Fill
+            - textbox "rgba(0,0,0,0)" [ref=e726]: rgba(59,130,246,0.08)
+          - generic [ref=e727]:
+            - generic [ref=e728]: Stroke
+            - textbox "rgba(0,0,0,0)" [ref=e730]: rgba(59,130,246,0.6)
+          - generic [ref=e731]:
+            - generic [ref=e732]: Width
+            - spinbutton [ref=e734]: "2"
+        - generic [ref=e735]:
+          - generic [ref=e736]: Hover
+          - generic [ref=e737]:
+            - generic [ref=e738]: Fill
+            - textbox "rgba(0,0,0,0)" [ref=e740]: rgba(59,130,246,0.25)
+          - generic [ref=e741]:
+            - generic [ref=e742]: Stroke
+            - textbox "rgba(0,0,0,0)" [ref=e744]: rgba(59,130,246,0.9)
+          - generic [ref=e745]:
+            - generic [ref=e746]: Width
+            - spinbutton [ref=e748]: "2"
+        - generic [ref=e749]:
+          - generic [ref=e750]: Active
+          - generic [ref=e751]:
+            - generic [ref=e752]: Fill
+            - textbox "rgba(0,0,0,0)" [ref=e754]: rgba(59,130,246,0.35)
+          - generic [ref=e755]:
+            - generic [ref=e756]: Stroke
+            - textbox "rgba(0,0,0,0)" [ref=e758]: rgba(59,130,246,1)
+          - generic [ref=e759]:
+            - generic [ref=e760]: Width
+            - spinbutton [ref=e762]: "3"
+        - generic [ref=e763]: Tooltip
+        - generic [ref=e765] [cursor=pointer]:
+          - checkbox "Enable tooltip" [ref=e766]
+          - text: Enable tooltip
+        - generic [ref=e767]: Action
+        - generic [ref=e768]:
+          - generic [ref=e769]:
+            - generic [ref=e770]: Type
+            - combobox [ref=e772]:
+              - option "None"
+              - option "URL"
+              - option "Go to View" [selected]
+          - generic [ref=e773]:
+            - generic [ref=e774]: Target
+            - combobox [ref=e776]:
+              - option "Main View"
+              - option "View 2" [selected]
+              - option "View 3"
+          - generic [ref=e777]:
+            - generic [ref=e778]: Transition
+            - combobox [ref=e780]:
+              - option "Fade" [selected]
+              - option "None"
+  - contentinfo [ref=e81]:
+    - generic [ref=e82]: "Zoom: 100%"
+    - generic [ref=e83]: "Views: 3"
+    - generic [ref=e84]: svg-mapper editor

@@ -1,0 +1,71 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - button "Untitled Map" [ref=e6]
+    - navigation [ref=e7]:
+      - button "Design" [ref=e8]
+      - button "Tree" [ref=e9]
+      - button "Flow" [ref=e10]
+      - button "Preview" [ref=e11]
+      - button "Export" [ref=e12]
+    - generic [ref=e13]:
+      - button "↩" [disabled] [ref=e14]
+      - button "↪" [disabled] [ref=e15]
+    - generic [ref=e16]:
+      - button "New" [ref=e17]
+      - button "Open" [ref=e18]
+      - button "Save" [ref=e19]
+  - generic [ref=e20]:
+    - complementary [ref=e21]:
+      - generic [ref=e22]:
+        - generic [ref=e23]: Views & Layers
+        - button "+ View" [ref=e24]
+      - generic [ref=e26]:
+        - generic [ref=e27] [cursor=pointer]:
+          - button "▾" [ref=e28]
+          - generic "Main View" [ref=e29]
+          - button "⧉" [ref=e30]
+        - button "+ Add Layer" [ref=e32]
+    - generic [ref=e33]:
+      - generic [ref=e34]:
+        - button "↖" [ref=e35]
+        - button "▭" [active] [ref=e36]
+        - button "⬡" [ref=e37]
+      - generic [ref=e38]:
+        - button "Import background" [ref=e40]
+        - img [ref=e42]
+    - complementary [ref=e45]:
+      - generic [ref=e46]: Inspector
+      - generic [ref=e48]:
+        - generic [ref=e49]: View
+        - generic [ref=e50]:
+          - generic [ref=e51]: Name
+          - textbox [ref=e53]: Main View
+        - generic [ref=e54]:
+          - generic [ref=e55]: Background
+          - combobox [ref=e57]:
+            - option "— none —" [selected]
+        - generic [ref=e58]: Dimensions
+        - generic [ref=e59]:
+          - generic [ref=e60]: Width
+          - spinbutton [ref=e62]: "1600"
+        - generic [ref=e63]:
+          - generic [ref=e64]: Height
+          - spinbutton [ref=e66]: "900"
+        - generic [ref=e67]: Viewport
+        - generic [ref=e68]:
+          - generic [ref=e69] [cursor=pointer]:
+            - checkbox "Pan enabled" [checked] [ref=e70]
+            - text: Pan enabled
+          - generic [ref=e71] [cursor=pointer]:
+            - checkbox "Zoom enabled" [checked] [ref=e72]
+            - text: Zoom enabled
+          - generic [ref=e73]:
+            - generic [ref=e74]: Min zoom
+            - spinbutton [ref=e76]: "1"
+          - generic [ref=e77]:
+            - generic [ref=e78]: Max zoom
+            - spinbutton [ref=e80]: "4"
+  - contentinfo [ref=e81]:
+    - generic [ref=e82]: "Zoom: 100%"
+    - generic [ref=e83]: "Views: 1"
+    - generic [ref=e84]: svg-mapper editor

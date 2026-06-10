@@ -92,6 +92,8 @@ export interface AreaStyle {
   default: AreaStyleState;
   hover: AreaStyleState;
   active: AreaStyleState;
+  /** Rendered when area.disabled is true (issue #22). */
+  disabled?: AreaStyleState;
 }
 
 // ---------------------------------------------------------------------------
@@ -117,9 +119,19 @@ export interface GoToViewAction {
   transition?: TransitionType;
 }
 
+export type PopupPosition = "auto" | "top" | "bottom" | "left" | "right";
+
 export interface PopupAction {
   type: "popup";
-  popupId: string;
+  content: {
+    title?: string;
+    /** HTML allowed; sanitised by renderer before insertion. */
+    body?: string;
+    imageUrl?: string;
+    linkHref?: string;
+    linkLabel?: string;
+  };
+  position?: PopupPosition;
 }
 
 export interface ToggleLayerAction {
@@ -148,7 +160,10 @@ export type Action =
 export interface Tooltip {
   enabled: boolean;
   title?: string;
+  /** HTML allowed; sanitised by renderer before insertion. */
   body?: string;
+  /** Optional thumbnail shown above title. */
+  imageUrl?: string;
 }
 
 export interface AreaAccessibility {
@@ -160,6 +175,15 @@ export interface AreaAccessibility {
 // Area
 // ---------------------------------------------------------------------------
 
+export type AreaTrigger = "click" | "hover" | "both";
+
+export interface AreaLabel {
+  /** Overrides area.name when set. */
+  text?: string;
+  /** Per-area visibility override; undefined = follows project setting. */
+  visible?: boolean;
+}
+
 export interface Area {
   id: string;
   name: string;
@@ -169,6 +193,14 @@ export interface Area {
   action: Action;
   accessibility?: AreaAccessibility;
   metadata?: Record<string, unknown>;
+  /** Controls which pointer events trigger hover/click behaviour. Default "both". */
+  trigger?: AreaTrigger;
+  /** When true the renderer renders the area in its hover style permanently. */
+  alwaysHighlight?: boolean;
+  /** When true the area is non-interactive and visually distinct. */
+  disabled?: boolean;
+  /** Per-area label override (see Settings.areaLabels). */
+  label?: AreaLabel;
 }
 
 // ---------------------------------------------------------------------------
@@ -220,7 +252,7 @@ export interface View {
 }
 
 // ---------------------------------------------------------------------------
-// Popup
+// Popup (legacy — kept for backwards compat; new popup content lives in PopupAction)
 // ---------------------------------------------------------------------------
 
 export interface Popup {
@@ -230,6 +262,52 @@ export interface Popup {
   body?: string;
   /** When true, body is rendered as HTML (export-time warning emitted). */
   allowHtml?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Area labels project setting
+// ---------------------------------------------------------------------------
+
+export interface AreaLabelsSettings {
+  enabled: boolean;
+  fontSize?: number;
+  color?: string;
+  fontWeight?: string;
+  /** Auto-hide label when its rendered width exceeds the area bounding-box width. */
+  hideWhenSmaller?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Scene switcher setting
+// ---------------------------------------------------------------------------
+
+export type SceneSwitcherPosition =
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right"
+  | "top-center"
+  | "bottom-center";
+
+export interface SceneSwitcherSettings {
+  enabled: boolean;
+  position: SceneSwitcherPosition;
+  style?: "tabs" | "buttons" | "dropdown";
+}
+
+// ---------------------------------------------------------------------------
+// Zoom controls setting
+// ---------------------------------------------------------------------------
+
+export type ZoomControlsPosition =
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right";
+
+export interface ZoomControlsSettings {
+  enabled: boolean;
+  position?: ZoomControlsPosition;
 }
 
 // ---------------------------------------------------------------------------
@@ -246,6 +324,16 @@ export interface Settings {
   theme: ThemeName;
   enableHistory: boolean;
   enableKeyboardNavigation: boolean;
+  /** Mustache-style template evaluated for tooltip/popover content. */
+  contentTemplate?: string;
+  /** Project-wide area label rendering settings. */
+  areaLabels?: AreaLabelsSettings;
+  /** Built-in view-switcher control rendered inside the map container. */
+  sceneSwitcher?: SceneSwitcherSettings;
+  /** Built-in +/− zoom buttons rendered inside the map container. */
+  zoomControls?: ZoomControlsSettings;
+  /** Expands the effective viewBox by these amounts (canvas units). */
+  padding?: { top: number; right: number; bottom: number; left: number };
 }
 
 // ---------------------------------------------------------------------------
@@ -307,10 +395,33 @@ export interface ProjectFile extends ClickMapDefinition {
 // Renderer public API types
 // ---------------------------------------------------------------------------
 
+export interface ChoroplethOptions {
+  data: Array<{ id: string; value: number }>;
+  colorLow: string;
+  colorHigh: string;
+  noDataColor?: string;
+  /** Render a legend element inside the container. */
+  legend?: boolean;
+}
+
+export interface DeepLinkOptions {
+  enabled: boolean;
+  /** Use view.slug in hash when available (default true). */
+  useSlug?: boolean;
+}
+
 export interface RendererOptions {
   container: string | HTMLElement;
   definition?: ClickMapDefinition;
   definitionUrl?: string;
+  /** Choropleth data-driven fill colouring. */
+  choropleth?: ChoroplethOptions;
+  /** URL hash–based deep linking. */
+  deepLink?: DeepLinkOptions;
+  /** Wrap renderer DOM in a shadow root to isolate from host-page CSS. */
+  shadowDom?: boolean;
+  /** Extra CSS injected into the shadow root (only used when shadowDom: true). */
+  css?: string;
 }
 
 export interface ClickMapReadyEvent {
@@ -328,6 +439,7 @@ export interface ClickMapAreaHoverEvent {
   type: "area:hover";
   areaId: string;
   areaName: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ClickMapAreaClickEvent {
@@ -335,6 +447,7 @@ export interface ClickMapAreaClickEvent {
   areaId: string;
   areaName: string;
   action: Action;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ClickMapPopupOpenEvent {
@@ -371,6 +484,7 @@ export interface ClickMapInstance {
   getCurrentView(): string;
   getDefinition(): ClickMapDefinition;
   destroy(): void;
+  setChoroplethData(data: Array<{ id: string; value: number }>): void;
   on<T extends ClickMapEventType>(
     eventName: T,
     callback: (event: Extract<ClickMapEvent, { type: T }>) => void
@@ -380,3 +494,4 @@ export interface ClickMapInstance {
     callback: (event: Extract<ClickMapEvent, { type: T }>) => void
   ): void;
 }
+

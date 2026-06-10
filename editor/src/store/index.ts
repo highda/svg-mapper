@@ -4,11 +4,14 @@ import { current } from "immer";
 import type {
   Action,
   Area,
+  AreaLabel,
   AreaStyle,
+  AreaTrigger,
   Asset,
   EditorState,
   Layer,
   ProjectFile,
+  Settings,
   Tooltip,
   ValidationRef,
   View,
@@ -28,7 +31,7 @@ import { findAreaLocation, moveGeometry } from "../lib/area-utils";
 // ---------------------------------------------------------------------------
 
 export type Screen = "design" | "tree" | "flow" | "preview" | "export";
-export type Tool = "select" | "rect" | "polygon";
+export type Tool = "select" | "rect" | "polygon" | "circle";
 
 interface HistorySnapshot {
   views: View[];
@@ -95,8 +98,18 @@ export interface AppState {
   updateAreaStyle: (areaId: string, style: AreaStyle) => void;
   updateAreaTooltip: (areaId: string, tooltip: Tooltip | undefined) => void;
   updateAreaAction: (areaId: string, action: Action) => void;
+  updateAreaMetadata: (areaId: string, metadata: Record<string, unknown>) => void;
+  updateAreaInteraction: (areaId: string, patch: { trigger?: AreaTrigger; alwaysHighlight?: boolean; disabled?: boolean }) => void;
+  updateAreaLabel: (areaId: string, label: AreaLabel | undefined) => void;
   deleteArea: (areaId: string) => void;
   duplicateArea: (areaId: string) => void;
+
+  // ── Settings ──────────────────────────────────────────────────────────────
+  updateSettings: (patch: Partial<Settings>) => void;
+
+  // ── Canvas size suggestion (issue #28 I4) ─────────────────────────────────
+  canvasSizeSuggestion: { width: number; height: number } | null;
+  dismissCanvasSizeSuggestion: () => void;
 
   // ── Undo / redo ──────────────────────────────────────────────────────────
   undo: () => void;
@@ -179,6 +192,7 @@ export const useStore = create<AppState>()(
     future: [],
     historyVersion: 0,
     clipboardArea: null,
+    canvasSizeSuggestion: null,
 
     // ── Project lifecycle ──────────────────────────────────────────────────
 
@@ -193,6 +207,7 @@ export const useStore = create<AppState>()(
         s.past = [];
         s.future = [];
         s.openError = null;
+        s.canvasSizeSuggestion = null;
       });
     },
 
@@ -208,6 +223,7 @@ export const useStore = create<AppState>()(
           s.past = [];
           s.future = [];
           s.openError = null;
+          s.canvasSizeSuggestion = null;
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error parsing file.";
@@ -315,6 +331,14 @@ export const useStore = create<AppState>()(
             opacity: 1,
             areas: [],
           });
+        }
+        // Suggest canvas resize if image dimensions differ (issue #28 I4)
+        const asset = s.project.assets.find((a) => a.id === assetId);
+        if (asset && asset.width > 0 && asset.height > 0) {
+          const { width, height } = s.project.settings.canvasSize;
+          if (asset.width !== width || asset.height !== height) {
+            s.canvasSizeSuggestion = { width: asset.width, height: asset.height };
+          }
         }
       });
     },
@@ -576,6 +600,38 @@ export const useStore = create<AppState>()(
       });
     },
 
+    updateAreaMetadata(areaId: string, metadata: Record<string, unknown>) {
+      set((s) => {
+        const loc = findAreaLocation(s.project.views as unknown as View[], areaId);
+        if (!loc) return;
+        pushHistory(s);
+        s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx].metadata =
+          metadata as typeof s.project.views[0]["layers"][0]["areas"][0]["metadata"];
+      });
+    },
+
+    updateAreaInteraction(areaId: string, patch: { trigger?: AreaTrigger; alwaysHighlight?: boolean; disabled?: boolean }) {
+      set((s) => {
+        const loc = findAreaLocation(s.project.views as unknown as View[], areaId);
+        if (!loc) return;
+        pushHistory(s);
+        const area = s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx];
+        if (patch.trigger !== undefined) (area as Area).trigger = patch.trigger;
+        if (patch.alwaysHighlight !== undefined) (area as Area).alwaysHighlight = patch.alwaysHighlight;
+        if (patch.disabled !== undefined) (area as Area).disabled = patch.disabled;
+      });
+    },
+
+    updateAreaLabel(areaId: string, label: import("@svg-mapper/shared").AreaLabel | undefined) {
+      set((s) => {
+        const loc = findAreaLocation(s.project.views as unknown as View[], areaId);
+        if (!loc) return;
+        pushHistory(s);
+        (s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx] as Area).label =
+          label as typeof s.project.views[0]["layers"][0]["areas"][0]["label"];
+      });
+    },
+
     deleteArea(areaId: string) {
       set((s) => {
         const loc = findAreaLocation(s.project.views as unknown as View[], areaId);
@@ -677,6 +733,19 @@ export const useStore = create<AppState>()(
         s.selectedLayerId = null;
         s.historyVersion += 1;
       });
+    },
+
+    // ── Settings ──────────────────────────────────────────────────────────────
+
+    updateSettings(patch: Partial<Settings>) {
+      set((s) => {
+        pushHistory(s);
+        s.project.settings = { ...s.project.settings, ...patch } as typeof s.project.settings;
+      });
+    },
+
+    dismissCanvasSizeSuggestion() {
+      set((s) => { s.canvasSizeSuggestion = null; });
     },
 
     // ── Validation ───────────────────────────────────────────────────────────

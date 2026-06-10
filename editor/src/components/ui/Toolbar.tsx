@@ -11,6 +11,7 @@ const TOOLS: ToolButton[] = [
   { id: "select", label: "↖", shortcut: "V", title: "Select (V)" },
   { id: "rect", label: "▭", shortcut: "R", title: "Rectangle (R)" },
   { id: "polygon", label: "⬡", shortcut: "P", title: "Polygon (P)" },
+  { id: "circle", label: "○", shortcut: "C", title: "Circle (C)" },
 ];
 
 export function Toolbar() {

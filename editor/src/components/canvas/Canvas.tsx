@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Area } from "@svg-mapper/shared";
+import type { Area, CircleGeometry } from "@svg-mapper/shared";
 import { useStore } from "../../store";
 import { AreaShape } from "./AreaShape";
 import {
   createRectArea,
   createPolygonArea,
+  createCircleArea,
   polygonPointsToString,
   resizeRect,
   moveGeometry,
@@ -69,6 +70,8 @@ export function Canvas() {
   const [polyPreview, setPolyPreview] = useState<[number, number] | null>(null);
   const [isSpaceDown, setIsSpaceDown] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
+  // Circle drawing preview
+  const [circlePreview, setCirclePreview] = useState<{ cx: number; cy: number; r: number } | null>(null);
 
   // Tooltip hover state
   const [hoveredAreaId, setHoveredAreaId] = useState<string | null>(null);
@@ -79,7 +82,7 @@ export function Canvas() {
 
   // Drag state (refs to avoid re-renders during drag)
   const drag = useRef<{
-    type: "pan" | "move" | "draw-rect" | "resize";
+    type: "pan" | "move" | "draw-rect" | "resize" | "draw-circle" | "resize-circle";
     startSvg: { x: number; y: number };
     startContent: { x: number; y: number };
     areaId?: string;
@@ -137,6 +140,41 @@ export function Canvas() {
       if (e.key === "v" || e.key === "V") { setActiveTool("select"); return; }
       if (e.key === "r" || e.key === "R") { setActiveTool("rect"); return; }
       if (e.key === "p" || e.key === "P") { setActiveTool("polygon"); return; }
+      if (e.key === "c" || e.key === "C") { setActiveTool("circle"); return; }
+      if (e.key === "g" || e.key === "G") {
+        const grid = useStore.getState().project.editor?.grid;
+        setEditorState({ grid: { enabled: !(grid?.enabled ?? false), size: grid?.size ?? 10 } });
+        return;
+      }
+      if (e.key === "f" || e.key === "F") {
+        // Zoom to fit selection or canvas
+        const svg = svgRef.current;
+        if (!svg) return;
+        const { width: svgW, height: svgH } = svg.getBoundingClientRect();
+        const { selectedAreaId: saId, project: proj } = useStore.getState();
+        const cv = proj.settings.canvasSize;
+        let targetX = 0, targetY = 0, targetW = cv.width, targetH = cv.height;
+        if (saId) {
+          for (const v of proj.views) {
+            for (const l of v.layers) {
+              const a = l.areas.find((ar) => ar.id === saId);
+              if (a) {
+                const g = a.geometry;
+                if (g.type === "rect") { targetX = g.x; targetY = g.y; targetW = g.width; targetH = g.height; }
+                else if (g.type === "circle") { targetX = g.cx - g.r; targetY = g.cy - g.r; targetW = g.r * 2; targetH = g.r * 2; }
+              }
+            }
+          }
+        }
+        const margin = 0.8;
+        const newZoom = Math.min((svgW * margin) / targetW, (svgH * margin) / targetH);
+        const centerX = targetX + targetW / 2;
+        const centerY = targetY + targetH / 2;
+        const newPanX = -centerX * newZoom;
+        const newPanY = -centerY * newZoom;
+        setEditorState({ zoom: newZoom, pan: { x: newPanX, y: newPanY } });
+        return;
+      }
       if ((e.key === "Delete" || e.key === "Backspace") && selectedAreaId) {
         deleteArea(selectedAreaId);
         return;
@@ -225,6 +263,9 @@ export function Canvas() {
     undo,
     redo,
     setEditorState,
+    panX,
+    panY,
+    canvasSize,
   ]);
 
   // ── Pointer events ────────────────────────────────────────────────────────
@@ -275,6 +316,10 @@ export function Canvas() {
         startContent: cp,
       };
       setPreviewRect({ x: cp.x, y: cp.y, width: 0, height: 0 });
+    } else if (activeTool === "circle") {
+      svg.setPointerCapture(e.pointerId);
+      drag.current = { type: "draw-circle", startSvg: sp, startContent: cp };
+      setCirclePreview({ cx: cp.x, cy: cp.y, r: 0 });
     } else if (activeTool === "polygon") {
       setPolyPts((pts) => [...pts, [cp.x, cp.y]]);
     }
@@ -329,6 +374,30 @@ export function Canvas() {
       startContent: cp,
       areaId,
       handle,
+      areaGeoBefore: geoSnapshot,
+    };
+  }
+
+  function onCircleHandlePointerDown(e: React.PointerEvent, areaId: string) {
+    if (!svgRef.current) return;
+    const svg = svgRef.current;
+    const sp = svgPoint(e, svg);
+    const cp = toContent(sp);
+
+    let geoSnapshot: Area["geometry"] | undefined;
+    for (const view of project.views) {
+      for (const layer of view.layers) {
+        const a = layer.areas.find((ar) => ar.id === areaId);
+        if (a) { geoSnapshot = a.geometry; break; }
+      }
+    }
+
+    svg.setPointerCapture(e.pointerId);
+    drag.current = {
+      type: "resize-circle",
+      startSvg: sp,
+      startContent: cp,
+      areaId,
       areaGeoBefore: geoSnapshot,
     };
   }
@@ -409,6 +478,26 @@ export function Canvas() {
           }
         }
       });
+    } else if (d.type === "draw-circle") {
+      const r = Math.sqrt(
+        Math.pow(cp.x - d.startContent.x, 2) + Math.pow(cp.y - d.startContent.y, 2)
+      );
+      setCirclePreview({ cx: d.startContent.x, cy: d.startContent.y, r });
+    } else if (d.type === "resize-circle" && d.areaId && d.areaGeoBefore) {
+      if (d.areaGeoBefore.type !== "circle") return;
+      const geo = d.areaGeoBefore as CircleGeometry & { type: "circle" };
+      const newR = Math.max(1, cp.x - geo.cx);
+      useStore.setState((s) => {
+        for (const v of s.project.views) {
+          for (const layer of v.layers) {
+            const a = layer.areas.find((ar) => ar.id === d.areaId);
+            if (a) {
+              (a as Area).geometry = { ...geo, r: newR } as (typeof a)["geometry"];
+              return;
+            }
+          }
+        }
+      });
     }
   }
 
@@ -449,6 +538,19 @@ export function Canvas() {
       const dy = cp.y - d.startContent.y;
       const finalGeo = resizeRect(d.areaGeoBefore, d.handle, dx, dy);
       useStore.getState().updateAreaGeometry(d.areaId, finalGeo);
+    } else if (d.type === "draw-circle") {
+      const r = Math.sqrt(
+        Math.pow(cp.x - d.startContent.x, 2) + Math.pow(cp.y - d.startContent.y, 2)
+      );
+      setCirclePreview(null);
+      if (r > 4) {
+        addArea(createCircleArea(d.startContent.x, d.startContent.y, r));
+      }
+    } else if (d.type === "resize-circle" && d.areaId && d.areaGeoBefore) {
+      if (d.areaGeoBefore.type !== "circle") return;
+      const geo = d.areaGeoBefore as CircleGeometry & { type: "circle" };
+      const newR = Math.max(1, cp.x - geo.cx);
+      useStore.getState().updateAreaGeometry(d.areaId, { ...geo, r: newR });
     }
   }
 
@@ -467,6 +569,7 @@ export function Canvas() {
     isSpaceDown ? "cursor-grab" :
     activeTool === "rect" ? "cursor-crosshair" :
     activeTool === "polygon" ? "cursor-crosshair" :
+    activeTool === "circle" ? "cursor-crosshair" :
     "cursor-default";
 
   // Find hovered area's tooltip for overlay
@@ -528,8 +631,10 @@ export function Canvas() {
                     key={area.id}
                     area={area}
                     selected={selectedAreaId === area.id}
+                    zoom={zoom}
                     onPointerDown={onAreaPointerDown}
                     onHandlePointerDown={onHandlePointerDown}
+                    onCircleHandlePointerDown={onCircleHandlePointerDown}
                     onHoverChange={setHoveredAreaId}
                   />
                 ))}
@@ -547,6 +652,19 @@ export function Canvas() {
               stroke="rgba(59,130,246,0.9)"
               strokeWidth={1.5 / zoom}
               strokeDasharray="4,3"
+            />
+          )}
+
+          {/* Circle drawing preview */}
+          {circlePreview && circlePreview.r > 0 && (
+            <circle
+              cx={circlePreview.cx}
+              cy={circlePreview.cy}
+              r={circlePreview.r}
+              fill="rgba(59,130,246,0.1)"
+              stroke="rgba(59,130,246,0.9)"
+              strokeWidth={1.5 / zoom}
+              strokeDasharray={`${4 / zoom},${3 / zoom}`}
             />
           )}
 

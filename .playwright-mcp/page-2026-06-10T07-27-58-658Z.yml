@@ -1,0 +1,94 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - button "Untitled Map" [ref=e6]
+    - navigation [ref=e7]:
+      - button "Design" [ref=e8]
+      - button "Tree" [ref=e9]
+      - button "Flow" [ref=e10]
+      - button "Preview" [ref=e11]
+      - button "Export" [ref=e12]
+    - generic [ref=e13]:
+      - button "↩" [ref=e14]
+      - button "↪" [disabled] [ref=e15]
+    - generic [ref=e16]:
+      - button "New" [ref=e17]
+      - button "Open" [ref=e18]
+      - button "Save" [ref=e19]
+  - generic [ref=e20]:
+    - complementary [ref=e21]:
+      - generic [ref=e22]:
+        - generic [ref=e23]: Views & Layers
+        - button "+ View" [active] [ref=e24]
+      - generic [ref=e25]:
+        - generic [ref=e26]:
+          - generic [ref=e27] [cursor=pointer]:
+            - button "▾" [ref=e28]
+            - generic "Main View" [ref=e29]
+            - button "⧉" [ref=e30]
+            - button "✕" [ref=e377]
+          - generic [ref=e85]:
+            - generic [ref=e86]:
+              - generic "Drag to reorder" [ref=e87]: ⠿
+              - button "▾" [ref=e88]
+              - generic "Layer 1" [ref=e89]
+              - button "○" [ref=e90]
+              - button "🔓" [ref=e91]
+            - button "▸ Area" [ref=e93]:
+              - generic [ref=e94]: ▸
+              - generic [ref=e95]: Area
+        - generic [ref=e379] [cursor=pointer]:
+          - button "▾" [ref=e380]
+          - generic "View 2" [ref=e381]
+          - button "⧉" [ref=e382]
+          - button "✕" [ref=e383]
+        - generic [ref=e419]:
+          - generic [ref=e420] [cursor=pointer]:
+            - button "▾" [ref=e421]
+            - generic "View 3" [ref=e422]
+            - button "⧉" [ref=e423]
+            - button "✕" [ref=e424]
+          - button "+ Add Layer" [ref=e426]
+    - generic [ref=e33]:
+      - generic [ref=e34]:
+        - button "↖" [ref=e35]
+        - button "▭" [ref=e36]
+        - button "⬡" [ref=e37]
+      - generic [ref=e38]:
+        - button "Import background" [ref=e40]
+        - img [ref=e42]
+    - complementary [ref=e45]:
+      - generic [ref=e46]: Inspector
+      - generic [ref=e427]:
+        - generic [ref=e428]: View
+        - generic [ref=e429]:
+          - generic [ref=e430]: Name
+          - textbox [ref=e432]: View 3
+        - generic [ref=e433]:
+          - generic [ref=e434]: Background
+          - combobox [ref=e436]:
+            - option "— none —" [selected]
+        - generic [ref=e437]: Dimensions
+        - generic [ref=e438]:
+          - generic [ref=e439]: Width
+          - spinbutton [ref=e441]: "1600"
+        - generic [ref=e442]:
+          - generic [ref=e443]: Height
+          - spinbutton [ref=e445]: "900"
+        - generic [ref=e446]: Viewport
+        - generic [ref=e447]:
+          - generic [ref=e448] [cursor=pointer]:
+            - checkbox "Pan enabled" [checked] [ref=e449]
+            - text: Pan enabled
+          - generic [ref=e450] [cursor=pointer]:
+            - checkbox "Zoom enabled" [checked] [ref=e451]
+            - text: Zoom enabled
+          - generic [ref=e452]:
+            - generic [ref=e453]: Min zoom
+            - spinbutton [ref=e455]: "1"
+          - generic [ref=e456]:
+            - generic [ref=e457]: Max zoom
+            - spinbutton [ref=e459]: "4"
+  - contentinfo [ref=e81]:
+    - generic [ref=e82]: "Zoom: 100%"
+    - generic [ref=e83]: "Views: 3"
+    - generic [ref=e84]: svg-mapper editor

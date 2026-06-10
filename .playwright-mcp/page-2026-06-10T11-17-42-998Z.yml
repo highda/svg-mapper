@@ -1,0 +1,163 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - button "Untitled Map" [ref=e6]
+    - navigation [ref=e7]:
+      - button "Design" [ref=e8]
+      - button "Tree" [ref=e9]
+      - button "Flow" [active] [ref=e10]
+      - button "Preview" [ref=e11]
+      - button "Export" [ref=e12]
+    - generic [ref=e13]:
+      - button "↩" [ref=e14]
+      - button "↪" [disabled] [ref=e15]
+    - generic [ref=e16]:
+      - button "New" [ref=e17]
+      - button "Open" [ref=e18]
+      - button "Save" [ref=e19]
+  - generic [ref=e20]:
+    - complementary [ref=e570]:
+      - generic [ref=e571]:
+        - generic [ref=e572]: Views & Layers
+        - button "+ View" [ref=e573]
+      - generic [ref=e574]:
+        - generic [ref=e575]:
+          - generic [ref=e576] [cursor=pointer]:
+            - button "▾" [ref=e577]
+            - generic "Main View" [ref=e578]
+            - button "⧉" [ref=e579]
+            - button "✕" [ref=e664]
+          - generic [ref=e580]:
+            - generic [ref=e581]:
+              - generic [ref=e582]:
+                - generic "Drag to reorder" [ref=e583]: ⠿
+                - button "▾" [ref=e584]
+                - generic "Layer 1" [ref=e585]
+                - button "○" [ref=e586]
+                - button "🔓" [ref=e587]
+              - button "▸ Area" [ref=e589]:
+                - generic [ref=e590]: ▸
+                - generic [ref=e591]: Area
+            - button "+ Add Layer" [ref=e708]
+        - generic [ref=e666] [cursor=pointer]:
+          - button "▾" [ref=e667]
+          - generic "View 2" [ref=e668]
+          - button "⧉" [ref=e669]
+          - button "✕" [ref=e670]
+    - main [ref=e1031]:
+      - application [ref=e1032]:
+        - generic [ref=e1034]:
+          - generic:
+            - generic:
+              - img:
+                - img "Edge from view_prt776pq to view_bzjbvo7q":
+                  - generic [ref=e1035]:
+                    - generic: Area
+            - generic:
+              - group [ref=e1037]:
+                - generic [ref=e1038]:
+                  - generic [ref=e1040]:
+                    - generic [ref=e1041]: Main View
+                    - generic "Initial view" [ref=e1042]: START
+                  - generic [ref=e1043]: 1 area
+              - group [ref=e1045]:
+                - generic [ref=e1046]:
+                  - generic [ref=e1049]: View 2
+                  - generic [ref=e1050]: 0 areas
+        - img
+        - generic "Control Panel" [ref=e1052]:
+          - button "Zoom In" [ref=e1053] [cursor=pointer]:
+            - img [ref=e1054]
+          - button "Zoom Out" [ref=e1056] [cursor=pointer]:
+            - img [ref=e1057]
+          - button "Fit View" [ref=e1059] [cursor=pointer]:
+            - img [ref=e1060]
+    - complementary [ref=e612]:
+      - generic [ref=e613]: Inspector
+      - generic [ref=e936]:
+        - generic [ref=e937]: Area
+        - generic [ref=e938]:
+          - generic [ref=e939]: Name
+          - textbox [ref=e941]: Area
+        - generic [ref=e942]:
+          - generic [ref=e943]: ID
+          - textbox [ref=e945]: area_qar97ap7
+        - generic [ref=e946]: Geometry
+        - generic [ref=e947]:
+          - generic [ref=e948]:
+            - generic [ref=e949]: X
+            - spinbutton [ref=e951]: "-254.5"
+          - generic [ref=e952]:
+            - generic [ref=e953]: "Y"
+            - spinbutton [ref=e955]: "-208.5"
+          - generic [ref=e956]:
+            - generic [ref=e957]: W
+            - spinbutton [ref=e959]: "200"
+          - generic [ref=e960]:
+            - generic [ref=e961]: H
+            - spinbutton [ref=e963]: "200"
+          - generic [ref=e964]:
+            - generic [ref=e965]: Radius
+            - spinbutton [ref=e967]: "0"
+        - generic [ref=e968]: Style
+        - generic [ref=e969]:
+          - generic [ref=e970]: Default
+          - generic [ref=e971]:
+            - generic [ref=e972]: Fill
+            - textbox "rgba(0,0,0,0)" [ref=e974]: rgba(59,130,246,0.08)
+          - generic [ref=e975]:
+            - generic [ref=e976]: Stroke
+            - textbox "rgba(0,0,0,0)" [ref=e978]: rgba(59,130,246,0.6)
+          - generic [ref=e979]:
+            - generic [ref=e980]: Width
+            - spinbutton [ref=e982]: "2"
+        - generic [ref=e983]:
+          - generic [ref=e984]: Hover
+          - generic [ref=e985]:
+            - generic [ref=e986]: Fill
+            - textbox "rgba(0,0,0,0)" [ref=e988]: rgba(59,130,246,0.25)
+          - generic [ref=e989]:
+            - generic [ref=e990]: Stroke
+            - textbox "rgba(0,0,0,0)" [ref=e992]: rgba(59,130,246,0.9)
+          - generic [ref=e993]:
+            - generic [ref=e994]: Width
+            - spinbutton [ref=e996]: "2"
+        - generic [ref=e997]:
+          - generic [ref=e998]: Active
+          - generic [ref=e999]:
+            - generic [ref=e1000]: Fill
+            - textbox "rgba(0,0,0,0)" [ref=e1002]: rgba(59,130,246,0.35)
+          - generic [ref=e1003]:
+            - generic [ref=e1004]: Stroke
+            - textbox "rgba(0,0,0,0)" [ref=e1006]: rgba(59,130,246,1)
+          - generic [ref=e1007]:
+            - generic [ref=e1008]: Width
+            - spinbutton [ref=e1010]: "3"
+        - generic [ref=e1011]: Tooltip
+        - generic [ref=e1013] [cursor=pointer]:
+          - checkbox "Enable tooltip" [ref=e1014]
+          - text: Enable tooltip
+        - generic [ref=e1015]: Action
+        - generic [ref=e1016]:
+          - generic [ref=e1017]:
+            - generic [ref=e1018]: Type
+            - combobox [ref=e1020]:
+              - option "None"
+              - option "URL"
+              - option "Go to View" [selected]
+          - generic [ref=e1021]:
+            - generic [ref=e1022]: Target
+            - combobox [ref=e1024]:
+              - option "Main View"
+              - option "View 2" [selected]
+          - generic [ref=e1025]:
+            - generic [ref=e1026]: Transition
+            - combobox [ref=e1028]:
+              - option "Fade" [selected]
+              - option "None"
+  - contentinfo [ref=e81]:
+    - generic [ref=e82]: "Zoom: 100%"
+    - generic [ref=e83]: "Views: 2"
+    - 'button "Validation: ✓ clean" [ref=e1029]':
+      - generic [ref=e85]: "Validation:"
+      - generic [ref=e1030]: ✓ clean
+    - generic [ref=e87]: svg-mapper editor

@@ -1,0 +1,97 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - button "Untitled Map" [ref=e6]
+    - navigation [ref=e7]:
+      - button "Design" [ref=e8]
+      - button "Tree" [ref=e9]
+      - button "Flow" [ref=e10]
+      - button "Preview" [ref=e11]
+      - button "Export" [active] [ref=e12]
+    - generic [ref=e13]:
+      - button "↩" [ref=e14]
+      - button "↪" [disabled] [ref=e15]
+    - generic [ref=e16]:
+      - button "New" [ref=e17]
+      - button "Open" [ref=e18]
+      - button "Save" [ref=e19]
+  - generic [ref=e20]:
+    - complementary [ref=e570]:
+      - generic [ref=e571]:
+        - generic [ref=e572]: Views & Layers
+        - button "+ View" [ref=e573]
+      - generic [ref=e575]:
+        - generic [ref=e576] [cursor=pointer]:
+          - button "▾" [ref=e577]
+          - generic "Main View" [ref=e578]
+          - button "⧉" [ref=e579]
+        - generic [ref=e580]:
+          - generic [ref=e581]:
+            - generic [ref=e582]:
+              - generic "Drag to reorder" [ref=e583]: ⠿
+              - button "▾" [ref=e584]
+              - generic "Layer 1" [ref=e585]
+              - button "○" [ref=e586]
+              - button "🔓" [ref=e587]
+            - button "▸ Area" [ref=e589]:
+              - generic [ref=e590]: ▸
+              - generic [ref=e591]: Area
+          - button "+ Add Layer" [ref=e592]
+    - main [ref=e593]:
+      - generic [ref=e594]:
+        - generic [ref=e595]:
+          - heading "Export" [level=2] [ref=e596]
+          - button "Download ZIP" [ref=e598]
+        - paragraph [ref=e599]: ✓ Validation passed — no issues found.
+        - generic [ref=e600]:
+          - heading "Package options" [level=3] [ref=e601]
+          - generic [ref=e602] [cursor=pointer]:
+            - checkbox "Inline assets into map.json (larger file, no separate assets/ folder)" [checked] [ref=e603]
+            - text: Inline assets into map.json (larger file, no separate assets/ folder)
+          - generic [ref=e604] [cursor=pointer]:
+            - checkbox "Use minified renderer (not yet available — coming soon)" [disabled] [ref=e605]
+            - text: Use minified renderer (not yet available — coming soon)
+        - generic [ref=e606]:
+          - heading "Quick copy" [level=3] [ref=e607]
+          - generic [ref=e608]:
+            - button "Copy embed snippet" [ref=e609]
+            - button "Copy map.json" [ref=e610]
+          - generic [ref=e611]: "<div id=\"clickmap\"></div> <link rel=\"stylesheet\" href=\"/maps/my-map/clickmap-renderer.css\"> <script src=\"/maps/my-map/clickmap-renderer.js\"></script> <script> ClickMapRenderer.create({ container: \"#clickmap\", definitionUrl: \"/maps/my-map/map.json\" }); </script>"
+    - complementary [ref=e612]:
+      - generic [ref=e613]: Inspector
+      - generic [ref=e615]:
+        - generic [ref=e616]: View
+        - generic [ref=e617]:
+          - generic [ref=e618]: Name
+          - textbox [ref=e620]: Main View
+        - generic [ref=e621]:
+          - generic [ref=e622]: Background
+          - combobox [ref=e624]:
+            - option "— none —" [selected]
+        - generic [ref=e625]: Dimensions
+        - generic [ref=e626]:
+          - generic [ref=e627]: Width
+          - spinbutton [ref=e629]: "1600"
+        - generic [ref=e630]:
+          - generic [ref=e631]: Height
+          - spinbutton [ref=e633]: "900"
+        - generic [ref=e634]: Viewport
+        - generic [ref=e635]:
+          - generic [ref=e636] [cursor=pointer]:
+            - checkbox "Pan enabled" [checked] [ref=e637]
+            - text: Pan enabled
+          - generic [ref=e638] [cursor=pointer]:
+            - checkbox "Zoom enabled" [checked] [ref=e639]
+            - text: Zoom enabled
+          - generic [ref=e640]:
+            - generic [ref=e641]: Min zoom
+            - spinbutton [ref=e643]: "1"
+          - generic [ref=e644]:
+            - generic [ref=e645]: Max zoom
+            - spinbutton [ref=e647]: "4"
+  - contentinfo [ref=e81]:
+    - generic [ref=e82]: "Zoom: 100%"
+    - generic [ref=e83]: "Views: 1"
+    - 'button "Validation: ✓ clean" [ref=e534]':
+      - generic [ref=e85]: "Validation:"
+      - generic [ref=e535]: ✓ clean
+    - generic [ref=e87]: svg-mapper editor

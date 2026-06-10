@@ -5,7 +5,7 @@ import { Toolbar } from "../components/ui/Toolbar";
 import { importFileAsAsset, isAllowedAssetType } from "../lib/asset";
 
 export function DesignScreen() {
-  const { activeViewId, importAsset, setViewBackground, openError, clearOpenError } = useStore();
+  const { activeViewId, importAsset, setViewBackground, openError, clearOpenError, canvasSizeSuggestion, dismissCanvasSizeSuggestion, setCanvasSize } = useStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
@@ -87,6 +87,30 @@ export function DesignScreen() {
               className="text-red-400 hover:text-red-200"
             >
               ✕
+            </button>
+          </div>
+        )}
+
+        {/* Canvas size suggestion banner (issue #28 I4) */}
+        {canvasSizeSuggestion && (
+          <div
+            role="alert"
+            className="flex items-center gap-2 border-b border-blue-700 bg-blue-950 px-3 py-1.5 text-xs text-blue-200"
+          >
+            <span className="flex-1">
+              Background image is {canvasSizeSuggestion.width}×{canvasSizeSuggestion.height} — match canvas size?
+            </span>
+            <button
+              onClick={() => { setCanvasSize(canvasSizeSuggestion.width, canvasSizeSuggestion.height); dismissCanvasSizeSuggestion(); }}
+              className="rounded bg-blue-700 px-2 py-0.5 text-xs text-white hover:bg-blue-600"
+            >
+              Yes
+            </button>
+            <button
+              onClick={dismissCanvasSizeSuggestion}
+              className="text-blue-400 hover:text-blue-200"
+            >
+              Dismiss
             </button>
           </div>
         )}
