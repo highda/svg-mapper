@@ -4,16 +4,20 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #9 — export: generate deployment package
-Branch:       feat/9-export
+Issue:        #10 — polish: keyboard shortcuts, accessibility, performance
+Branch:       feat/10-polish
 Started:      2026-06-10
-Last commit:  (claim)
+Last commit:  (in-progress, interrupted)
 
 ### What's done
-- #1–#8 merged; PR #19 (validation pipeline) merged.
+- #1–#9 merged; PR #20 (export pipeline) merged.
+- Partial #10 committed to feat/10-polish (not yet PR'd):
+  - Cmd+E → Export screen; ? → keyboard help overlay (ShortcutsHelp.tsx)
+  - Cmd+C / Cmd+V area copy/paste via store clipboardArea + copyArea + pasteArea
+  - All Appendix A shortcuts now functional
 
 ### What's next
-- ZIP generation with fflate; ExportScreen UI with download, copy snippet, copy map.json, inline/external toggle.
+- Remaining #10 items: ResizeObserver debounce in renderer, renderer a11y audit (already has tabindex/aria-label/focus styles/prefers-reduced-motion), final acceptance-criteria sweep, renderer rebuild + gzip size check.
 
 ### Notes / gotchas
 - Renderer must remain framework-free; do not introduce React or Tailwind into `/renderer`.
@@ -27,6 +31,7 @@ Last commit:  (claim)
 ---
 
 ## Ledger (most recent first)
+- 2026-06-10 — closed #9 — export pipeline: generateExportPackage() with fflate ZIP, inline/external assets toggle, index.html (works file://), embed.html, README.txt, Download ZIP + Copy embed snippet + Copy map.json; 7 new tests (88 total); PR #20.
 - 2026-06-10 — closed #8 — validation pipeline: validateProject() in /shared, ExportScreen with gated export + reveal links, BottomBar live badge, 10 new tests (88 total); PR #19.
 - 2026-05-12 — closed #5 — inspector sidebar + layers/views tree: View/Layer CRUD, area property updates, 22 new tests, 56 total; PR #15.
 - 2026-05-12 — closed #4 — design screen: SVG sanitizer, asset import, Canvas (pan/zoom), Select/Rect/Polygon tools, move/resize/delete/duplicate, undo/redo; 16 new tests; PR #14.
