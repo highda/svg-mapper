@@ -1,6 +1,7 @@
 import { useStore } from "../../store";
 import { DesignScreen } from "../../screens/DesignScreen";
 import { FlowScreen } from "../../screens/FlowScreen";
+import { PreviewScreen } from "../../screens/PreviewScreen";
 
 export function Workspace() {
   const screen = useStore((s) => s.screen);
@@ -10,6 +11,9 @@ export function Workspace() {
   }
   if (screen === "flow") {
     return <FlowScreen />;
+  }
+  if (screen === "preview") {
+    return <PreviewScreen />;
   }
 
   return (

@@ -4,18 +4,17 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #6 — editor: goToView and URL actions; multi-View linking
-Branch:       feat/6-view-linking
+Issue:        #7 — editor: Preview screen wired to the real renderer
+Branch:       feat/7-preview-screen
 Started:      2026-06-10
 Last commit:  (claim)
 
 ### What's done
-- #1–#5 merged; PR #16 (canvas/inspector bugfixes) merged.
+- #1–#6 merged; PR #16 (canvas/inspector bugfixes), PR #17 (view linking + Flow screen) merged.
 
 ### What's next
-- Inspector Action section (none/url/goToView) with URL validation.
-- Multi-View add/duplicate/delete; active View switching (verify existing tree coverage).
-- Flow screen (React Flow, read-only) with orphan-View badges.
+- Preview screen embedding the real /renderer runtime (no React reimplementation).
+- Responsive resizing / mobile viewport simulation; block-outbound-URLs toggle.
 
 ### Notes / gotchas
 - Renderer must remain framework-free; do not introduce React or Tailwind into `/renderer`.

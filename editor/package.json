@@ -4,7 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "npm --prefix ../renderer run build",
     "dev": "vite",
+    "prebuild": "npm --prefix ../renderer run build",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
