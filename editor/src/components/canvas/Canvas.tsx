@@ -14,7 +14,7 @@ import {
 // ── Coordinate helpers ──────────────────────────────────────────────────────
 
 function svgPoint(
-  e: React.PointerEvent | React.MouseEvent | React.WheelEvent,
+  e: React.PointerEvent | React.MouseEvent | { clientX: number; clientY: number },
   svgEl: SVGSVGElement,
 ): { x: number; y: number } {
   const rect = svgEl.getBoundingClientRect();
@@ -66,6 +66,14 @@ export function Canvas() {
   const [polyPts, setPolyPts] = useState<[number, number][]>([]);
   const [polyPreview, setPolyPreview] = useState<[number, number] | null>(null);
   const [isSpaceDown, setIsSpaceDown] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
+
+  // Tooltip hover state
+  const [hoveredAreaId, setHoveredAreaId] = useState<string | null>(null);
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
+
+  // Last pointer position for space-hold panning (no click required)
+  const lastSpacePanPos = useRef<{ x: number; y: number } | null>(null);
 
   // Drag state (refs to avoid re-renders during drag)
   const drag = useRef<{
@@ -85,6 +93,31 @@ export function Canvas() {
   const backgroundAsset = view?.background
     ? project.assets.find((a) => a.id === view.background!.assetId)
     : undefined;
+
+  // ── Non-passive wheel listener (fixes passive event listener console error) ──
+
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    function onWheel(e: WheelEvent) {
+      e.preventDefault();
+      const rect = svg!.getBoundingClientRect();
+      const sp = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      const { width, height } = rect;
+      const cx = width / 2;
+      const cy = height / 2;
+      const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+      const newZoom = Math.max(0.1, Math.min(8, zoom * factor));
+      const scale = newZoom / zoom;
+      const mx = sp.x - cx;
+      const my = sp.y - cy;
+      const newPanX = mx * (1 - scale) + panX * scale;
+      const newPanY = my * (1 - scale) + panY * scale;
+      setEditorState({ zoom: newZoom, pan: { x: newPanX, y: newPanY } });
+    }
+    svg.addEventListener("wheel", onWheel, { passive: false });
+    return () => svg.removeEventListener("wheel", onWheel);
+  }, [zoom, panX, panY, setEditorState]);
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
 
@@ -110,12 +143,14 @@ export function Canvas() {
         duplicateArea(selectedAreaId);
         return;
       }
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "z") {
+      // Redo: Cmd/Ctrl+Shift+Z (e.key is "Z" when Shift is held on most platforms)
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "z" || e.key === "Z")) {
         e.preventDefault();
         redo();
         return;
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === "z") {
+      // Undo: Cmd/Ctrl+Z (must come after redo check to avoid stealing Shift+Z)
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === "z" || e.key === "Z")) {
         e.preventDefault();
         undo();
         return;
@@ -149,7 +184,11 @@ export function Canvas() {
       }
     }
     function onKeyUp(e: KeyboardEvent) {
-      if (e.key === " ") { spaceHeld.current = false; setIsSpaceDown(false); }
+      if (e.key === " ") {
+        spaceHeld.current = false;
+        setIsSpaceDown(false);
+        lastSpacePanPos.current = null;
+      }
     }
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
@@ -189,26 +228,27 @@ export function Canvas() {
   );
 
   function onSvgPointerDown(e: React.PointerEvent<SVGSVGElement>) {
+    // Give the SVG keyboard focus so shortcuts work even after clicking inspector inputs.
+    svgRef.current?.focus();
+
     if (!svgRef.current) return;
     const svg = svgRef.current;
     const sp = svgPoint(e, svg);
     const cp = toContent(sp);
 
+    // Space or middle-button always pans
     if (spaceHeld.current || e.button === 1) {
-      // Pan
       svg.setPointerCapture(e.pointerId);
-      drag.current = {
-        type: "pan",
-        startSvg: sp,
-        startContent: cp,
-        panBefore: { x: panX, y: panY },
-      };
+      drag.current = { type: "pan", startSvg: sp, startContent: cp, panBefore: { x: panX, y: panY } };
+      setIsPanning(true);
       return;
     }
 
     if (activeTool === "select") {
-      // Click on background → deselect
-      setSelectedAreaId(null);
+      // Background drag = pan; short tap = deselect (disambiguated in onSvgPointerUp)
+      svg.setPointerCapture(e.pointerId);
+      drag.current = { type: "pan", startSvg: sp, startContent: cp, panBefore: { x: panX, y: panY } };
+      setIsPanning(true);
     } else if (activeTool === "rect") {
       svg.setPointerCapture(e.pointerId);
       drag.current = {
@@ -276,17 +316,33 @@ export function Canvas() {
   }
 
   function onSvgPointerMove(e: React.PointerEvent<SVGSVGElement>) {
-    if (!svgRef.current || !drag.current) {
+    // Track cursor for tooltip positioning
+    if (!svgRef.current) return;
+    const svgEl = svgRef.current;
+    const sp = svgPoint(e, svgEl);
+    setHoverPos(sp);
+
+    // Space-hold pan: no mouse button required — pan by pointer delta
+    if (spaceHeld.current && !drag.current) {
+      if (lastSpacePanPos.current) {
+        const dx = sp.x - lastSpacePanPos.current.x;
+        const dy = sp.y - lastSpacePanPos.current.y;
+        const cur = useStore.getState().project.editor?.pan ?? { x: 0, y: 0 };
+        useStore.getState().setEditorState({ pan: { x: cur.x + dx, y: cur.y + dy } });
+      }
+      lastSpacePanPos.current = sp;
+      return;
+    }
+    lastSpacePanPos.current = null;
+
+    if (!drag.current) {
       // Update polygon cursor preview
-      if (activeTool === "polygon" && svgRef.current) {
-        const sp = svgPoint(e, svgRef.current);
+      if (activeTool === "polygon") {
         const cp = toContent(sp);
         setPolyPreview([cp.x, cp.y]);
       }
       return;
     }
-    const svg = svgRef.current;
-    const sp = svgPoint(e, svg);
     const cp = toContent(sp);
     const d = drag.current;
 
@@ -346,7 +402,16 @@ export function Canvas() {
     const d = drag.current;
     drag.current = null;
 
-    if (d.type === "draw-rect") {
+    setIsPanning(false);
+
+    if (d.type === "pan") {
+      // If barely moved in select mode, treat as a background click → deselect
+      if (activeTool === "select") {
+        const dx = sp.x - d.startSvg.x;
+        const dy = sp.y - d.startSvg.y;
+        if (Math.abs(dx) < 4 && Math.abs(dy) < 4) setSelectedAreaId(null);
+      }
+    } else if (d.type === "draw-rect") {
       const rx = Math.min(d.startContent.x, cp.x);
       const ry = Math.min(d.startContent.y, cp.y);
       const rw = Math.abs(cp.x - d.startContent.x);
@@ -369,24 +434,6 @@ export function Canvas() {
     }
   }
 
-  function onWheel(e: React.WheelEvent<SVGSVGElement>) {
-    if (!svgRef.current) return;
-    e.preventDefault();
-    const svg = svgRef.current;
-    const sp = svgPoint(e, svg);
-    const { width, height } = svg.getBoundingClientRect();
-    const cx = width / 2;
-    const cy = height / 2;
-    const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-    const newZoom = Math.max(0.1, Math.min(8, zoom * factor));
-    const scale = newZoom / zoom;
-    const mx = sp.x - cx;
-    const my = sp.y - cy;
-    const newPanX = mx * (1 - scale) + panX * scale;
-    const newPanY = my * (1 - scale) + panY * scale;
-    setEditorState({ zoom: newZoom, pan: { x: newPanX, y: newPanY } });
-  }
-
   // ── Render ────────────────────────────────────────────────────────────────
 
   if (!view) {
@@ -398,109 +445,135 @@ export function Canvas() {
   }
 
   const cursorClass =
+    isPanning ? "cursor-grabbing" :
     isSpaceDown ? "cursor-grab" :
     activeTool === "rect" ? "cursor-crosshair" :
     activeTool === "polygon" ? "cursor-crosshair" :
     "cursor-default";
 
-  return (
-    <svg
-      ref={svgRef}
-      className={`flex-1 select-none ${cursorClass}`}
-      style={{ display: "block", width: "100%", height: "100%" }}
-      onPointerDown={onSvgPointerDown}
-      onPointerMove={onSvgPointerMove}
-      onPointerUp={onSvgPointerUp}
-      onWheel={onWheel}
-    >
-      {/* Canvas group with pan/zoom transform */}
-      <g
-        style={{
-          transform: `translate(calc(50% + ${panX}px), calc(50% + ${panY}px)) scale(${zoom})`,
-          transformOrigin: "0 0",
-        }}
-      >
-        {/* View frame */}
-        <rect
-          x={-view.width / 2}
-          y={-view.height / 2}
-          width={view.width}
-          height={view.height}
-          fill="white"
-          stroke="#94a3b8"
-          strokeWidth={1 / zoom}
-        />
+  // Find hovered area's tooltip for overlay
+  const hoveredArea = hoveredAreaId
+    ? view.layers.flatMap((l) => l.areas).find((a) => a.id === hoveredAreaId)
+    : undefined;
+  const showTooltip =
+    hoveredArea?.tooltip?.enabled && hoveredArea.tooltip.title && hoverPos;
 
-        {/* Background image */}
-        {backgroundAsset && (
-          <image
+  return (
+    <div className="relative flex-1">
+      <svg
+        ref={svgRef}
+        tabIndex={-1}
+        className={`select-none ${cursorClass}`}
+        style={{ display: "block", width: "100%", height: "100%", outline: "none" }}
+        onPointerDown={onSvgPointerDown}
+        onPointerMove={onSvgPointerMove}
+        onPointerUp={onSvgPointerUp}
+      >
+        {/* Canvas group with pan/zoom transform */}
+        <g
+          style={{
+            transform: `translate(calc(50% + ${panX}px), calc(50% + ${panY}px)) scale(${zoom})`,
+            transformOrigin: "0 0",
+          }}
+        >
+          {/* View frame */}
+          <rect
             x={-view.width / 2}
             y={-view.height / 2}
             width={view.width}
             height={view.height}
-            href={backgroundAsset.src}
-            preserveAspectRatio="xMidYMid meet"
+            fill="white"
+            stroke="#94a3b8"
+            strokeWidth={1 / zoom}
           />
-        )}
 
-        {/* Areas */}
-        {view.layers
-          .filter((l) => l.visible)
-          .flatMap((l) =>
-            l.areas.map((area) => (
-              <AreaShape
-                key={area.id}
-                area={area}
-                selected={selectedAreaId === area.id}
-                onPointerDown={onAreaPointerDown}
-                onHandlePointerDown={onHandlePointerDown}
-              />
-            )),
+          {/* Background image */}
+          {backgroundAsset && (
+            <image
+              x={-view.width / 2}
+              y={-view.height / 2}
+              width={view.width}
+              height={view.height}
+              href={backgroundAsset.src}
+              preserveAspectRatio="xMidYMid meet"
+            />
           )}
 
-        {/* Rect drawing preview */}
-        {previewRect && (
-          <rect
-            x={previewRect.x}
-            y={previewRect.y}
-            width={previewRect.width}
-            height={previewRect.height}
-            fill="rgba(59,130,246,0.1)"
-            stroke="rgba(59,130,246,0.9)"
-            strokeWidth={1.5 / zoom}
-            strokeDasharray="4,3"
-          />
-        )}
-
-        {/* Polygon in-progress */}
-        {polyPts.length > 0 && (
-          <>
-            {polyPts.length >= 2 && (
-              <polyline
-                points={polygonPointsToString([
-                  ...polyPts,
-                  ...(polyPreview ? [polyPreview] : []),
-                ])}
-                fill="none"
-                stroke="rgba(59,130,246,0.8)"
-                strokeWidth={1.5 / zoom}
-                strokeDasharray="4,3"
-              />
-            )}
-            {[...polyPts, ...(polyPreview ? [polyPreview] : [])].map(([px, py], i) => (
-              <circle
-                key={i}
-                cx={px}
-                cy={py}
-                r={3 / zoom}
-                fill={i === 0 ? "rgba(59,130,246,1)" : "white"}
-                stroke="rgba(59,130,246,1)"
-                strokeWidth={1.5 / zoom}
-              />
+          {/* Areas — each layer rendered with its opacity */}
+          {view.layers
+            .filter((l) => l.visible)
+            .map((l) => (
+              <g key={l.id} opacity={l.opacity}>
+                {l.areas.map((area) => (
+                  <AreaShape
+                    key={area.id}
+                    area={area}
+                    selected={selectedAreaId === area.id}
+                    onPointerDown={onAreaPointerDown}
+                    onHandlePointerDown={onHandlePointerDown}
+                    onHoverChange={setHoveredAreaId}
+                  />
+                ))}
+              </g>
             ))}
-          </>
-        )}
-      </g>
-    </svg>
+
+          {/* Rect drawing preview */}
+          {previewRect && (
+            <rect
+              x={previewRect.x}
+              y={previewRect.y}
+              width={previewRect.width}
+              height={previewRect.height}
+              fill="rgba(59,130,246,0.1)"
+              stroke="rgba(59,130,246,0.9)"
+              strokeWidth={1.5 / zoom}
+              strokeDasharray="4,3"
+            />
+          )}
+
+          {/* Polygon in-progress */}
+          {polyPts.length > 0 && (
+            <>
+              {polyPts.length >= 2 && (
+                <polyline
+                  points={polygonPointsToString([
+                    ...polyPts,
+                    ...(polyPreview ? [polyPreview] : []),
+                  ])}
+                  fill="none"
+                  stroke="rgba(59,130,246,0.8)"
+                  strokeWidth={1.5 / zoom}
+                  strokeDasharray="4,3"
+                />
+              )}
+              {[...polyPts, ...(polyPreview ? [polyPreview] : [])].map(([px, py], i) => (
+                <circle
+                  key={i}
+                  cx={px}
+                  cy={py}
+                  r={3 / zoom}
+                  fill={i === 0 ? "rgba(59,130,246,1)" : "white"}
+                  stroke="rgba(59,130,246,1)"
+                  strokeWidth={1.5 / zoom}
+                />
+              ))}
+            </>
+          )}
+        </g>
+      </svg>
+
+      {/* Tooltip overlay */}
+      {showTooltip && hoverPos && (
+        <div
+          className="pointer-events-none absolute z-50 max-w-48 rounded bg-neutral-800 px-2 py-1.5 text-xs shadow-lg ring-1 ring-neutral-600"
+          style={{ left: hoverPos.x + 14, top: hoverPos.y + 14 }}
+        >
+          <div className="font-medium text-neutral-100">{hoveredArea!.tooltip!.title}</div>
+          {hoveredArea!.tooltip!.body && (
+            <div className="mt-0.5 text-neutral-400">{hoveredArea!.tooltip!.body}</div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

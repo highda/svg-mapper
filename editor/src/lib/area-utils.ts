@@ -1,9 +1,9 @@
 import type { Area, AreaStyle, Geometry, RectGeometry } from "@svg-mapper/shared";
 
 export const DEFAULT_AREA_STYLE: AreaStyle = {
-  default: { fill: "rgba(0,120,255,0)", stroke: "rgba(0,120,255,0)", strokeWidth: 2 },
-  hover: { fill: "rgba(0,120,255,0.25)", stroke: "rgba(0,120,255,0.9)", strokeWidth: 2 },
-  active: { fill: "rgba(0,120,255,0.35)", stroke: "rgba(0,120,255,1)", strokeWidth: 3 },
+  default: { fill: "rgba(59,130,246,0.08)", stroke: "rgba(59,130,246,0.6)", strokeWidth: 2 },
+  hover:   { fill: "rgba(59,130,246,0.25)", stroke: "rgba(59,130,246,0.9)", strokeWidth: 2 },
+  active:  { fill: "rgba(59,130,246,0.35)", stroke: "rgba(59,130,246,1)",   strokeWidth: 3 },
 };
 
 function makeAreaId(): string {
