@@ -207,6 +207,7 @@ function ViewSection({ view, isActive }: { view: View; isActive: boolean }) {
     activeViewId,
     setActiveViewId,
     renameView,
+    duplicateView,
     deleteView,
     addLayer,
     reorderLayer,
@@ -273,6 +274,15 @@ function ViewSection({ view, isActive }: { view: View; isActive: boolean }) {
             {view.name}
           </span>
         )}
+
+        {/* Duplicate view */}
+        <button
+          onClick={(e) => { e.stopPropagation(); duplicateView(view.id); }}
+          title="Duplicate view"
+          className="text-[10px] text-neutral-700 hover:text-neutral-300"
+        >
+          ⧉
+        </button>
 
         {/* Delete view */}
         {canDelete && (

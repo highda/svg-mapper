@@ -4,16 +4,18 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from `agent:ready`)
-Branch:       main
-Started:      —
-Last commit:  —
+Issue:        #6 — editor: goToView and URL actions; multi-View linking
+Branch:       feat/6-view-linking
+Started:      2026-06-10
+Last commit:  (claim)
 
 ### What's done
-- #1 (shared types), #2 (renderer core), #3 (editor shell), #4 (design screen), #5 (inspector/layers) merged.
+- #1–#5 merged; PR #16 (canvas/inspector bugfixes) merged.
 
 ### What's next
-- Claim #6: goToView and URL actions; multi-View linking.
+- Inspector Action section (none/url/goToView) with URL validation.
+- Multi-View add/duplicate/delete; active View switching (verify existing tree coverage).
+- Flow screen (React Flow, read-only) with orphan-View badges.
 
 ### Notes / gotchas
 - Renderer must remain framework-free; do not introduce React or Tailwind into `/renderer`.

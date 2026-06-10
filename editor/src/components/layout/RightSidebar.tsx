@@ -8,7 +8,9 @@ import type {
   Viewport,
   View,
 } from "@svg-mapper/shared";
+import { useState } from "react";
 import { useStore } from "../../store";
+import { validateActionUrl } from "../../lib/url-validate";
 
 // ---------------------------------------------------------------------------
 // Shared primitives
@@ -380,6 +382,48 @@ function GeometryEditor({
   );
 }
 
+// Controlled URL input — validates on every change (ASSIGNMENT §10.2),
+// shows an inline error, and only commits valid values to the store.
+function UrlField({
+  defaultValue,
+  onCommit,
+}: {
+  defaultValue: string;
+  onCommit: (v: string) => void;
+}) {
+  const [value, setValue] = useState(defaultValue);
+  const validation = value === "" ? { valid: true } : validateActionUrl(value);
+
+  function commit() {
+    if (value !== defaultValue && validateActionUrl(value).valid) {
+      onCommit(value.trim());
+    }
+  }
+
+  return (
+    <div className="space-y-0.5">
+      <input
+        type="text"
+        value={value}
+        placeholder="https://…"
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); }
+        }}
+        className={`w-full rounded border bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none ${
+          validation.valid
+            ? "border-neutral-700 focus:border-blue-500"
+            : "border-red-500 focus:border-red-500"
+        }`}
+      />
+      {!validation.valid && (
+        <p className="text-[10px] leading-tight text-red-400">{validation.error}</p>
+      )}
+    </div>
+  );
+}
+
 function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
   const { updateAreaAction, project } = useStore();
 
@@ -422,10 +466,9 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
       {action.type === "url" && (
         <>
           <Row label="URL">
-            <TextField
+            <UrlField
               defaultValue={action.href}
               onCommit={(v) => updateAreaAction(areaId, { ...action, href: v })}
-              placeholder="https://…"
             />
           </Row>
           <Row label="Target">
