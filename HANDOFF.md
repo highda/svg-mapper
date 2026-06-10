@@ -4,17 +4,16 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #7 — editor: Preview screen wired to the real renderer
-Branch:       feat/7-preview-screen
+Issue:        #8 — editor: validation pipeline (pre-export checks)
+Branch:       feat/8-validation
 Started:      2026-06-10
 Last commit:  (claim)
 
 ### What's done
-- #1–#6 merged; PR #16 (canvas/inspector bugfixes), PR #17 (view linking + Flow screen) merged.
+- #1–#7 merged; PR #16 (bugfixes), #17 (view linking + Flow), #18 (Preview) merged.
 
 ### What's next
-- Preview screen embedding the real /renderer runtime (no React reimplementation).
-- Responsive resizing / mobile viewport simulation; block-outbound-URLs toggle.
+- `validateProject` in /shared; Export screen with error/warning list, reveal links, gated Export button + warning confirmation.
 
 ### Notes / gotchas
 - Renderer must remain framework-free; do not introduce React or Tailwind into `/renderer`.
