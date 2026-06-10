@@ -9,7 +9,7 @@ const SHORTCUTS = [
   { keys: "Space", description: "Pan (hold)" },
   { keys: "Delete / Backspace", description: "Delete selected area" },
   { keys: "⌘/Ctrl+Z", description: "Undo" },
-  { keys: "⌘/Ctrl+⇧+Z", description: "Redo" },
+  { keys: "⌘/Ctrl+Shift+Z", description: "Redo" },
   { keys: "⌘/Ctrl+C", description: "Copy area" },
   { keys: "⌘/Ctrl+V", description: "Paste area" },
   { keys: "⌘/Ctrl+D", description: "Duplicate area" },

@@ -588,7 +588,8 @@ class DeferredRenderer implements ClickMapInstance {
     return this.inner?.getCurrentView() ?? "";
   }
   getDefinition(): ClickMapDefinition {
-    return this.inner!.getDefinition();
+    if (!this.inner) throw new Error("ClickMapRenderer: definition not yet loaded");
+    return this.inner.getDefinition();
   }
   destroy() {
     this.destroyed = true;

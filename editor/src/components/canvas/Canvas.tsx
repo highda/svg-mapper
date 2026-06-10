@@ -236,9 +236,12 @@ export function Canvas() {
     (svgPt: { x: number; y: number }) => {
       const svg = svgRef.current;
       if (!svg) return { x: 0, y: 0 };
-      return contentPoint(svgPt, svg, panX, panY, zoom);
+      const pt = contentPoint(svgPt, svg, panX, panY, zoom);
+      // Shift from centered-canvas space to view-local space (0,0 = view top-left).
+      // The renderer's SVG viewBox uses top-left origin; areas must match.
+      return { x: pt.x + (view?.width ?? 0) / 2, y: pt.y + (view?.height ?? 0) / 2 };
     },
-    [panX, panY, zoom],
+    [panX, panY, zoom, view?.width, view?.height],
   );
 
   function onSvgPointerDown(e: React.PointerEvent<SVGSVGElement>) {
@@ -486,14 +489,15 @@ export function Canvas() {
         {/* Canvas group with pan/zoom transform */}
         <g
           style={{
-            transform: `translate(calc(50% + ${panX}px), calc(50% + ${panY}px)) scale(${zoom})`,
+            // Offset so view top-left (0,0) is visually centered when pan=0.
+            transform: `translate(calc(50% + ${panX - zoom * view.width / 2}px), calc(50% + ${panY - zoom * view.height / 2}px)) scale(${zoom})`,
             transformOrigin: "0 0",
           }}
         >
           {/* View frame */}
           <rect
-            x={-view.width / 2}
-            y={-view.height / 2}
+            x={0}
+            y={0}
             width={view.width}
             height={view.height}
             fill="white"
@@ -504,8 +508,8 @@ export function Canvas() {
           {/* Background image */}
           {backgroundAsset && (
             <image
-              x={-view.width / 2}
-              y={-view.height / 2}
+              x={0}
+              y={0}
               width={view.width}
               height={view.height}
               href={backgroundAsset.src}

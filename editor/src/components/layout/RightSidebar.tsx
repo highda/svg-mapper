@@ -437,13 +437,16 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
       case "url":
         updateAreaAction(areaId, { type: "url", href: "", target: "_blank" });
         break;
-      case "goToView":
+      case "goToView": {
+        const { activeViewId } = useStore.getState();
+        const other = views.find((v) => v.id !== activeViewId) ?? views[0];
         updateAreaAction(areaId, {
           type: "goToView",
-          targetViewId: views[0]?.id ?? "",
+          targetViewId: other?.id ?? "",
           transition: "fade",
         });
         break;
+      }
       default:
         updateAreaAction(areaId, { type: "none" });
     }
