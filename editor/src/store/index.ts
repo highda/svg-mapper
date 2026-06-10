@@ -71,6 +71,7 @@ export interface AppState {
 
   // ── View CRUD ────────────────────────────────────────────────────────────
   addView: () => void;
+  duplicateView: (viewId: string) => void;
   renameView: (viewId: string, name: string) => void;
   deleteView: (viewId: string) => void;
   setViewDimensions: (viewId: string, width: number, height: number) => void;
@@ -154,18 +155,17 @@ function findLayerInViews(
 // Store
 // ---------------------------------------------------------------------------
 
+const initialProject = createNewProject();
+
 export const useStore = create<AppState>()(
   immer((set, get) => ({
-    project: createNewProject(),
+    project: initialProject,
     screen: "design",
     openError: null,
     activeTool: "select",
     selectedAreaId: null,
     selectedLayerId: null,
-    activeViewId: (() => {
-      const p = createNewProject();
-      return p.settings.initialViewId || p.views[0]?.id || "";
-    })(),
+    activeViewId: deriveActiveViewId(initialProject),
     past: [],
     future: [],
     historyVersion: 0,
@@ -319,6 +319,33 @@ export const useStore = create<AppState>()(
         view.slug = view.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
         s.project.views.push(view);
         s.activeViewId = view.id;
+        s.selectedAreaId = null;
+        s.selectedLayerId = null;
+      });
+    },
+
+    duplicateView(viewId: string) {
+      set((s) => {
+        const idx = s.project.views.findIndex((v) => v.id === viewId);
+        if (idx === -1) return;
+        pushHistory(s);
+        const original = current(s.project.views[idx]) as View;
+        const copy: View = {
+          ...original,
+          id: `view_${Math.random().toString(36).slice(2, 10)}`,
+          name: original.name + " copy",
+          slug: (original.slug + "-copy").replace(/-+/g, "-"),
+          layers: original.layers.map((l) => ({
+            ...l,
+            id: `layer_${Math.random().toString(36).slice(2, 10)}`,
+            areas: l.areas.map((a) => ({
+              ...a,
+              id: `area_${Math.random().toString(36).slice(2, 10)}`,
+            })),
+          })),
+        };
+        s.project.views.splice(idx + 1, 0, copy as typeof s.project.views[0]);
+        s.activeViewId = copy.id;
         s.selectedAreaId = null;
         s.selectedLayerId = null;
       });

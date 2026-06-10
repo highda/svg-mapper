@@ -1,11 +1,15 @@
 import { useStore } from "../../store";
 import { DesignScreen } from "../../screens/DesignScreen";
+import { FlowScreen } from "../../screens/FlowScreen";
 
 export function Workspace() {
   const screen = useStore((s) => s.screen);
 
   if (screen === "design") {
     return <DesignScreen />;
+  }
+  if (screen === "flow") {
+    return <FlowScreen />;
   }
 
   return (
