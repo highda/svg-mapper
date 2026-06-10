@@ -214,8 +214,6 @@ export interface View {
   name: string;
   slug: string;
   background?: ViewBackground;
-  width: number;
-  height: number;
   viewport: Viewport;
   ui: ViewUI;
   layers: Layer[];
@@ -242,6 +240,7 @@ export type ThemeName = "default" | string;
 
 export interface Settings {
   initialViewId: string;
+  canvasSize: { width: number; height: number };
   responsive: boolean;
   maintainAspectRatio: boolean;
   theme: ThemeName;

@@ -59,6 +59,8 @@ class Renderer implements ClickMapInstance {
     this.container = container;
 
     this.currentViewId = def.settings.initialViewId;
+    this.viewW = def.settings.canvasSize.width;
+    this.viewH = def.settings.canvasSize.height;
     this.buildDOM();
     this.renderView(this.currentViewId);
 
@@ -123,8 +125,6 @@ class Renderer implements ClickMapInstance {
       return;
     }
 
-    this.viewW = view.width;
-    this.viewH = view.height;
     this.hoveredId = null;
     this.hideTooltip();
 
@@ -163,7 +163,8 @@ class Renderer implements ClickMapInstance {
 
   private renderAreas(view: View) {
     this.svgEl.innerHTML = "";
-    this.svgEl.setAttribute("viewBox", `0 0 ${view.width} ${view.height}`);
+    const { width, height } = this.def.settings.canvasSize;
+    this.svgEl.setAttribute("viewBox", `0 0 ${width} ${height}`);
 
     for (const layer of view.layers) {
       if (!layer.visible) continue;

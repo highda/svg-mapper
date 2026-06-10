@@ -13,8 +13,6 @@ export function createDefaultView(): View {
     id: makeId("view"),
     name: "Main View",
     slug: "main-view",
-    width: 1600,
-    height: 900,
     viewport: {
       minZoom: 1,
       maxZoom: 4,
@@ -36,6 +34,7 @@ export function createNewProject(name = "Untitled Map"): ProjectFile {
   const defaultView = createDefaultView();
   const settings: Settings = {
     initialViewId: defaultView.id,
+    canvasSize: { width: 1600, height: 900 },
     responsive: true,
     maintainAspectRatio: true,
     theme: "default",

@@ -198,16 +198,12 @@ export function validateProject(project: ClickMapDefinition): ValidationResult[]
     if (count > 1) err("DUPLICATE_ID", `Duplicate id "${id}" used ${count} times.`);
   }
 
-  for (const view of views) {
-    // View with no background and no explicit dimensions.
-    if (!view.background && (!(view.width > 0) || !(view.height > 0))) {
-      err(
-        "VIEW_NO_BACKGROUND_NO_DIMS",
-        `View "${view.name}" has no background and no explicit dimensions.`,
-        { viewId: view.id },
-      );
-    }
+  const { canvasSize } = project.settings;
+  if (!(canvasSize?.width > 0) || !(canvasSize?.height > 0)) {
+    err("INVALID_CANVAS_SIZE", "Canvas size must have positive width and height.");
+  }
 
+  for (const view of views) {
     // Background asset missing.
     if (view.background && !assetsById.has(view.background.assetId)) {
       err(

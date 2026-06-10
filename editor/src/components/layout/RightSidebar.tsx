@@ -171,7 +171,8 @@ function StyleStateEditor({
 // ---------------------------------------------------------------------------
 
 function ViewInspector({ view }: { view: View }) {
-  const { renameView, setViewDimensions, project, setViewBackground } = useStore();
+  const { renameView, setCanvasSize, project, setViewBackground } = useStore();
+  const canvasSize = project.settings.canvasSize;
 
   function handleAssetChange(e: React.ChangeEvent<HTMLSelectElement>) {
     if (e.target.value) setViewBackground(view.id, e.target.value);
@@ -201,21 +202,22 @@ function ViewInspector({ view }: { view: View }) {
         </select>
       </Row>
 
-      <SectionHeader title="Dimensions" />
+      <SectionHeader title="Canvas Size" />
+      <p className="text-[10px] text-neutral-600 -mt-1">Shared across all views.</p>
       <Row label="Width">
         <NumberField
-          defaultValue={view.width}
+          defaultValue={canvasSize.width}
           min={1}
           max={10000}
-          onCommit={(v) => setViewDimensions(view.id, v, view.height)}
+          onCommit={(v) => setCanvasSize(v, canvasSize.height)}
         />
       </Row>
       <Row label="Height">
         <NumberField
-          defaultValue={view.height}
+          defaultValue={canvasSize.height}
           min={1}
           max={10000}
-          onCommit={(v) => setViewDimensions(view.id, view.width, v)}
+          onCommit={(v) => setCanvasSize(canvasSize.width, v)}
         />
       </Row>
 

@@ -75,7 +75,7 @@ export interface AppState {
   duplicateView: (viewId: string) => void;
   renameView: (viewId: string, name: string) => void;
   deleteView: (viewId: string) => void;
-  setViewDimensions: (viewId: string, width: number, height: number) => void;
+  setCanvasSize: (width: number, height: number) => void;
   setViewport: (viewId: string, patch: Partial<Viewport>) => void;
 
   // ── Layer CRUD ───────────────────────────────────────────────────────────
@@ -387,13 +387,10 @@ export const useStore = create<AppState>()(
       });
     },
 
-    setViewDimensions(viewId: string, width: number, height: number) {
+    setCanvasSize(width: number, height: number) {
       set((s) => {
-        const view = s.project.views.find((v) => v.id === viewId);
-        if (!view) return;
         pushHistory(s);
-        view.width = width;
-        view.height = height;
+        s.project.settings.canvasSize = { width, height };
       });
     },
 

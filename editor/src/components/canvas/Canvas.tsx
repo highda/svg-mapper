@@ -91,6 +91,7 @@ export function Canvas() {
 
   const spaceHeld = useRef(false);
 
+  const canvasSize = project.settings.canvasSize;
   const view = project.views.find((v) => v.id === activeViewId);
   const backgroundAsset = view?.background
     ? project.assets.find((a) => a.id === view.background!.assetId)
@@ -239,9 +240,9 @@ export function Canvas() {
       const pt = contentPoint(svgPt, svg, panX, panY, zoom);
       // Shift from centered-canvas space to view-local space (0,0 = view top-left).
       // The renderer's SVG viewBox uses top-left origin; areas must match.
-      return { x: pt.x + (view?.width ?? 0) / 2, y: pt.y + (view?.height ?? 0) / 2 };
+      return { x: pt.x + canvasSize.width / 2, y: pt.y + canvasSize.height / 2 };
     },
-    [panX, panY, zoom, view?.width, view?.height],
+    [panX, panY, zoom, canvasSize.width, canvasSize.height],
   );
 
   function onSvgPointerDown(e: React.PointerEvent<SVGSVGElement>) {
@@ -490,7 +491,7 @@ export function Canvas() {
         <g
           style={{
             // Offset so view top-left (0,0) is visually centered when pan=0.
-            transform: `translate(calc(50% + ${panX - zoom * view.width / 2}px), calc(50% + ${panY - zoom * view.height / 2}px)) scale(${zoom})`,
+            transform: `translate(calc(50% + ${panX - zoom * canvasSize.width / 2}px), calc(50% + ${panY - zoom * canvasSize.height / 2}px)) scale(${zoom})`,
             transformOrigin: "0 0",
           }}
         >
@@ -498,8 +499,8 @@ export function Canvas() {
           <rect
             x={0}
             y={0}
-            width={view.width}
-            height={view.height}
+            width={canvasSize.width}
+            height={canvasSize.height}
             fill="white"
             stroke="#94a3b8"
             strokeWidth={1 / zoom}
@@ -510,8 +511,8 @@ export function Canvas() {
             <image
               x={0}
               y={0}
-              width={view.width}
-              height={view.height}
+              width={canvasSize.width}
+              height={canvasSize.height}
               href={backgroundAsset.src}
               preserveAspectRatio="xMidYMid meet"
             />

@@ -80,16 +80,14 @@ describe("store: deleteView", () => {
   });
 });
 
-describe("store: setViewDimensions", () => {
+describe("store: setCanvasSize", () => {
   beforeEach(resetStore);
 
-  it("updates view width and height", () => {
-    const { project } = useStore.getState();
-    const viewId = project.views[0].id;
-    useStore.getState().setViewDimensions(viewId, 1280, 720);
-    const view = useStore.getState().project.views[0];
-    expect(view.width).toBe(1280);
-    expect(view.height).toBe(720);
+  it("updates the shared canvas size for all views", () => {
+    useStore.getState().setCanvasSize(1280, 720);
+    const { canvasSize } = useStore.getState().project.settings;
+    expect(canvasSize.width).toBe(1280);
+    expect(canvasSize.height).toBe(720);
   });
 });
 
