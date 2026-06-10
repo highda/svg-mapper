@@ -10,6 +10,7 @@ import type {
   Layer,
   ProjectFile,
   Tooltip,
+  ValidationRef,
   View,
   Viewport,
 } from "@svg-mapper/shared";
@@ -100,6 +101,9 @@ export interface AppState {
   // ── Undo / redo ──────────────────────────────────────────────────────────
   undo: () => void;
   redo: () => void;
+
+  // ── Validation ─────────────────────────────────────────────────────────────
+  revealValidationRef: (ref: ValidationRef) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -633,6 +637,27 @@ export const useStore = create<AppState>()(
         s.selectedAreaId = null;
         s.selectedLayerId = null;
         s.historyVersion += 1;
+      });
+    },
+
+    // ── Validation ───────────────────────────────────────────────────────────
+
+    revealValidationRef(ref: ValidationRef) {
+      set((s) => {
+        s.screen = "design";
+        if (ref.viewId && s.project.views.some((v) => v.id === ref.viewId)) {
+          s.activeViewId = ref.viewId;
+        }
+        if (ref.areaId) {
+          s.selectedAreaId = ref.areaId;
+          s.selectedLayerId = null;
+        } else if (ref.layerId) {
+          s.selectedLayerId = ref.layerId;
+          s.selectedAreaId = null;
+        } else {
+          s.selectedAreaId = null;
+          s.selectedLayerId = null;
+        }
       });
     },
   })),
