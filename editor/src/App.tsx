@@ -9,6 +9,8 @@ import { ErrorBanner } from "./components/ui/ErrorBanner";
 
 export function App() {
   const saveProject = useStore((s) => s.saveProject);
+  const screen = useStore((s) => s.screen);
+  const showChrome = screen !== "preview";
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -26,9 +28,9 @@ export function App() {
       <TopBar />
       <ErrorBanner />
       <div className="flex min-h-0 flex-1">
-        <LeftPanel />
+        {showChrome && <LeftPanel />}
         <Workspace />
-        <RightSidebar />
+        {showChrome && <RightSidebar />}
       </div>
       <BottomBar />
     </div>
