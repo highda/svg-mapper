@@ -9,6 +9,7 @@ stop_file="$runtime_dir/loop-complete.md"
 test_bin_dir="$(mktemp -d)"
 counter_file="$test_bin_dir/calls"
 test_runtime_dir="$test_bin_dir/runtime"
+github_counter_file="$test_bin_dir/github-calls"
 
 cleanup() {
   rm -f "$sentinel" "$candidate" "$stop_file"
@@ -39,6 +40,8 @@ rg -F 'candidate_file=' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'stop_file=' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'git config --local user.name "Codex"' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'CODEX_LOOP_QUOTA_RETRY_SECONDS' "$repo_root/scripts/codex-loop.sh" >/dev/null
+rg -F 'CODEX_LOOP_GITHUB_RETRY_SECONDS' "$repo_root/scripts/codex-loop.sh" >/dev/null
+rg -F -- '--add-dir "$repo_root/.git"' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'Proactively invent and implement valuable in-scope improvements' "$repo_root/.codex/GOAL.md" >/dev/null
 test -x "$repo_root/editor/node_modules/.bin/playwright-mcp"
 
@@ -60,5 +63,26 @@ chmod +x "$fake_codex"
 quota_output="$(CODEX_LOOP_MAX_SESSIONS=2 CODEX_LOOP_QUOTA_RETRY_SECONDS=1 CODEX_LOOP_RUNTIME_DIR="$test_runtime_dir" CODEX_LOOP_TEST_COUNTER="$counter_file" CODEX_BIN="$fake_codex" "$repo_root/scripts/codex-loop.sh" 2>&1)"
 rg -F 'reached a usage limit; waiting 1s' <<<"$quota_output" >/dev/null
 rg -F 'Session 2 ended normally' <<<"$quota_output" >/dev/null
+
+github_codex="$test_bin_dir/github-codex"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'last_message=""' \
+  'while (($#)); do' \
+  '  if [[ "$1" == "--output-last-message" ]]; then last_message="$2"; shift 2; continue; fi' \
+  '  shift' \
+  'done' \
+  'if [[ ! -f "$CODEX_LOOP_TEST_GITHUB_COUNTER" ]]; then' \
+  '  printf "%s\\n" "error connecting to api.github.com" >&2' \
+  '  printf "%s" "blocked" >"$last_message"' \
+  '  : >"$CODEX_LOOP_TEST_GITHUB_COUNTER"' \
+  '  exit 0' \
+  'fi' \
+  'printf "%s" "checkpoint complete" >"$last_message"' \
+  'exit 0' >"$github_codex"
+chmod +x "$github_codex"
+github_output="$(CODEX_LOOP_MAX_SESSIONS=2 CODEX_LOOP_GITHUB_RETRY_SECONDS=1 CODEX_LOOP_RUNTIME_DIR="$test_runtime_dir/github" CODEX_LOOP_TEST_GITHUB_COUNTER="$github_counter_file" CODEX_BIN="$github_codex" "$repo_root/scripts/codex-loop.sh" 2>&1)"
+rg -F 'GitHub API was temporarily unreachable; waiting 1s' <<<"$github_output" >/dev/null
+rg -F 'Session 2 ended normally' <<<"$github_output" >/dev/null
 
 printf '%s\n' 'Codex loop static checks passed.'
