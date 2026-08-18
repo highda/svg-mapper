@@ -59,6 +59,8 @@ while ((max_sessions == 0 || session < max_sessions)); do
   set +e
   "$codex_bin" exec \
     --json \
+    --model gpt-5.6-terra \
+    --config 'model_reasoning_effort="medium"' \
     --ignore-user-config \
     --strict-config \
     --output-last-message "$last_message" \

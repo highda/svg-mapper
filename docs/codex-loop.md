@@ -16,7 +16,8 @@ The loop ignores user-level Codex configuration, so it loads only this
 repository's permission profile and Playwright MCP configuration (plus any
 system-managed policy). `@playwright/mcp` is pinned in `editor/package.json`;
 run `npm --prefix editor install` after a fresh checkout before starting the
-loop.
+loop. Every spawned session is pinned by the runner to `gpt-5.6-terra` with
+medium reasoning effort.
 
 ## Run
 
