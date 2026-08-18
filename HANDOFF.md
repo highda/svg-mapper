@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #38 — Pin Codex loop to Terra medium
+Branch:       feat/38-pin-terra-medium
+Started:      2026-08-18
+Last commit:  (uncommitted) claim in progress
+
+### What's done
+- Claimed the loop model pinning task.
+
+### What's next
+- Add explicit Terra/medium CLI options and update the run guide.
+
+### Notes / gotchas
+- The runner already ignores user configuration; the model pin belongs in its command line.
 
 ---
 
