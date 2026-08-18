@@ -4,8 +4,21 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #42 — Allow GitHub API host in autonomous Codex network profile
+Branch:       feat/42-allow-github-api
+Started:      2026-08-18
+Last commit:  2ae6f33  chore: hand off #40 — done
+
+### What's done
+- Identified an intermittent `gh` API connectivity failure from the first unattended smoke session.
+- Confirmed normal host-side GitHub API, Git remote, and `gh` authentication work.
+
+### What's next
+- A human must explicitly add `"api.github.com" = "allow"` to `.codex/config.toml`'s domain allowlist.
+- Then run `./scripts/test-codex-loop.sh` and retry a bounded loop session.
+
+### Notes / gotchas
+- `.codex/config.toml` is deliberately read-only to unattended agents, so this policy change cannot be self-applied without weakening the safety boundary.
 
 ---
 
