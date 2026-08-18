@@ -8,7 +8,10 @@ cd "$repo_root"
 
 codex_bin="${CODEX_BIN:-codex}"
 max_sessions="${CODEX_LOOP_MAX_SESSIONS:-0}"
-runtime_dir="$repo_root/.codex/runtime"
+# A temporary account usage limit should not require an operator to restart an
+# otherwise healthy unattended loop. Set this to 0 to retain fail-fast behavior.
+quota_retry_seconds="${CODEX_LOOP_QUOTA_RETRY_SECONDS:-900}"
+runtime_dir="${CODEX_LOOP_RUNTIME_DIR:-$repo_root/.codex/runtime}"
 work_prompt_file="$repo_root/.codex/prompts/autonomous-loop.md"
 review_prompt_file="$repo_root/.codex/prompts/completion-review.md"
 candidate_file="$runtime_dir/completion-candidate.md"
@@ -18,6 +21,24 @@ if ! [[ "$max_sessions" =~ ^[0-9]+$ ]]; then
   printf '%s\n' 'CODEX_LOOP_MAX_SESSIONS must be a non-negative integer.' >&2
   exit 2
 fi
+
+if ! [[ "$quota_retry_seconds" =~ ^[0-9]+$ ]]; then
+  printf '%s\n' 'CODEX_LOOP_QUOTA_RETRY_SECONDS must be a non-negative integer.' >&2
+  exit 2
+fi
+
+is_quota_failure() {
+  local log_file="$1"
+  rg -qi \
+    -e 'usage limit' \
+    -e 'rate[ -]?limit' \
+    -e 'too many requests' \
+    -e 'out of tokens' \
+    -e 'tokens? (has been )?(exceeded|exhausted)' \
+    -e 'quota (has been )?(exceeded|exhausted)' \
+    -e '(exceeded|exhausted) quota' \
+    "$log_file"
+}
 
 mkdir -p "$runtime_dir"
 if [[ -f "$stop_file" ]]; then
@@ -79,6 +100,13 @@ while ((max_sessions == 0 || session < max_sessions)); do
   fi
 
   if ((exit_status != 0)); then
+    if ((quota_retry_seconds > 0)) && is_quota_failure "$log_file"; then
+      printf 'Codex session %s reached a usage limit; waiting %ss before a fresh session. Press Ctrl-C to pause.\n' \
+        "$session" "$quota_retry_seconds" >&2
+      sleep "$quota_retry_seconds"
+      continue
+    fi
+
     printf 'Codex session %s exited with status %s; preserving state and stopping. See %s.\n' \
       "$session" "$exit_status" "$log_file" >&2
     exit "$exit_status"

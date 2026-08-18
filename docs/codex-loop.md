@@ -54,9 +54,22 @@ The `PreCompact` hook is only a failsafe. It writes
 runner then starts a new session, which reads Git, `HANDOFF.md`, and the
 memento. The hook never tries to summarize a near-exhausted conversation.
 
-If a session exits unsuccessfully, the script stops rather than guessing. Read
-its retained JSONL log, inspect `git status`, and rerun the loop after the
-problem is resolved.
+The pre-compact guard handles a session's context limit. A separate quota guard
+handles temporary account usage/token or rate-limit failures: it waits 15
+minutes by default and retries a **fresh** session automatically, so an
+unattended loop does not need to be relaunched when allowance resets. Set a
+different delay, or disable that retry and retain fail-fast behavior:
+
+```sh
+CODEX_LOOP_QUOTA_RETRY_SECONDS=1800 ./scripts/codex-loop.sh
+CODEX_LOOP_QUOTA_RETRY_SECONDS=0 ./scripts/codex-loop.sh
+```
+
+The wait is interruptible with `Ctrl-C`; Git and the memento remain the
+checkpoint. Any unsuccessful session that does not look like an explicit
+usage/token/rate-limit failure still stops rather than guessing. Read its
+retained JSONL log, inspect `git status`, and rerun after the problem is
+resolved.
 
 ## Completion guard
 
