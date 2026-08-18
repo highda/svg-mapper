@@ -4,8 +4,20 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #42 — Allow GitHub API host in autonomous Codex network profile
+Branch:       feat/42-allow-github-api
+Started:      2026-08-18
+Last commit:  2ae6f33  chore: hand off #40 — done
+
+### What's done
+- Identified an intermittent `gh` API connectivity failure from the first unattended smoke session.
+
+### What's next
+- Explicitly allow `api.github.com` within the existing narrow network policy.
+- Test, document, and merge the policy correction.
+
+### Notes / gotchas
+- The normal shell and Git remote can currently reach GitHub; this is specific to the restricted Codex profile.
 
 ---
 
