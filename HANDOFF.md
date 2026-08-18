@@ -4,25 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #34 — Add two-pass completion guard to Codex loop
-Branch:       feat/34-completion-guard
-Started:      2026-08-18
-Last commit:  (uncommitted) two-pass completion guard ready for review
-
-### What's done
-- Claimed the autonomous loop completion-guard task.
-- Added the durable completion goal, candidate/reviewer prompts, and stop-file runner state machine.
-
-### What's next
-- Commit, push, and open the implementation PR.
-
-### Notes / gotchas
-- Only the dedicated final-review session may create the stop marker.
-- The runner exits before checking for a Codex binary when an existing stop marker is present.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-08-18 — closed #34 — two-pass autonomous-loop completion guard with independent final review and stop marker; PR #35.
 - 2026-08-18 — closed #32 — scoped unattended Codex profile with Git/memento access, proxy network policy, and local Playwright MCP; PR #33.
 - 2026-08-18 — closed #30 — repository-local fresh-session Codex loop with PreCompact failsafe and Git/memento recovery; PR #31.
 - 2026-06-10 — closed #10 — polish: all Appendix A shortcuts, ? help overlay, Cmd+C/V copy-paste, ResizeObserver debounce, prefers-reduced-motion CSS, renderer a11y audit; 5 new tests (93 total); PR #21.
