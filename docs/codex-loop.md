@@ -35,6 +35,12 @@ The script writes JSONL event logs and final messages below
 `.codex/runtime/`; that directory is ignored by Git. Terminal output is only
 the session lifecycle, not agent conversation.
 
+Before it starts work, the Codex runner sets this repository's local Git
+identity to `Codex <codex@svg-mapper.local>`. It does not touch global Git
+configuration. A loop driven by Claude or another agent must likewise set a
+local identity for that agent; never use the human operator's identity for
+autonomous commits.
+
 ## Recovery protocol
 
 Every successful commit is a checkpoint. Its body contains terse `Done`,
@@ -59,11 +65,13 @@ product is done must first check `.codex/GOAL.md`, then write its evidence to
 candidate and makes the next fresh session a dedicated final reviewer.
 
 That reviewer independently inspects the repository, runs checks, and exercises
-the browser flows. It either removes the candidate and returns the runner to
-normal work, or writes `.codex/runtime/loop-complete.md` with its verification
-evidence. The runner checks that stop file before every spawn, including before
-the first one, and exits without invoking Codex when it exists. Remove the
-ignored stop file manually only when intentionally reopening the project.
+the browser flows. It must assess product completeness beyond the MVP: useful,
+feasible authoring and quality upgrades are reasons to reject a candidate. It
+either removes the candidate and returns the runner to normal work, or writes
+`.codex/runtime/loop-complete.md` with its verification evidence. The runner
+checks that stop file before every spawn, including before the first one, and
+exits without invoking Codex when it exists. Remove the ignored stop file
+manually only when intentionally reopening the project.
 
 ## Safety
 

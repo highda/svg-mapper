@@ -10,7 +10,8 @@ Reassess the repository against every goal condition. Inspect product behavior,
 run the full relevant automated checks, and exercise the editor/export golden
 path in a browser where possible. Look specifically for useful missing
 in-scope features, visible quality gaps, regressions, and reproducible major
-defects.
+defects. MVP acceptance alone is insufficient: reject the candidate when a
+substantial, product-purpose-driven improvement remains obvious and feasible.
 
 If the candidate is not proven, remove
 .codex/runtime/completion-candidate.md, record the remaining work using the

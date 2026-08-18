@@ -30,6 +30,8 @@ rg -F 'default_permissions = "autonomous-project"' "$repo_root/.codex/config.tom
 rg -F -- '--ignore-user-config' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'candidate_file=' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'stop_file=' "$repo_root/scripts/codex-loop.sh" >/dev/null
+rg -F 'git config --local user.name "Codex"' "$repo_root/scripts/codex-loop.sh" >/dev/null
+rg -F 'Proactively invent and implement valuable in-scope improvements' "$repo_root/.codex/GOAL.md" >/dev/null
 test -x "$repo_root/editor/node_modules/.bin/playwright-mcp"
 
 printf '%s\n' 'Verified completion.' >"$stop_file"
