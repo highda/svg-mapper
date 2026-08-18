@@ -4,25 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #32 — Constrain unattended Codex loop to repository permissions
-Branch:       feat/32-scoped-autonomous-permissions
-Started:      2026-08-18
-Last commit:  (uncommitted) scoped profile and Playwright configuration ready for review
-
-### What's done
-- Claimed the unattended loop permissions task.
-- Added a project-scoped permission profile, proxy-enforced development network allowlist, and pinned local Playwright MCP.
-
-### What's next
-- Commit, push, and open the implementation PR.
-
-### Notes / gotchas
-- The profile must grant `.git` and `.codex` explicitly while remaining scoped to this repository.
-- Playwright and any MCP are trusted local processes; no local-only policy is a VM-level containment boundary.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-08-18 — closed #32 — scoped unattended Codex profile with Git/memento access, proxy network policy, and local Playwright MCP; PR #33.
 - 2026-08-18 — closed #30 — repository-local fresh-session Codex loop with PreCompact failsafe and Git/memento recovery; PR #31.
 - 2026-06-10 — closed #10 — polish: all Appendix A shortcuts, ? help overlay, Cmd+C/V copy-paste, ResizeObserver debounce, prefers-reduced-motion CSS, renderer a11y audit; 5 new tests (93 total); PR #21.
 - 2026-06-10 — closed #9 — export pipeline: generateExportPackage() with fflate ZIP, inline/external assets toggle, index.html (works file://), embed.html, README.txt, Download ZIP + Copy embed snippet + Copy map.json; 7 new tests (88 total); PR #20.
