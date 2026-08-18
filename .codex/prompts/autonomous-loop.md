@@ -7,6 +7,13 @@ doing anything else. Read .codex/GOAL.md as the only standard for determining
 whether the full loop could ever finish. Do not resume or rely on a previous
 Codex transcript.
 
+Run the AGENTS.md GitHub pre-flight as an independent command before optional
+repository inspection. A missing optional file or a failed exploratory command
+is not a blocker by itself: inspect the failure, use the repository's actual
+layout (this project has `editor/package.json`, not a root `package.json`), and
+continue. Report `blocked` only for a real task, permission, or external-state
+impediment after safe recovery attempts.
+
 Git is your durable memory:
 
 1. A successful commit is a checkpoint. Its body must state Done, Next, and
