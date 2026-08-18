@@ -4,25 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #42 — Allow GitHub API host in autonomous Codex network profile
-Branch:       feat/42-allow-github-api
-Started:      2026-08-18
-Last commit:  2ae6f33  chore: hand off #40 — done
-
-### What's done
-- Identified an intermittent `gh` API connectivity failure from the first unattended smoke session.
-- Confirmed normal host-side GitHub API, Git remote, and `gh` authentication work.
-
-### What's next
-- A human must explicitly add `"api.github.com" = "allow"` to `.codex/config.toml`'s domain allowlist.
-- Then run `./scripts/test-codex-loop.sh` and retry a bounded loop session.
-
-### Notes / gotchas
-- `.codex/config.toml` is deliberately read-only to unattended agents, so this policy change cannot be self-applied without weakening the safety boundary.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-08-18 — closed #42 — explicitly allowed GitHub’s REST API host for the autonomous loop; PR #43.
 - 2026-08-18 — closed #40 — added automatic, interruptible fresh-session retry after explicit Codex quota/rate-limit failures; PR #41.
 - 2026-08-18 — closed #38 — pinned unattended Codex loop to Terra medium; PR #39.
 - 2026-08-18 — closed #36 — Codex commit identity plus proactive product-completeness goal beyond MVP acceptance; PR #37.
