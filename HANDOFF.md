@@ -4,8 +4,21 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #32 — Constrain unattended Codex loop to repository permissions
+Branch:       feat/32-scoped-autonomous-permissions
+Started:      2026-08-18
+Last commit:  (uncommitted) scoped profile and Playwright configuration ready for review
+
+### What's done
+- Claimed the unattended loop permissions task.
+- Added a project-scoped permission profile, proxy-enforced development network allowlist, and pinned local Playwright MCP.
+
+### What's next
+- Commit, push, and open the implementation PR.
+
+### Notes / gotchas
+- The profile must grant `.git` and `.codex` explicitly while remaining scoped to this repository.
+- Playwright and any MCP are trusted local processes; no local-only policy is a VM-level containment boundary.
 
 ---
 

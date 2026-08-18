@@ -35,8 +35,8 @@ while ((max_sessions == 0 || session < max_sessions)); do
   set +e
   "$codex_bin" exec \
     --json \
-    --sandbox workspace-write \
-    --approve-for-me \
+    --ignore-user-config \
+    --strict-config \
     --output-last-message "$last_message" \
     - <"$prompt_file" >"$log_file" 2>&1
   exit_status=$?
