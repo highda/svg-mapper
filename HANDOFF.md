@@ -4,24 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #44 — Harden autonomous loop Git and GitHub recovery
-Branch:       feat/44-harden-loop-recovery
-Started:      2026-08-18
-Last commit:  df8e0de  chore: hand off #42 — done
-
-### What's done
-- Captured a user-tested runner patch that grants only `.git` as an extra Codex writable directory.
-
-### What's next
-- Add regression coverage and documentation for GitHub blocked-session recovery.
-- Remove temporary patch artifacts, validate, and merge.
-
-### Notes / gotchas
-- The runner must keep failing closed for agent-reported blocks unrelated to explicit GitHub API connectivity failures.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-08-18 — closed #44 — hardened unattended Git lock access and temporary GitHub API recovery; PR #45.
 - 2026-08-18 — closed #42 — explicitly allowed GitHub’s REST API host for the autonomous loop; PR #43.
 - 2026-08-18 — closed #40 — added automatic, interruptible fresh-session retry after explicit Codex quota/rate-limit failures; PR #41.
 - 2026-08-18 — closed #38 — pinned unattended Codex loop to Terra medium; PR #39.
