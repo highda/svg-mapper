@@ -43,6 +43,8 @@ rg -F 'git config --local user.name "Codex"' "$repo_root/scripts/codex-loop.sh" 
 rg -F 'CODEX_LOOP_QUOTA_RETRY_SECONDS' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'CODEX_LOOP_GITHUB_RETRY_SECONDS' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'github-connect-proxy.mjs' "$repo_root/scripts/codex-loop.sh" >/dev/null
+rg -F 'network-bridge-bin' "$repo_root/scripts/codex-loop.sh" >/dev/null
+rg -F 'PATH="$command_bridge_dir:$PATH"' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F -- '--add-dir "$repo_root/.git"' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'Proactively invent and implement valuable in-scope improvements' "$repo_root/.codex/GOAL.md" >/dev/null
 test -x "$repo_root/editor/node_modules/.bin/playwright-mcp"
