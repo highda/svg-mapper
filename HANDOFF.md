@@ -4,8 +4,20 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #40 — Retry Codex loop after temporary quota exhaustion
+Branch:       feat/40-quota-retry-guard
+Started:      2026-08-18
+Last commit:  c390d9e  chore: hand off #38 — done
+
+### What's done
+- Claimed the loop-resilience follow-up after observing a preserved GitHub connection failure in the first smoke run.
+
+### What's next
+- Add quota/rate-limit-specific waiting and fresh-session retry behavior.
+- Test and document the guard, then merge.
+
+### Notes / gotchas
+- All unrecognized Codex failures must remain fail-closed and preserve Git/memento state.
 
 ---
 
