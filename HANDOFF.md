@@ -4,8 +4,21 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #36 — Broaden autonomous goal and use Codex commit identity
+Branch:       feat/36-proactive-goal-identity
+Started:      2026-08-18
+Last commit:  (uncommitted) proactive completion goal and Codex identity ready for review
+
+### What's done
+- Claimed the proactive product goal and Codex identity task.
+- Configured the repository-local Git identity as Codex and broadened the completion standard beyond MVP acceptance.
+
+### What's next
+- Commit, push, and open the implementation PR.
+
+### Notes / gotchas
+- Product scope stays browser-only; proactive in-scope features are encouraged.
+- External agent runners must set their own local Git identity before autonomous work.
 
 ---
 

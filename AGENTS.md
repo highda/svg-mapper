@@ -143,6 +143,11 @@ While `agent:in-progress` is on your issue, you own the tree.
   - `chore:` tooling, config, build
   - Body: include `Refs #N` (and `Closes #N` only on the final commit if not using a PR description).
 - **Push after every meaningful commit** — a crashed session shouldn't lose work.
+- **Use the active agent's Git identity.** Configure `user.name` and
+  `user.email` locally in this repository before an autonomous agent commits;
+  never attribute its work to the human operator. `scripts/codex-loop.sh` sets
+  `Codex <codex@svg-mapper.local>` itself. A Claude or other runner must set its
+  own identity locally before it starts work.
 - **Comment on the issue** at decisions, blockers, partial milestones. Not every commit. Future-you reads these.
 - **Update `HANDOFF.md`** if anything in its `Active` block changes (branch rename, blocker discovered, plan pivot).
 - **When using `scripts/codex-loop.sh`, Git is the recovery checkpoint.** Keep

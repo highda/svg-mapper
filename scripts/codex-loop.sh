@@ -30,6 +30,12 @@ if ! command -v "$codex_bin" >/dev/null 2>&1; then
   exit 2
 fi
 
+# Commit authorship belongs to the autonomous agent operating this loop, never
+# to the human who launched it. This is local to svg-mapper and does not alter
+# the user's global Git identity.
+git config --local user.name "Codex"
+git config --local user.email "codex@svg-mapper.local"
+
 session=0
 
 while ((max_sessions == 0 || session < max_sessions)); do
