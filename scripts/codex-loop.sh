@@ -9,11 +9,20 @@ cd "$repo_root"
 codex_bin="${CODEX_BIN:-codex}"
 max_sessions="${CODEX_LOOP_MAX_SESSIONS:-0}"
 runtime_dir="$repo_root/.codex/runtime"
-prompt_file="$repo_root/.codex/prompts/autonomous-loop.md"
+work_prompt_file="$repo_root/.codex/prompts/autonomous-loop.md"
+review_prompt_file="$repo_root/.codex/prompts/completion-review.md"
+candidate_file="$runtime_dir/completion-candidate.md"
+stop_file="$runtime_dir/loop-complete.md"
 
 if ! [[ "$max_sessions" =~ ^[0-9]+$ ]]; then
   printf '%s\n' 'CODEX_LOOP_MAX_SESSIONS must be a non-negative integer.' >&2
   exit 2
+fi
+
+mkdir -p "$runtime_dir"
+if [[ -f "$stop_file" ]]; then
+  printf 'Loop already complete. Evidence: %s\n' "$stop_file"
+  exit 0
 fi
 
 if ! command -v "$codex_bin" >/dev/null 2>&1; then
@@ -21,16 +30,25 @@ if ! command -v "$codex_bin" >/dev/null 2>&1; then
   exit 2
 fi
 
-mkdir -p "$runtime_dir"
-rm -f "$runtime_dir/fresh-session-required" "$runtime_dir/loop-complete"
 session=0
 
 while ((max_sessions == 0 || session < max_sessions)); do
+  if [[ -f "$stop_file" ]]; then
+    printf 'Loop complete. Evidence: %s\n' "$stop_file"
+    exit 0
+  fi
+
   session=$((session + 1))
+  prompt_file="$work_prompt_file"
+  session_kind="work"
+  if [[ -f "$candidate_file" ]]; then
+    prompt_file="$review_prompt_file"
+    session_kind="final review"
+  fi
 
   log_file="$runtime_dir/session-${session}.jsonl"
   last_message="$runtime_dir/session-${session}-last-message.txt"
-  printf 'Starting fresh Codex session %s. Log: %s\n' "$session" "$log_file"
+  printf 'Starting fresh Codex %s session %s. Log: %s\n' "$session_kind" "$session" "$log_file"
 
   set +e
   "$codex_bin" exec \
@@ -42,8 +60,8 @@ while ((max_sessions == 0 || session < max_sessions)); do
   exit_status=$?
   set -e
 
-  if [[ -f "$runtime_dir/loop-complete" ]]; then
-    printf 'Loop complete after session %s.\n' "$session"
+  if [[ -f "$stop_file" ]]; then
+    printf 'Loop complete after session %s. Evidence: %s\n' "$session" "$stop_file"
     exit 0
   fi
 
