@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #36 — Broaden autonomous goal and use Codex commit identity
+Branch:       feat/36-proactive-goal-identity
+Started:      2026-08-18
+Last commit:  (uncommitted) claim in progress
+
+### What's done
+- Claimed the proactive product goal and Codex identity task.
+
+### What's next
+- Configure the loop's repository-local Git identity and broaden its completion criteria.
+
+### Notes / gotchas
+- Product scope stays browser-only; proactive in-scope features are encouraged.
 
 ---
 
