@@ -1,0 +1,22 @@
+{
+  "browser": {
+    "browserName": "chromium",
+    "isolated": true,
+    "launchOptions": {
+      "headless": true
+    }
+  },
+  "capabilities": ["core", "testing", "devtools"],
+  "network": {
+    "allowedOrigins": ["http://localhost:*", "http://127.0.0.1:*"]
+  },
+  "outputDir": ".codex/runtime/playwright",
+  "outputMode": "file",
+  "console": {
+    "level": "warning"
+  },
+  "saveSession": false,
+  "imageResponses": "omit",
+  "codegen": "none",
+  "allowUnrestrictedFileAccess": false
+}

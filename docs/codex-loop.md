@@ -12,6 +12,12 @@ repository, and use `/hooks` to trust the displayed project hook. Do not use
 the hook-trust bypass flag unless an isolated automation environment has
 independently vetted the hook source.
 
+The loop ignores user-level Codex configuration, so it loads only this
+repository's permission profile and Playwright MCP configuration (plus any
+system-managed policy). `@playwright/mcp` is pinned in `editor/package.json`;
+run `npm --prefix editor install` after a fresh checkout before starting the
+loop.
+
 ## Run
 
 ```sh
@@ -47,8 +53,23 @@ problem is resolved.
 
 ## Safety
 
-The runner uses Codex's `workspace-write` sandbox and automatic review. It does
-not bypass sandboxing, approvals, or hook trust. Network-enabled actions such
-as pushing or opening pull requests may still require configuration/approval
-appropriate to the local Codex installation. Run unattended only in a trusted
-workspace with reviewed repository instructions and hooks.
+The runner uses the `autonomous-project` permission profile with no interactive
+approval prompts. It grants write access to the repository, including `.git`
+for checkpoint commits and the memento/runtime files under `.codex`; it keeps
+the hook, prompt, and permission files themselves read-only so a loop session
+cannot weaken the next session's policy. The shell network proxy permits only
+loopback, npm registry, and GitHub/GitHubusercontent hosts.
+
+The project-local Playwright MCP runs headless with an isolated browser profile,
+no session persistence, no unrestricted file access, and local development
+origins only. It is suitable for serving and testing this app without user
+interaction. Do not add remote MCP servers or app connectors to an unattended
+loop: MCP and hosted/app tools are separate authority boundaries and are not
+limited by Codex's shell filesystem sandbox. Playwright's origin allowlist is
+a safety control, not a host-security boundary; redirects and trusted local
+server code still need normal review.
+
+This is a local sandbox, not a VM or a defense against a compromised operating
+system, a malicious dependency, or a trusted MCP server. It prevents ordinary
+Codex shell commands from reading or writing outside the configured workspace;
+run unattended only in a reviewed repository and with no external connectors.

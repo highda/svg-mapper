@@ -1,7 +1,37 @@
 # Repository-local Codex behavior. Codex loads this layer only after this
 # project has been trusted; see docs/codex-loop.md for the one-time setup.
+default_permissions = "autonomous-project"
+approval_policy = "never"
+
 [features]
 hooks = true
+network_proxy = true
+
+# The loop can write all product files and its Git/memento state, but cannot
+# rewrite its own prompts, hooks, or permission policy between fresh sessions.
+[permissions.autonomous-project]
+description = "Unattended svg-mapper development constrained to this repository."
+extends = ":workspace"
+
+[permissions.autonomous-project.filesystem.":workspace_roots"]
+"." = "write"
+".git" = "write"
+".codex" = "read"
+".codex/MEMENTO.md" = "write"
+".codex/runtime" = "write"
+
+# The command sandbox can serve and test the local app, install dependencies,
+# and use GitHub. The proxy enforces this list for shell commands.
+[permissions.autonomous-project.network]
+enabled = true
+
+[permissions.autonomous-project.network.domains]
+"localhost" = "allow"
+"127.0.0.1" = "allow"
+"registry.npmjs.org" = "allow"
+"registry.yarnpkg.com" = "allow"
+"**.github.com" = "allow"
+"**.githubusercontent.com" = "allow"
 
 # Compaction is an emergency cutoff, never a handoff workflow. The agent's
 # Git checkpoint and MEMENTO.md must already make recovery possible.
@@ -13,3 +43,13 @@ type = "command"
 command = 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/precompact.sh"'
 timeout = 3
 statusMessage = "Stopping before context compaction"
+
+# This server is a pinned local development dependency. Browser navigation is
+# constrained separately in .codex/playwright-mcp.json.
+[mcp_servers.playwright]
+command = "./editor/node_modules/.bin/playwright-mcp"
+args = ["--config", ".codex/playwright-mcp.json"]
+required = true
+startup_timeout_sec = 30
+tool_timeout_sec = 120
+default_tools_approval_mode = "auto"

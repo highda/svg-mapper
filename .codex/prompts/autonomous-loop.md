@@ -19,10 +19,12 @@ Git is your durable memory:
    diff and memento instead.
 
 Complete or advance exactly one tracked task according to AGENTS.md. Run the
-relevant checks and browser validation for UI work. If there is no ready task
-and no active task, write `no-ready-work` to .codex/runtime/loop-complete and
-end. If you cannot finish safely, leave an accurate memento and end; the next
-fresh iteration will recover it.
+relevant checks and browser validation for UI work. Use the project Playwright
+MCP only against the local development server. Do not add or enable remote MCP
+servers, apps, or connectors during the unattended loop. If there is no ready
+task and no active task, write `no-ready-work` to .codex/runtime/loop-complete
+and end. If you cannot finish safely, leave an accurate memento and end; the
+next fresh iteration will recover it.
 
 If .codex/runtime/fresh-session-required exists, treat the last iteration as
 interrupted: first reconcile the memento, Git status, and current task; then
