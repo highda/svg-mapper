@@ -20,6 +20,7 @@ stop_file="$runtime_dir/loop-complete.md"
 proxy_script="$repo_root/scripts/github-connect-proxy.mjs"
 proxy_port_file="$runtime_dir/github-proxy-port"
 proxy_log="$runtime_dir/github-proxy.log"
+command_bridge_dir="$runtime_dir/network-bridge-bin"
 proxy_pid=""
 
 if ! [[ "$max_sessions" =~ ^[0-9]+$ ]]; then
@@ -89,6 +90,14 @@ if [[ ! -s "$proxy_port_file" ]]; then
   exit 2
 fi
 proxy_url="http://127.0.0.1:$(<"$proxy_port_file")"
+mkdir -p "$command_bridge_dir"
+for command_name in gh git npm npx yarn pnpm; do
+  command_path="$(command -v "$command_name" 2>/dev/null || true)"
+  [[ -n "$command_path" ]] || continue
+  printf '#!/usr/bin/env bash\nexec env HTTPS_PROXY=%q HTTP_PROXY=%q NO_PROXY=localhost,127.0.0.1 %q "$@"\n' \
+    "$proxy_url" "$proxy_url" "$command_path" >"$command_bridge_dir/$command_name"
+  chmod 700 "$command_bridge_dir/$command_name"
+done
 
 # Commit authorship belongs to the autonomous agent operating this loop, never
 # to the human who launched it. This is local to svg-mapper and does not alter
@@ -117,7 +126,7 @@ while ((max_sessions == 0 || session < max_sessions)); do
   printf 'Starting fresh Codex %s session %s. Log: %s\n' "$session_kind" "$session" "$log_file"
 
   set +e
-  GH_TOKEN="$github_token" HTTPS_PROXY="$proxy_url" HTTP_PROXY="$proxy_url" NO_PROXY="localhost,127.0.0.1" \
+  GH_TOKEN="$github_token" PATH="$command_bridge_dir:$PATH" \
     "$codex_bin" --add-dir "$repo_root/.git" exec \
     --json \
     --model gpt-5.6-terra \
