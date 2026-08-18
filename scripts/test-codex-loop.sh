@@ -18,6 +18,7 @@ cleanup() {
 trap cleanup EXIT
 
 bash -n "$repo_root/scripts/codex-loop.sh"
+node --check "$repo_root/scripts/github-connect-proxy.mjs"
 bash -n "$repo_root/.codex/hooks/precompact.sh"
 python3 -c 'import tomllib; tomllib.load(open(".codex/config.toml", "rb"))'
 node -e 'JSON.parse(require("node:fs").readFileSync(".codex/playwright-mcp.json", "utf8"))'
@@ -41,6 +42,7 @@ rg -F 'stop_file=' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'git config --local user.name "Codex"' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'CODEX_LOOP_QUOTA_RETRY_SECONDS' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'CODEX_LOOP_GITHUB_RETRY_SECONDS' "$repo_root/scripts/codex-loop.sh" >/dev/null
+rg -F 'github-connect-proxy.mjs' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F -- '--add-dir "$repo_root/.git"' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'Proactively invent and implement valuable in-scope improvements' "$repo_root/.codex/GOAL.md" >/dev/null
 test -x "$repo_root/editor/node_modules/.bin/playwright-mcp"

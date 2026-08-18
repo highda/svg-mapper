@@ -17,6 +17,10 @@ work_prompt_file="$repo_root/.codex/prompts/autonomous-loop.md"
 review_prompt_file="$repo_root/.codex/prompts/completion-review.md"
 candidate_file="$runtime_dir/completion-candidate.md"
 stop_file="$runtime_dir/loop-complete.md"
+proxy_script="$repo_root/scripts/github-connect-proxy.mjs"
+proxy_port_file="$runtime_dir/github-proxy-port"
+proxy_log="$runtime_dir/github-proxy.log"
+proxy_pid=""
 
 if ! [[ "$max_sessions" =~ ^[0-9]+$ ]]; then
   printf '%s\n' 'CODEX_LOOP_MAX_SESSIONS must be a non-negative integer.' >&2
@@ -57,6 +61,35 @@ if ! command -v "$codex_bin" >/dev/null 2>&1; then
   exit 2
 fi
 
+if ! command -v node >/dev/null 2>&1; then
+  printf '%s\n' 'Node.js is required for the restricted GitHub network bridge.' >&2
+  exit 2
+fi
+
+if ! github_token="$(gh auth token)" || [[ -z "$github_token" ]]; then
+  printf '%s\n' 'Unable to read the host GitHub token; run gh auth login first.' >&2
+  exit 2
+fi
+
+rm -f "$proxy_port_file"
+node "$proxy_script" "$proxy_port_file" >"$proxy_log" 2>&1 &
+proxy_pid="$!"
+cleanup_proxy() {
+  [[ -n "$proxy_pid" ]] && kill "$proxy_pid" 2>/dev/null || true
+  [[ -n "$proxy_pid" ]] && wait "$proxy_pid" 2>/dev/null || true
+  rm -f "$proxy_port_file"
+}
+trap cleanup_proxy EXIT INT TERM
+for _ in {1..50}; do
+  [[ -s "$proxy_port_file" ]] && break
+  sleep 0.1
+done
+if [[ ! -s "$proxy_port_file" ]]; then
+  printf 'GitHub network bridge did not start. See %s.\n' "$proxy_log" >&2
+  exit 2
+fi
+proxy_url="http://127.0.0.1:$(<"$proxy_port_file")"
+
 # Commit authorship belongs to the autonomous agent operating this loop, never
 # to the human who launched it. This is local to svg-mapper and does not alter
 # the user's global Git identity.
@@ -84,7 +117,8 @@ while ((max_sessions == 0 || session < max_sessions)); do
   printf 'Starting fresh Codex %s session %s. Log: %s\n' "$session_kind" "$session" "$log_file"
 
   set +e
-  "$codex_bin" --add-dir "$repo_root/.git" exec \
+  GH_TOKEN="$github_token" HTTPS_PROXY="$proxy_url" HTTP_PROXY="$proxy_url" NO_PROXY="localhost,127.0.0.1" \
+    "$codex_bin" --add-dir "$repo_root/.git" exec \
     --json \
     --model gpt-5.6-terra \
     --config 'model_reasoning_effort="medium"' \
