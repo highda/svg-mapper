@@ -11,13 +11,14 @@ Last commit:  2ae6f33  chore: hand off #40 — done
 
 ### What's done
 - Identified an intermittent `gh` API connectivity failure from the first unattended smoke session.
+- Confirmed normal host-side GitHub API, Git remote, and `gh` authentication work.
 
 ### What's next
-- Explicitly allow `api.github.com` within the existing narrow network policy.
-- Test, document, and merge the policy correction.
+- A human must explicitly add `"api.github.com" = "allow"` to `.codex/config.toml`'s domain allowlist.
+- Then run `./scripts/test-codex-loop.sh` and retry a bounded loop session.
 
 ### Notes / gotchas
-- The normal shell and Git remote can currently reach GitHub; this is specific to the restricted Codex profile.
+- `.codex/config.toml` is deliberately read-only to unattended agents, so this policy change cannot be self-applied without weakening the safety boundary.
 
 ---
 
