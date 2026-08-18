@@ -4,24 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #46 — Bridge sandboxed Codex GitHub access through a restricted local proxy
-Branch:       feat/46-local-network-bridge
-Started:      2026-08-18
-Last commit:  e9dccc4  chore: hand off #44 — done
-
-### What's done
-- Reproduced the Codex-only failure with `GH_DEBUG=api`: no DNS for `api.github.com` and no Keychain token in the agent sandbox.
-
-### What's next
-- Add a loopback-only, allowlisted CONNECT proxy and per-child GitHub token handoff.
-- Validate proxy allow/deny behavior and an actual bounded Codex session.
-
-### Notes / gotchas
-- The bridge must be owned by the outer runner and never expose arbitrary egress or persist the GitHub token to disk.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-08-18 — closed #46 — added a restricted loopback GitHub/package-registry bridge for Codex sandbox sessions; PR #47.
 - 2026-08-18 — closed #44 — hardened unattended Git lock access and temporary GitHub API recovery; PR #45.
 - 2026-08-18 — closed #42 — explicitly allowed GitHub’s REST API host for the autonomous loop; PR #43.
 - 2026-08-18 — closed #40 — added automatic, interruptible fresh-session retry after explicit Codex quota/rate-limit failures; PR #41.
