@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #34 — Add two-pass completion guard to Codex loop
+Branch:       feat/34-completion-guard
+Started:      2026-08-18
+Last commit:  (uncommitted) claim in progress
+
+### What's done
+- Claimed the autonomous loop completion-guard task.
+
+### What's next
+- Add the durable goal, candidate/reviewer prompts, and runner state machine.
+
+### Notes / gotchas
+- Only the dedicated final-review session may create the stop marker.
 
 ---
 
