@@ -28,6 +28,8 @@ test -s "$sentinel"
 
 rg -F 'PreCompact' "$repo_root/.codex/config.toml" >/dev/null
 rg -F '.codex/MEMENTO.md' "$repo_root/.codex/prompts/autonomous-loop.md" >/dev/null
+rg -F 'editor/package.json' "$repo_root/.codex/prompts/autonomous-loop.md" >/dev/null
+rg -F 'independent command' "$repo_root/.codex/prompts/autonomous-loop.md" >/dev/null
 rg -F 'completion-candidate.md' "$repo_root/.codex/prompts/autonomous-loop.md" >/dev/null
 rg -F 'loop-complete.md' "$repo_root/.codex/prompts/completion-review.md" >/dev/null
 rg -F '.codex/GOAL.md' "$repo_root/.codex/prompts/completion-review.md" >/dev/null
