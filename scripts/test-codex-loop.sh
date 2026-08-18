@@ -28,6 +28,8 @@ rg -F '.codex/GOAL.md' "$repo_root/.codex/prompts/completion-review.md" >/dev/nu
 rg -F 'codex exec resume' "$repo_root/docs/codex-loop.md" >/dev/null
 rg -F 'default_permissions = "autonomous-project"' "$repo_root/.codex/config.toml" >/dev/null
 rg -F -- '--ignore-user-config' "$repo_root/scripts/codex-loop.sh" >/dev/null
+rg -F -- '--model gpt-5.6-terra' "$repo_root/scripts/codex-loop.sh" >/dev/null
+rg -F 'model_reasoning_effort="medium"' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'candidate_file=' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'stop_file=' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'git config --local user.name "Codex"' "$repo_root/scripts/codex-loop.sh" >/dev/null

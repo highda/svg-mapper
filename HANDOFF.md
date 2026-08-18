@@ -7,13 +7,14 @@
 Issue:        #38 — Pin Codex loop to Terra medium
 Branch:       feat/38-pin-terra-medium
 Started:      2026-08-18
-Last commit:  (uncommitted) claim in progress
+Last commit:  (uncommitted) Terra medium pin ready for review
 
 ### What's done
 - Claimed the loop model pinning task.
+- Pinned every runner spawn to gpt-5.6-terra with medium reasoning effort.
 
 ### What's next
-- Add explicit Terra/medium CLI options and update the run guide.
+- Commit, push, and open the implementation PR.
 
 ### Notes / gotchas
 - The runner already ignores user configuration; the model pin belongs in its command line.
