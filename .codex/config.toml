@@ -1,0 +1,15 @@
+# Repository-local Codex behavior. Codex loads this layer only after this
+# project has been trusted; see docs/codex-loop.md for the one-time setup.
+[features]
+hooks = true
+
+# Compaction is an emergency cutoff, never a handoff workflow. The agent's
+# Git checkpoint and MEMENTO.md must already make recovery possible.
+[[hooks.PreCompact]]
+matcher = "^auto$"
+
+[[hooks.PreCompact.hooks]]
+type = "command"
+command = 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/precompact.sh"'
+timeout = 3
+statusMessage = "Stopping before context compaction"

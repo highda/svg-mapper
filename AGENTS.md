@@ -145,6 +145,11 @@ While `agent:in-progress` is on your issue, you own the tree.
 - **Push after every meaningful commit** — a crashed session shouldn't lose work.
 - **Comment on the issue** at decisions, blockers, partial milestones. Not every commit. Future-you reads these.
 - **Update `HANDOFF.md`** if anything in its `Active` block changes (branch rename, blocker discovered, plan pivot).
+- **When using `scripts/codex-loop.sh`, Git is the recovery checkpoint.** Keep
+  `.codex/MEMENTO.md` concise whenever meaningful work is uncommitted; fold its
+  facts into the next successful commit body as `Done`, `Next`, and `Checks`,
+  then reset the memento to its template in that same commit. Do not rely on a
+  prior chat transcript for recovery. See [`docs/codex-loop.md`](./docs/codex-loop.md).
 - **Run checks locally** before pushing significant changes:
   ```sh
   npm run typecheck

@@ -4,7 +4,21 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-None. All build-order issues (#1–#10) closed. MVP complete.
+Issue:        #30 — Add repository-local Codex checkpoint loop
+Branch:       feat/30-codex-checkpoint-loop
+Started:      2026-08-18
+Last commit:  (uncommitted) repository-local loop implementation ready for review
+
+### What's done
+- Claimed the repository-local Codex checkpoint-loop task.
+- Added project-local PreCompact hook, fresh-session CLI runner, Git/memento protocol, and static smoke test.
+
+### What's next
+- Commit, push, and open the implementation PR.
+
+### Notes / gotchas
+- Fresh Codex sessions must recover only from Git state and a concise in-flight memento, not prior chat context.
+- The loop intentionally requires a one-time interactive review/trust of the repository hook.
 
 ---
 
