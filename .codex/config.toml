@@ -32,6 +32,7 @@ enabled = true
 "registry.yarnpkg.com" = "allow"
 "**.github.com" = "allow"
 "**.githubusercontent.com" = "allow"
+"api.github.com" = "allow"
 
 # Compaction is an emergency cutoff, never a handoff workflow. The agent's
 # Git checkpoint and MEMENTO.md must already make recovery possible.

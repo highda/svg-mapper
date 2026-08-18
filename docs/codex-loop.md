@@ -94,7 +94,8 @@ approval prompts. It grants write access to the repository, including `.git`
 for checkpoint commits and the memento/runtime files under `.codex`; it keeps
 the hook, prompt, and permission files themselves read-only so a loop session
 cannot weaken the next session's policy. The shell network proxy permits only
-loopback, npm registry, and GitHub/GitHubusercontent hosts.
+loopback, npm registry, and GitHub/GitHubusercontent hosts. `api.github.com`
+is explicitly included because `gh` uses it for issue, PR, and label tracking.
 
 The project-local Playwright MCP runs headless with an isolated browser profile,
 no session persistence, no unrestricted file access, and local development
