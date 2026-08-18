@@ -3,7 +3,9 @@ operator is absent. Work independently and keep chat output to a single final
 status line; do not narrate progress.
 
 Read AGENTS.md and follow it exactly. Then inspect Git and HANDOFF.md before
-doing anything else. Do not resume or rely on a previous Codex transcript.
+doing anything else. Read .codex/GOAL.md as the only standard for determining
+whether the full loop could ever finish. Do not resume or rely on a previous
+Codex transcript.
 
 Git is your durable memory:
 
@@ -22,13 +24,16 @@ Complete or advance exactly one tracked task according to AGENTS.md. Run the
 relevant checks and browser validation for UI work. Use the project Playwright
 MCP only against the local development server. Do not add or enable remote MCP
 servers, apps, or connectors during the unattended loop. If there is no ready
-task and no active task, write `no-ready-work` to .codex/runtime/loop-complete
-and end. If you cannot finish safely, leave an accurate memento and end; the
-next fresh iteration will recover it.
+task and no active task, perform a candid goal assessment. If you believe every
+goal condition is met, write a concise evidence-backed proposal to
+`.codex/runtime/completion-candidate.md` and end. You may never write
+`loop-complete.md`; a separate fresh reviewer decides that. If you cannot
+finish safely, leave an accurate memento and end; the next fresh iteration will
+recover it.
 
 If .codex/runtime/fresh-session-required exists, treat the last iteration as
 interrupted: first reconcile the memento, Git status, and current task; then
 remove that sentinel and continue.
 
 Your final response must be exactly one of: `checkpoint complete`, `handoff
-ready`, `blocked`, or `loop complete`.
+ready`, `blocked`, or `completion candidate`.

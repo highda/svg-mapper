@@ -25,7 +25,7 @@ loop.
 ```
 
 The default (`CODEX_LOOP_MAX_SESSIONS=0`) keeps selecting fresh sessions until
-the agent writes the `loop-complete` marker. For a bounded run:
+the final reviewer writes the `loop-complete.md` marker. For a bounded run:
 
 ```sh
 CODEX_LOOP_MAX_SESSIONS=5 ./scripts/codex-loop.sh
@@ -50,6 +50,20 @@ memento. The hook never tries to summarize a near-exhausted conversation.
 If a session exits unsuccessfully, the script stops rather than guessing. Read
 its retained JSONL log, inspect `git status`, and rerun the loop after the
 problem is resolved.
+
+## Completion guard
+
+No ordinary work session can stop the outer loop. A session that believes the
+product is done must first check `.codex/GOAL.md`, then write its evidence to
+`.codex/runtime/completion-candidate.md` and end normally. The runner sees the
+candidate and makes the next fresh session a dedicated final reviewer.
+
+That reviewer independently inspects the repository, runs checks, and exercises
+the browser flows. It either removes the candidate and returns the runner to
+normal work, or writes `.codex/runtime/loop-complete.md` with its verification
+evidence. The runner checks that stop file before every spawn, including before
+the first one, and exits without invoking Codex when it exists. Remove the
+ignored stop file manually only when intentionally reopening the project.
 
 ## Safety
 

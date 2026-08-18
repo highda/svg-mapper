@@ -7,16 +7,18 @@
 Issue:        #34 — Add two-pass completion guard to Codex loop
 Branch:       feat/34-completion-guard
 Started:      2026-08-18
-Last commit:  (uncommitted) claim in progress
+Last commit:  (uncommitted) two-pass completion guard ready for review
 
 ### What's done
 - Claimed the autonomous loop completion-guard task.
+- Added the durable completion goal, candidate/reviewer prompts, and stop-file runner state machine.
 
 ### What's next
-- Add the durable goal, candidate/reviewer prompts, and runner state machine.
+- Commit, push, and open the implementation PR.
 
 ### Notes / gotchas
 - Only the dedicated final-review session may create the stop marker.
+- The runner exits before checking for a Codex binary when an existing stop marker is present.
 
 ---
 
