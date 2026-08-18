@@ -11,6 +11,7 @@ max_sessions="${CODEX_LOOP_MAX_SESSIONS:-0}"
 # A temporary account usage limit should not require an operator to restart an
 # otherwise healthy unattended loop. Set this to 0 to retain fail-fast behavior.
 quota_retry_seconds="${CODEX_LOOP_QUOTA_RETRY_SECONDS:-900}"
+github_retry_seconds="${CODEX_LOOP_GITHUB_RETRY_SECONDS:-60}"
 runtime_dir="${CODEX_LOOP_RUNTIME_DIR:-$repo_root/.codex/runtime}"
 work_prompt_file="$repo_root/.codex/prompts/autonomous-loop.md"
 review_prompt_file="$repo_root/.codex/prompts/completion-review.md"
@@ -24,6 +25,11 @@ fi
 
 if ! [[ "$quota_retry_seconds" =~ ^[0-9]+$ ]]; then
   printf '%s\n' 'CODEX_LOOP_QUOTA_RETRY_SECONDS must be a non-negative integer.' >&2
+  exit 2
+fi
+
+if ! [[ "$github_retry_seconds" =~ ^[0-9]+$ ]]; then
+  printf '%s\n' 'CODEX_LOOP_GITHUB_RETRY_SECONDS must be a non-negative integer.' >&2
   exit 2
 fi
 
@@ -78,7 +84,7 @@ while ((max_sessions == 0 || session < max_sessions)); do
   printf 'Starting fresh Codex %s session %s. Log: %s\n' "$session_kind" "$session" "$log_file"
 
   set +e
-  "$codex_bin" exec \
+  "$codex_bin" --add-dir "$repo_root/.git" exec \
     --json \
     --model gpt-5.6-terra \
     --config 'model_reasoning_effort="medium"' \
@@ -110,6 +116,19 @@ while ((max_sessions == 0 || session < max_sessions)); do
     printf 'Codex session %s exited with status %s; preserving state and stopping. See %s.\n' \
       "$session" "$exit_status" "$log_file" >&2
     exit "$exit_status"
+  fi
+
+  final_status="$(tr -d '\r\n' <"$last_message" 2>/dev/null || true)"
+  if [[ "$final_status" == "blocked" ]] && ((github_retry_seconds > 0)) && rg -qF 'error connecting to api.github.com' "$log_file"; then
+    printf 'GitHub API was temporarily unreachable; waiting %ss before a fresh session. Press Ctrl-C to pause.\n' \
+      "$github_retry_seconds" >&2
+    sleep "$github_retry_seconds"
+    continue
+  fi
+
+  if [[ "$final_status" == "blocked" ]]; then
+    printf 'Codex reported blocked; preserving state and stopping. See %s.\n' "$log_file" >&2
+    exit 1
   fi
 
   printf 'Session %s ended normally; starting a fresh task-selection session.\n' "$session"

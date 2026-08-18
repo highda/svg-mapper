@@ -71,6 +71,14 @@ usage/token/rate-limit failure still stops rather than guessing. Read its
 retained JSONL log, inspect `git status`, and rerun after the problem is
 resolved.
 
+The runner also grants Codex an additional writable path for this repository's
+`.git` directory only, so normal Git operations can create their lock files
+without expanding access beyond the project. If an otherwise successful Codex
+turn ends with `blocked` and its log contains the explicit GitHub API connection
+error, the runner waits one minute by default and retries a fresh session. Set
+`CODEX_LOOP_GITHUB_RETRY_SECONDS=0` to disable that retry. Any other `blocked`
+result stops the runner and preserves state for inspection.
+
 ## Completion guard
 
 No ordinary work session can stop the outer loop. A session that believes the
