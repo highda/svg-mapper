@@ -4,24 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #38 — Pin Codex loop to Terra medium
-Branch:       feat/38-pin-terra-medium
-Started:      2026-08-18
-Last commit:  (uncommitted) Terra medium pin ready for review
-
-### What's done
-- Claimed the loop model pinning task.
-- Pinned every runner spawn to gpt-5.6-terra with medium reasoning effort.
-
-### What's next
-- Commit, push, and open the implementation PR.
-
-### Notes / gotchas
-- The runner already ignores user configuration; the model pin belongs in its command line.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-08-18 — closed #38 — pinned unattended Codex loop to Terra medium; PR #39.
 - 2026-08-18 — closed #36 — Codex commit identity plus proactive product-completeness goal beyond MVP acceptance; PR #37.
 - 2026-08-18 — closed #34 — two-pass autonomous-loop completion guard with independent final review and stop marker; PR #35.
 - 2026-08-18 — closed #32 — scoped unattended Codex profile with Git/memento access, proxy network policy, and local Playwright MCP; PR #33.
