@@ -7,7 +7,7 @@
 Issue:        #27 — renderer+shared: renderer UI chrome — zoom controls, background fit, spacebar pan, padding
 Branch:       feat/27-renderer-ui-chrome
 Started:      2026-08-31
-Last commit:  09fc199  feat: complete renderer UI chrome controls
+Last commit:  1f634c2  chore: unblock #27 browser validation
 
 ### What's done
 - Added editor controls for background fit, renderer zoom controls, and per-side padding.
@@ -20,7 +20,7 @@ Last commit:  09fc199  feat: complete renderer UI chrome controls
 
 ### Notes / gotchas
 - The session task brief is stale; issue #24 was completed in PR #74.
-- Playwright Chromium revision 1237 is installed in the persistent agentbox cache, launches successfully, and the repository MCP is enabled.
+- Playwright Chromium revision 1237 is installed in the persistent agentbox cache and launches successfully, but the repository Playwright MCP is not exposed to this session. Policy forbids substituting another browser driver, so browser validation remains blocked.
 
 ---
 
