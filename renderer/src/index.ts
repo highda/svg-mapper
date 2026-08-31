@@ -1,1 +1,1 @@
-export { create } from "./renderer.js";
+export { create, __setInlinedCSS } from "./renderer.js";

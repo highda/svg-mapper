@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { create } from "../../../renderer/src/renderer";
+import { create, __setInlinedCSS } from "../../../renderer/src/renderer";
 import { createRectArea } from "../lib/area-utils";
 import { createNewProject, toDefinition } from "../lib/project";
 
@@ -9,6 +9,7 @@ class ResizeObserverStub {
 }
 
 beforeEach(() => {
+  __setInlinedCSS(".clickmap-root { position: relative; }");
   vi.stubGlobal("ResizeObserver", ResizeObserverStub);
   window.history.replaceState(null, "", window.location.pathname);
   document.body.innerHTML = '<div id="map"></div>';
@@ -39,6 +40,49 @@ function areaElement(id: string): SVGElement {
 }
 
 describe("renderer interaction model", () => {
+  it("isolates renderer DOM and styles in an optional shadow root", () => {
+    const project = createNewProject();
+    const host = document.querySelector<HTMLElement>("#map")!;
+    const instance = create({
+      container: host,
+      definition: toDefinition(project),
+      shadowDom: true,
+      css: ".clickmap-root { color: rebeccapurple; }",
+    });
+
+    expect(host.shadowRoot).not.toBeNull();
+    expect(document.querySelector(".clickmap-root")).toBeNull();
+    expect(host.shadowRoot!.querySelector(".clickmap-root")).not.toBeNull();
+    expect(host.shadowRoot!.querySelector("style")).toHaveTextContent(
+      ".clickmap-root { position: relative; }",
+    );
+    expect(host.shadowRoot!.querySelector("style")).toHaveTextContent(
+      ".clickmap-root { color: rebeccapurple; }",
+    );
+
+    instance.destroy();
+    expect(host.shadowRoot!.childNodes).toHaveLength(0);
+
+    const replacement = create({
+      container: host,
+      definition: toDefinition(project),
+      shadowDom: true,
+    });
+    expect(host.shadowRoot!.querySelector(".clickmap-root")).not.toBeNull();
+    replacement.destroy();
+  });
+
+  it("keeps the default renderer in the light DOM", () => {
+    const project = createNewProject();
+    const host = document.querySelector<HTMLElement>("#map")!;
+    const instance = create({ container: host, definition: toDefinition(project) });
+
+    expect(host.shadowRoot).toBeNull();
+    expect(host.querySelector(".clickmap-root")).not.toBeNull();
+    instance.destroy();
+    expect(host.querySelector(".clickmap-root")).toBeNull();
+  });
+
   it("renders zoom controls, applies padding, and resets the viewBox", () => {
     const project = createNewProject();
     project.settings.zoomControls = { enabled: true, position: "bottom-left" };

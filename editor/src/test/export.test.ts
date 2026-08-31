@@ -95,6 +95,8 @@ describe("generateExportPackage", () => {
     expect(html).toContain("clickmap-renderer.js");
     expect(html).toContain("clickmap-renderer.css");
     expect(html).toContain("ClickMapRenderer.create");
+    expect(html).toContain("shadowDom: true");
+    expect(html).toContain("css: \"");
   });
 
   it("README.txt mentions the project name", () => {
@@ -108,6 +110,7 @@ describe("generateExportPackage", () => {
     const { pkg } = makePackage();
     expect(typeof pkg.embedSnippet).toBe("string");
     expect(pkg.embedSnippet).toContain("ClickMapRenderer.create");
+    expect(pkg.embedSnippet).toContain("shadowDom: true");
     expect(typeof pkg.mapJson).toBe("string");
     const parsed = JSON.parse(pkg.mapJson) as Record<string, unknown>;
     expect(parsed).toHaveProperty("views");

@@ -116,10 +116,15 @@ function lerpColor(
 // CSS for renderer (used when shadow DOM is enabled)
 // ---------------------------------------------------------------------------
 
-let _inlinedCSS = "";
+declare const __CLICKMAP_CSS__: string;
+
+let _inlinedCSS =
+  typeof __CLICKMAP_CSS__ === "string" ? __CLICKMAP_CSS__ : "";
 function getInlinedCSS(): string {
   return _inlinedCSS;
 }
+
+const managedShadowRoots = new WeakMap<HTMLElement, ShadowRoot>();
 
 // ---------------------------------------------------------------------------
 // Core renderer
@@ -297,9 +302,14 @@ class Renderer implements ClickMapInstance {
 
     // Shadow DOM mode (issue #29)
     if (this.options.shadowDom) {
-      this.shadowRoot = this.container.attachShadow({ mode: "open" });
+      this.shadowRoot = managedShadowRoots.get(this.container) ?? null;
+      if (!this.shadowRoot) {
+        this.shadowRoot = this.container.attachShadow({ mode: "open" });
+        managedShadowRoots.set(this.container, this.shadowRoot);
+      }
+      this.shadowRoot.replaceChildren();
       const styleEl = document.createElement("style");
-      styleEl.textContent = getInlinedCSS() + (this.options.css ?? "");
+      styleEl.textContent = `${getInlinedCSS()}\n${this.options.css ?? ""}`;
       this.shadowRoot.appendChild(styleEl);
       this.shadowRoot.appendChild(this.root);
     } else {
@@ -1398,8 +1408,8 @@ class Renderer implements ClickMapInstance {
     document.removeEventListener("click", this.onDocumentClick);
     document.removeEventListener("keydown", this.onDocumentKeyDown);
     if (this.shadowRoot) {
-      // Remove shadow root by clearing the container's shadow
-      this.root.remove();
+      // Shadow roots cannot be detached; clear all renderer-owned contents.
+      this.shadowRoot.replaceChildren();
     } else {
       this.root.remove();
     }
