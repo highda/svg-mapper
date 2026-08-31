@@ -60,10 +60,17 @@ Every successful commit is a checkpoint. Its body contains terse `Done`,
 diff and is explained by `.codex/MEMENTO.md`, which is kept under 120 words.
 Reset the memento to its template in the same commit that incorporates it.
 
-The `PreCompact` hook is only a failsafe. It writes
-`.codex/runtime/fresh-session-required` and prevents automatic compaction. The
-runner then starts a new session, which reads Git, `HANDOFF.md`, and the
-memento. The hook never tries to summarize a near-exhausted conversation.
+The `PreCompact` hook is a deliberate kill switch, not just a failsafe. It
+writes `.codex/runtime/fresh-session-required` and prevents automatic
+compaction; the runner then starts a new session, which reconstructs state
+from Git, `HANDOFF.md`, and the memento. The hook never tries to summarize a
+near-exhausted conversation, on purpose: under this loop, a cleared context
+that rebuilds itself from those recovery files is worth more than a
+compressed context carrying forward a compaction summary's drift and blind
+spots. A fresh session that reads the same Git state gets the same answer
+every time; a compacted one doesn't. Do not weaken or bypass this hook to
+"let a session finish its thought" — that's the failure mode it exists to
+prevent.
 
 The pre-compact guard handles a session's context limit. A separate quota guard
 handles temporary account usage/token or rate-limit failures: it waits 15
