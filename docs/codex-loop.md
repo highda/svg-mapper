@@ -13,7 +13,7 @@ the hook-trust bypass flag unless an isolated automation environment has
 independently vetted the hook source.
 
 The loop ignores user-level Codex configuration, so it loads only this
-repository's permission profile and Playwright MCP configuration (plus any
+repository's `.codex/config.toml` and Playwright MCP configuration (plus any
 system-managed policy). `@playwright/mcp` is pinned in `editor/package.json`;
 run `npm --prefix editor install` after a fresh checkout before starting the
 loop. Every spawned session is pinned by the runner to `gpt-5.6-sol` with low
@@ -60,10 +60,17 @@ Every successful commit is a checkpoint. Its body contains terse `Done`,
 diff and is explained by `.codex/MEMENTO.md`, which is kept under 120 words.
 Reset the memento to its template in the same commit that incorporates it.
 
-The `PreCompact` hook is only a failsafe. It writes
-`.codex/runtime/fresh-session-required` and prevents automatic compaction. The
-runner then starts a new session, which reads Git, `HANDOFF.md`, and the
-memento. The hook never tries to summarize a near-exhausted conversation.
+The `PreCompact` hook is a deliberate kill switch, not just a failsafe. It
+writes `.codex/runtime/fresh-session-required` and prevents automatic
+compaction; the runner then starts a new session, which reconstructs state
+from Git, `HANDOFF.md`, and the memento. The hook never tries to summarize a
+near-exhausted conversation, on purpose: under this loop, a cleared context
+that rebuilds itself from those recovery files is worth more than a
+compressed context carrying forward a compaction summary's drift and blind
+spots. A fresh session that reads the same Git state gets the same answer
+every time; a compacted one doesn't. Do not weaken or bypass this hook to
+"let a session finish its thought" — that's the failure mode it exists to
+prevent.
 
 The pre-compact guard handles a session's context limit. A separate quota guard
 handles temporary account usage/token or rate-limit failures: it waits 15
@@ -90,29 +97,14 @@ error, the runner waits one minute by default and retries a fresh session. Set
 `CODEX_LOOP_GITHUB_RETRY_SECONDS=0` to disable that retry. Any other `blocked`
 result stops the runner and preserves state for inspection.
 
-Before every Codex session, the runner uses the same permission profile to
-probe GitHub access. It prefers the restricted loopback bridge; if the bridge
-cannot start, the sandbox rejects its loopback connection, or the configured
-GitHub allowlist works directly, it uses the direct path instead. If neither
-path works, the runner stops before consuming a session and records the command output in
-`.codex/runtime/loop-preflight.log`.
+The loop runs `gh` and `git` directly against the host's normal network path —
+there is no loopback bridge or host command relay. `gh auth token` (or
+`CODEX_LOOP_GITHUB_TOKEN`) must resolve to a working credential before launch;
+the runner fails fast otherwise instead of discovering it mid-session.
 
-The host may itself use a local proxy for Codex control traffic. In direct mode,
-the runner regenerates wrappers for agent-launched Git, GitHub, and package
-commands that clear inherited HTTP(S) and SOCKS proxy variables; this prevents
-a fallback from accidentally reconnecting to the blocked loopback bridge. The
-Codex process itself keeps the host environment unchanged.
-
-If neither child-network route is available, the runner uses a host command
-relay through namespaced files directly under `.codex/runtime`. The child
-writes requests to that explicitly writable ignored directory; a host process executes only repository-scoped `gh`
-commands and remote Git synchronization, then returns stdout, stderr, and exit
-status. Local Git commands continue to run inside the sandbox. This keeps issue
-and PR hand-offs functional without granting the child broader network access.
-
-The loop uses `approval_policy = "never"` with its `autonomous-project`
-sandbox. It does not use auto-approval or dangerous permission bypass: denied
-operations return to the agent immediately without an approval-model call.
+The loop uses `approval_policy = "never"` with `sandbox_mode =
+"danger-full-access"`: there is no scoped permission profile and no interactive
+approval prompts. Shell commands run with full filesystem and network access.
 
 Vite and Vitest run with their config runner, avoiding Vite's temporary config
 bundle under `node_modules/.vite-temp`. During loop runs their dependency cache
@@ -138,24 +130,27 @@ manually only when intentionally reopening the project.
 
 ## Safety
 
-The runner uses the `autonomous-project` permission profile with no interactive
-approval prompts. It grants write access to the repository, including `.git`
-for checkpoint commits and the memento/runtime files under `.codex`; it keeps
-the hook, prompt, and permission files themselves read-only so a loop session
-cannot weaken the next session's policy. The shell network proxy permits only
-loopback, npm registry, and GitHub/GitHubusercontent hosts. `api.github.com`
-is explicitly included because `gh` uses it for issue, PR, and label tracking.
+This box is treated as an isolated, disposable agentbox, so the runner uses
+`sandbox_mode = "danger-full-access"` with no interactive approval prompts and
+no scoped filesystem or network policy: a loop session can read, write, and
+reach the network without restriction, including its own `.codex/config.toml`,
+hooks, and prompts. The things that still hold the loop together are agent
+discipline, not sandbox enforcement:
 
-The project-local Playwright MCP runs headless with an isolated browser profile,
-no session persistence, no unrestricted file access, and local development
-origins only. It is suitable for serving and testing this app without user
-interaction. Do not add remote MCP servers or app connectors to an unattended
-loop: MCP and hosted/app tools are separate authority boundaries and are not
-limited by Codex's shell filesystem sandbox. Playwright's origin allowlist is
-a safety control, not a host-security boundary; redirects and trusted local
-server code still need normal review.
+- The `PreCompact` hook still stops a session before automatic compaction
+  rather than letting it summarize and continue.
+- The two-pass completion guard still applies — see below.
+- `AGENTS.md`'s serial lock, hand-off protocol, and commit discipline still
+  govern how a session claims and closes out work.
 
-This is a local sandbox, not a VM or a defense against a compromised operating
-system, a malicious dependency, or a trusted MCP server. It prevents ordinary
-Codex shell commands from reading or writing outside the configured workspace;
-run unattended only in a reviewed repository and with no external connectors.
+The project-local Playwright MCP still runs headless with an isolated browser
+profile, no session persistence, no unrestricted file access, and local
+development origins only (`.codex/playwright-mcp.json`). Do not add remote MCP
+servers or app connectors to an unattended loop: MCP and hosted/app tools are
+separate authority boundaries and are not limited by Codex's shell sandbox
+mode. Playwright's origin allowlist is a safety control, not a host-security
+boundary; redirects and trusted local server code still need normal review.
+
+Because the shell sandbox is fully open, nothing here defends against a
+malicious dependency or a compromised MCP server reaching further than the
+repository. Run this configuration only in a reviewed, disposable environment.

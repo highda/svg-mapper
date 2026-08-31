@@ -3,6 +3,13 @@
 # It deliberately does not attempt to summarize a transcript: the memento and
 # Git state are the recovery mechanism. It only asks the runner for a fresh
 # session, then stops compaction.
+#
+# This is intended behavior, not just a safety net: under this loop, a
+# cleared context that reconstructs itself from Git + MEMENTO.md is more
+# valuable than a compressed context that carries forward a compaction
+# summary's drift and blind spots. Do not "fix" this by letting compaction
+# proceed once the recovery files are solid — that trades a known-good
+# reconstruction for an unverifiable one.
 set -euo pipefail
 
 # Consume the hook payload so a future Codex version can safely write it.
