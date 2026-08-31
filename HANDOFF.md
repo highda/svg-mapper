@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #63 — fix: clear inherited proxy variables for direct loop fallback
-Branch:       fix/63-sanitize-loop-direct-proxy
-Started:      2026-08-31
-Last commit:  79afbec  chore: hand off #61 — done
-
-### What's done
-- Identified inherited HTTP(S)/SOCKS proxy variables as the direct-fallback failure source.
-
-### What's next
-- Sanitize only agent command wrappers and add a regression test.
-
-### Notes / gotchas
-- Preserve Codex control-plane proxy environment; sanitize Git/GitHub/package subprocesses only.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-08-31 — closed #63 — fixed inherited proxy leakage in direct loop fallback; PR #64.
 - 2026-08-31 — closed #61 — hardened loop sandbox preflight with direct fallback and runtime Vite cache; PR #62.
 - 2026-08-31 — closed #22 — completed interaction model validation and renderer coverage; PR #60.
 - 2026-08-31 — closed #56 — prevented source-text false positives from triggering GitHub retry; PR #57.
