@@ -159,12 +159,13 @@ while ((max_sessions == 0 || session < max_sessions)); do
 
   set +e
   GH_TOKEN="$github_token" CODEX_VITE_CACHE_DIR="$vite_cache_dir" \
-    "$codex_bin" --add-dir "$repo_root/.git" exec \
+    "$codex_bin" exec \
     --json \
     --model gpt-5.6-sol \
     --config 'model_reasoning_effort="low"' \
     --ignore-user-config \
     --strict-config \
+    --dangerously-bypass-approvals-and-sandbox \
     --output-last-message "$last_message" \
     - <"$prompt_file" >"$log_file" 2>&1
   exit_status=$?

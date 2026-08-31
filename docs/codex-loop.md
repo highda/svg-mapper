@@ -102,9 +102,19 @@ there is no loopback bridge or host command relay. `gh auth token` (or
 `CODEX_LOOP_GITHUB_TOKEN`) must resolve to a working credential before launch;
 the runner fails fast otherwise instead of discovering it mid-session.
 
-The loop uses `approval_policy = "never"` with `sandbox_mode =
-"danger-full-access"`: there is no scoped permission profile and no interactive
-approval prompts. Shell commands run with full filesystem and network access.
+The loop invokes `codex exec` with `--dangerously-bypass-approvals-and-sandbox`:
+no confirmation prompts and no OS-level sandbox wrapper around shell commands.
+This is deliberately a CLI flag, not a `.codex/config.toml` field — Codex
+doesn't expose a config equivalent, so the bypass can't be silently persisted
+into a committed file; it's opt-in per invocation, only in the unattended
+loop. `sandbox_mode = "danger-full-access"` in config.toml is *not* equivalent
+to this flag: it still routes commands through Codex's bwrap-based sandbox
+(just with fuller permissions inside it), which fails outright in a container
+without unprivileged user namespaces (`kernel.unprivileged_userns_clone`
+disabled) — every command exits with "No permissions to create a new
+namespace" and the session reports `blocked`. An interactive `codex` session
+run in this repo without the flag still goes through normal approval/sandbox
+behavior.
 
 Vite and Vitest run with their config runner, avoiding Vite's temporary config
 bundle under `node_modules/.vite-temp`. During loop runs their dependency cache
@@ -130,12 +140,12 @@ manually only when intentionally reopening the project.
 
 ## Safety
 
-This box is treated as an isolated, disposable agentbox, so the runner uses
-`sandbox_mode = "danger-full-access"` with no interactive approval prompts and
-no scoped filesystem or network policy: a loop session can read, write, and
-reach the network without restriction, including its own `.codex/config.toml`,
-hooks, and prompts. The things that still hold the loop together are agent
-discipline, not sandbox enforcement:
+This box is treated as an isolated, disposable agentbox, so the runner passes
+`--dangerously-bypass-approvals-and-sandbox` with no scoped filesystem or
+network policy: a loop session can read, write, and reach the network without
+restriction, including its own `.codex/config.toml`, hooks, and prompts. The
+things that still hold the loop together are agent discipline, not sandbox
+enforcement:
 
 - The `PreCompact` hook still stops a session before automatic compaction
   rather than letting it summarize and continue.
