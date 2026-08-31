@@ -4,3 +4,7 @@ dist/
 *.local
 others/
 .codex/runtime/
+# Browser-validation artifacts are ephemeral evidence, not product assets.
+sweep-*.png
+*-screenshot.png
+*-screenshot-*.png

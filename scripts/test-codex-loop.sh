@@ -31,6 +31,7 @@ rg -F '.codex/MEMENTO.md' "$repo_root/.codex/prompts/autonomous-loop.md" >/dev/n
 rg -F 'editor/package.json' "$repo_root/.codex/prompts/autonomous-loop.md" >/dev/null
 rg -F 'independent command' "$repo_root/.codex/prompts/autonomous-loop.md" >/dev/null
 rg -F 'empty Ready column is a workflow gap' "$repo_root/.codex/prompts/autonomous-loop.md" >/dev/null
+rg -F 'never stage or commit them' "$repo_root/.codex/prompts/autonomous-loop.md" >/dev/null
 rg -F 'completion-candidate.md' "$repo_root/.codex/prompts/autonomous-loop.md" >/dev/null
 rg -F 'loop-complete.md' "$repo_root/.codex/prompts/completion-review.md" >/dev/null
 rg -F '.codex/GOAL.md' "$repo_root/.codex/prompts/completion-review.md" >/dev/null
@@ -51,6 +52,8 @@ rg -F 'PATH="$command_bridge_dir:$PATH"' "$repo_root/scripts/codex-loop.sh" >/de
 rg -F -- '--add-dir "$repo_root/.git"' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'Proactively invent and implement valuable in-scope improvements' "$repo_root/.codex/GOAL.md" >/dev/null
 test -x "$repo_root/editor/node_modules/.bin/playwright-mcp"
+git check-ignore -q "$repo_root/sweep-future-proof.png"
+git check-ignore -q "$repo_root/example-screenshot.png"
 
 printf '%s\n' 'Verified completion.' >"$stop_file"
 stop_output="$(CODEX_BIN=/definitely/not-installed-codex "$repo_root/scripts/codex-loop.sh")"
