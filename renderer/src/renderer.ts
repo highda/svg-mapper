@@ -9,7 +9,6 @@ import type {
   Area,
   Action,
   AreaStyleState,
-  Settings,
 } from "../../shared/types.js";
 import { Emitter } from "./emitter.js";
 
@@ -853,7 +852,7 @@ class Renderer implements ClickMapInstance {
       type: "area:hover",
       areaId: area.id,
       areaName: area.name,
-      metadata: area.metadata,
+      ...(area.metadata !== undefined ? { metadata: area.metadata } : {}),
     });
 
     if (area.tooltip?.enabled) {
@@ -897,7 +896,7 @@ class Renderer implements ClickMapInstance {
       areaId: area.id,
       areaName: area.name,
       action: area.action,
-      metadata: area.metadata,
+      ...(area.metadata !== undefined ? { metadata: area.metadata } : {}),
     });
     this.dispatchAction(area.action, area);
   }
@@ -914,7 +913,7 @@ class Renderer implements ClickMapInstance {
       areaId: hit.area.id,
       areaName: hit.area.name,
       action: hit.area.action,
-      metadata: hit.area.metadata,
+      ...(hit.area.metadata !== undefined ? { metadata: hit.area.metadata } : {}),
     });
     this.dispatchAction(hit.area.action, hit.area);
   }
@@ -960,8 +959,8 @@ class Renderer implements ClickMapInstance {
       const resolved = renderTemplate(settings.contentTemplate, {
         name: area.name,
         id: area.id,
-        metadata: area.metadata,
-        viewName: view?.name,
+        ...(area.metadata !== undefined ? { metadata: area.metadata } : {}),
+        ...(view?.name !== undefined ? { viewName: view.name } : {}),
       });
       title = "";
       body = resolved;

@@ -256,6 +256,17 @@ export function validateProject(project: ClickMapDefinition): ValidationResult[]
         if (area.action.type === "none") {
           warn("AREA_NO_ACTION", `Area "${area.name}" has no action.`, ref);
         }
+
+        // Disabled areas deliberately ignore their action at runtime. Keeping an
+        // action configured is usually an authoring mistake and can be confusing
+        // when the area is re-enabled later.
+        if (area.disabled && area.action.type !== "none") {
+          warn(
+            "DISABLED_AREA_HAS_ACTION",
+            `Disabled area "${area.name}" has an action that will not run.`,
+            ref,
+          );
+        }
       }
     }
   }
