@@ -185,7 +185,7 @@ chmod +x "$fake_gh" "$fake_git"
 node "$repo_root/scripts/host-command-relay.mjs" "$relay_test_dir" "$repo_root" "$fake_gh" "$fake_git" >/dev/null 2>&1 &
 relay_test_pid="$!"
 for _ in {1..50}; do
-  [[ -s "$relay_test_dir/ready" ]] && break
+  [[ -s "$relay_test_dir/host-command-relay.ready" ]] && break
   sleep 0.05
 done
 relay_result="$(node "$repo_root/scripts/host-command-client.mjs" "$relay_test_dir" gh issue list)"

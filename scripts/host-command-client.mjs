@@ -7,8 +7,8 @@ const [queueDir, command, ...args] = process.argv.slice(2);
 if (!queueDir || !command) process.exit(126);
 const id = `${process.pid}-${Date.now()}-${crypto.randomBytes(6).toString("hex")}`;
 const stdin = process.stdin.isTTY ? "" : fs.readFileSync(0, "utf8");
-const request = path.join(queueDir, `${id}.request.json`);
-const response = path.join(queueDir, `${id}.response.json`);
+const request = path.join(queueDir, `host-command-relay.${id}.request.json`);
+const response = path.join(queueDir, `host-command-relay.${id}.response.json`);
 fs.writeFileSync(request, JSON.stringify({ id, command, args, stdin }));
 
 const deadline = Date.now() + 120_000;

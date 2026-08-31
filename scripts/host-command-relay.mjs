@@ -9,7 +9,7 @@ if (!queueDir || !repoRoot || !ghPath || !gitPath) {
 }
 
 fs.mkdirSync(queueDir, { recursive: true });
-fs.writeFileSync(path.join(queueDir, "ready"), String(process.pid));
+fs.writeFileSync(path.join(queueDir, "host-command-relay.ready"), String(process.pid));
 
 function allowed(command, args) {
   if (command === "gh") {
@@ -28,9 +28,9 @@ function allowed(command, args) {
 }
 
 function respond(id, result) {
-  const temp = path.join(queueDir, `${id}.response.tmp`);
+  const temp = path.join(queueDir, `host-command-relay.${id}.response.tmp`);
   fs.writeFileSync(temp, JSON.stringify(result));
-  fs.renameSync(temp, path.join(queueDir, `${id}.response.json`));
+  fs.renameSync(temp, path.join(queueDir, `host-command-relay.${id}.response.json`));
 }
 
 async function handle(file) {
@@ -64,7 +64,7 @@ async function handle(file) {
 
 const timer = setInterval(() => {
   for (const file of fs.readdirSync(queueDir)) {
-    if (file.endsWith(".request.json")) void handle(file);
+    if (file.startsWith("host-command-relay.") && file.endsWith(".request.json")) void handle(file);
   }
 }, 25);
 

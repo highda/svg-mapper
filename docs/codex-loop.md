@@ -104,11 +104,15 @@ a fallback from accidentally reconnecting to the blocked loopback bridge. The
 Codex process itself keeps the host environment unchanged.
 
 If neither child-network route is available, the runner uses a host command
-relay over `.codex/runtime/host-command-relay`. The child writes requests to
-that ignored directory; a host process executes only repository-scoped `gh`
+relay through namespaced files directly under `.codex/runtime`. The child
+writes requests to that explicitly writable ignored directory; a host process executes only repository-scoped `gh`
 commands and remote Git synchronization, then returns stdout, stderr, and exit
 status. Local Git commands continue to run inside the sandbox. This keeps issue
 and PR hand-offs functional without granting the child broader network access.
+
+The loop uses `approval_policy = "never"` with its `autonomous-project`
+sandbox. It does not use auto-approval or dangerous permission bypass: denied
+operations return to the agent immediately without an approval-model call.
 
 Vite and Vitest run with their config runner, avoiding Vite's temporary config
 bundle under `node_modules/.vite-temp`. During loop runs their dependency cache
