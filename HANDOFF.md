@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #29 — renderer: shadow DOM isolation mode
-Branch:       feat/29-shadow-dom-isolation
-Started:      2026-08-31
-Last commit:  1f45e7c  chore: hand off #28 — done
-
-### What's done
-- Claimed the existing shadow DOM isolation backlog task.
-
-### What's next
-- Finish CSS bundling, cleanup, tests, and embed documentation for shadow DOM mode.
-
-### Notes / gotchas
-- Main already contains partial issue #29 scaffolding, but the bundled CSS injector is not exported from the entry point.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-08-31 — closed #29 — added opt-in renderer shadow DOM isolation with bundled/custom CSS, lifecycle cleanup, and embed guidance; PR #79.
 - 2026-08-31 — closed #28 — completed circle authoring, grid snapping, zoom-to-fit, background-size suggestions, and area search; PR #78.
 - 2026-08-31 — closed #27 — completed renderer zoom controls, fitted backgrounds, spacebar pan, configurable padding, and imported SVG rendering; PR #77.
 - 2026-08-31 — closed #26 — completed configurable, auto-centered renderer and editor area labels with per-area overrides; PR #76.
