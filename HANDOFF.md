@@ -4,32 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #72 — Fix codex-loop.sh: danger-full-access still fails under bwrap-less containers
-Branch:       feat/72-loop-bypass-flag
-Started:      2026-08-31
-Last commit:  (pending)
-
-### What's done
-- Replaced `sandbox_mode = "danger-full-access"` (still routes through bwrap,
-  fails without unprivileged user namespaces) with the CLI flag
-  `--dangerously-bypass-approvals-and-sandbox` in scripts/codex-loop.sh
-- Removed the now-unused `sandbox_mode`/`approval_policy` keys from
-  .codex/config.toml and the redundant `--add-dir .git`
-- Updated scripts/test-codex-loop.sh and docs/codex-loop.md to match
-- Live-verified: a real `CODEX_LOOP_MAX_SESSIONS=1` run with this fix claimed
-  #23, ran real checks, opened and merged PR #71, ended `checkpoint complete`
-
-### What's next
-- Open PR, merge, clear this block
-
-### Notes / gotchas
-- This flag is intentionally not settable via config.toml — Codex keeps it
-  CLI-only so the bypass can't be silently persisted. Any interactive
-  `codex` session in this repo still goes through normal approval/sandbox.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-08-31 — closed #72 — swapped `sandbox_mode = "danger-full-access"` (still fails under bwrap-less containers) for `--dangerously-bypass-approvals-and-sandbox`; live-verified against a real single-session loop run; PR #73.
 - 2026-08-31 — closed #23 — completed accessible anchored popovers and sanitised rich tooltips with export round-trip coverage; PR #71.
 - 2026-08-31 — closed #69 — dropped the scoped permission profile, network allowlist, and GitHub loopback bridge/relay for `danger-full-access` on this disposable agentbox; documented the PreCompact hook as a deliberate kill switch (cleared context > compressed context under this loop); PR #70.
 - 2026-08-31 — closed #67 — flattened relay queue into writable runtime root and documented approval mode; PR #68.
