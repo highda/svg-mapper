@@ -16,8 +16,8 @@ The loop ignores user-level Codex configuration, so it loads only this
 repository's permission profile and Playwright MCP configuration (plus any
 system-managed policy). `@playwright/mcp` is pinned in `editor/package.json`;
 run `npm --prefix editor install` after a fresh checkout before starting the
-loop. Every spawned session is pinned by the runner to `gpt-5.6-terra` with
-medium reasoning effort.
+loop. Every spawned session is pinned by the runner to `gpt-5.6-sol` with low
+reasoning effort.
 
 The loop needs a valid GitHub CLI credential to perform its required issue and
 PR hand-offs. Verify it before an unattended launch:
@@ -102,6 +102,13 @@ the runner regenerates wrappers for agent-launched Git, GitHub, and package
 commands that clear inherited HTTP(S) and SOCKS proxy variables; this prevents
 a fallback from accidentally reconnecting to the blocked loopback bridge. The
 Codex process itself keeps the host environment unchanged.
+
+If neither child-network route is available, the runner uses a host command
+relay over `.codex/runtime/host-command-relay`. The child writes requests to
+that ignored directory; a host process executes only repository-scoped `gh`
+commands and remote Git synchronization, then returns stdout, stderr, and exit
+status. Local Git commands continue to run inside the sandbox. This keeps issue
+and PR hand-offs functional without granting the child broader network access.
 
 Vite and Vitest run with their config runner, avoiding Vite's temporary config
 bundle under `node_modules/.vite-temp`. During loop runs their dependency cache
