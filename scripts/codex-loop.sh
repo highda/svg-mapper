@@ -24,8 +24,13 @@ command_bridge_dir="$runtime_dir/network-bridge-bin"
 preflight_log="$runtime_dir/loop-preflight.log"
 vite_cache_dir="$runtime_dir/vite-cache"
 task_brief_file="$runtime_dir/task-brief.md"
+relay_queue_dir="$runtime_dir/host-command-relay"
+relay_log="$runtime_dir/host-command-relay.log"
+relay_script="$repo_root/scripts/host-command-relay.mjs"
+relay_client="$repo_root/scripts/host-command-client.mjs"
 skip_task_brief="${CODEX_LOOP_SKIP_TASK_BRIEF:-0}"
 proxy_pid=""
+relay_pid=""
 
 if ! [[ "$max_sessions" =~ ^[0-9]+$ ]]; then
   printf '%s\n' 'CODEX_LOOP_MAX_SESSIONS must be a non-negative integer.' >&2
@@ -132,6 +137,21 @@ prepare_task_brief() {
 
 prepare_task_brief
 
+gh_path="$(command -v gh)"
+git_path="$(command -v git)"
+mkdir -p "$relay_queue_dir"
+rm -f "$relay_queue_dir/ready"
+GH_TOKEN="$github_token" node "$relay_script" "$relay_queue_dir" "$repo_root" "$gh_path" "$git_path" >"$relay_log" 2>&1 &
+relay_pid="$!"
+for _ in {1..50}; do
+  [[ -s "$relay_queue_dir/ready" ]] && break
+  sleep 0.1
+done
+if [[ ! -s "$relay_queue_dir/ready" ]] || ! kill -0 "$relay_pid" 2>/dev/null; then
+  printf 'Host command relay did not start. See %s.\n' "$relay_log" >&2
+  exit 2
+fi
+
 rm -f "$proxy_port_file"
 node "$proxy_script" "$proxy_port_file" >"$proxy_log" 2>&1 &
 proxy_pid="$!"
@@ -139,6 +159,8 @@ cleanup_proxy() {
   [[ -n "$proxy_pid" ]] && kill "$proxy_pid" 2>/dev/null || true
   [[ -n "$proxy_pid" ]] && wait "$proxy_pid" 2>/dev/null || true
   rm -f "$proxy_port_file"
+  [[ -n "$relay_pid" ]] && kill "$relay_pid" 2>/dev/null || true
+  [[ -n "$relay_pid" ]] && wait "$relay_pid" 2>/dev/null || true
 }
 trap cleanup_proxy EXIT INT TERM
 for _ in {1..50}; do
@@ -162,12 +184,20 @@ write_command_wrappers() {
     if [[ "$mode" == "bridge" ]]; then
       printf '#!/usr/bin/env bash\nexec env -u ALL_PROXY -u https_proxy -u http_proxy -u all_proxy HTTPS_PROXY=%q HTTP_PROXY=%q NO_PROXY=localhost,127.0.0.1 %q "$@"\n' \
         "$proxy_url" "$proxy_url" "$command_path" >"$command_bridge_dir/$command_name"
-    else
+    elif [[ "$mode" == "direct" ]]; then
       # Do not let the host's Codex-control proxy leak into agent shell commands:
       # it is loopback-only and the sandbox cannot connect to it. Keep the Codex
       # process itself untouched; only Git/GitHub/package subprocesses are clean.
       printf '#!/usr/bin/env bash\nexec env -u HTTPS_PROXY -u HTTP_PROXY -u ALL_PROXY -u https_proxy -u http_proxy -u all_proxy %q "$@"\n' \
         "$command_path" >"$command_bridge_dir/$command_name"
+    elif [[ "$command_name" == "gh" ]]; then
+      printf '#!/usr/bin/env bash\nexec node %q %q gh "$@"\n' \
+        "$relay_client" "$relay_queue_dir" >"$command_bridge_dir/$command_name"
+    elif [[ "$command_name" == "git" ]]; then
+      printf '#!/usr/bin/env bash\nfor arg in "$@"; do case "$arg" in fetch|pull|push|ls-remote) exec node %q %q git "$@";; esac; done\nexec %q "$@"\n' \
+        "$relay_client" "$relay_queue_dir" "$command_path" >"$command_bridge_dir/$command_name"
+    else
+      printf '#!/usr/bin/env bash\nexec %q "$@"\n' "$command_path" >"$command_bridge_dir/$command_name"
     fi
     chmod 700 "$command_bridge_dir/$command_name"
   done
@@ -203,11 +233,16 @@ if ((bridge_available)) && probe_sandbox_github bridge; then
 else
   write_command_wrappers direct
   if probe_sandbox_github direct; then
-  printf 'Sandbox preflight: loopback bridge was unavailable; using direct configured GitHub access.\n' >>"$preflight_log"
+    printf 'Sandbox preflight: loopback bridge was unavailable; using direct configured GitHub access.\n' >>"$preflight_log"
   else
-  printf 'Codex sandbox cannot reach GitHub through the bridge or configured direct access. See %s.\n' \
-    "$preflight_log" >&2
-  exit 2
+    write_command_wrappers relay
+    if probe_sandbox_github direct; then
+      printf 'Sandbox preflight: using repository-scoped host command relay.\n' >>"$preflight_log"
+    else
+      printf 'Codex sandbox cannot reach the repository host command relay. See %s.\n' \
+        "$preflight_log" >&2
+      exit 2
+    fi
   fi
 fi
 
@@ -246,8 +281,8 @@ while ((max_sessions == 0 || session < max_sessions)); do
   GH_TOKEN="$github_token" PATH="$agent_path" CODEX_VITE_CACHE_DIR="$vite_cache_dir" \
     "$codex_bin" --add-dir "$repo_root/.git" exec \
     --json \
-    --model gpt-5.6-terra \
-    --config 'model_reasoning_effort="medium"' \
+    --model gpt-5.6-sol \
+    --config 'model_reasoning_effort="low"' \
     --ignore-user-config \
     --strict-config \
     --output-last-message "$last_message" \

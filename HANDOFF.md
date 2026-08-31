@@ -4,8 +4,20 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #65 — fix: relay loop GitHub commands without sandbox networking
+Branch:       fix/65-host-command-relay
+Started:      2026-08-31
+Last commit:  67a2bc7  chore: hand off #63 — done
+
+### What's done
+- Confirmed both child network routes are unavailable and implemented a repository-scoped file relay.
+- Switched the loop to GPT-5.6 Sol with low reasoning.
+
+### What's next
+- Validate relay lifecycle, command restrictions, loop harness, and an end-to-end preflight.
+
+### Notes / gotchas
+- Relay allows repository `gh` operations and remote Git sync only; local Git stays sandboxed.
 
 ---
 

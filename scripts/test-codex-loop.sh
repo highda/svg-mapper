@@ -11,8 +11,10 @@ counter_file="$test_bin_dir/calls"
 test_runtime_dir="$test_bin_dir/runtime"
 github_counter_file="$test_bin_dir/github-calls"
 fake_proxy="$test_bin_dir/proxy.mjs"
+relay_test_pid=""
 
 cleanup() {
+  [[ -n "$relay_test_pid" ]] && kill "$relay_test_pid" 2>/dev/null || true
   rm -f "$sentinel" "$candidate" "$stop_file"
   rm -rf "$test_bin_dir"
 }
@@ -25,6 +27,8 @@ printf '%s\n' \
 
 bash -n "$repo_root/scripts/codex-loop.sh"
 node --check "$repo_root/scripts/github-connect-proxy.mjs"
+node --check "$repo_root/scripts/host-command-relay.mjs"
+node --check "$repo_root/scripts/host-command-client.mjs"
 bash -n "$repo_root/.codex/hooks/precompact.sh"
 python3 -c 'import tomllib; tomllib.load(open(".codex/config.toml", "rb"))'
 node -e 'JSON.parse(require("node:fs").readFileSync(".codex/playwright-mcp.json", "utf8"))'
@@ -45,8 +49,8 @@ rg -F 'codex exec resume' "$repo_root/docs/codex-loop.md" >/dev/null
 rg -F 'default_permissions = "autonomous-project"' "$repo_root/.codex/config.toml" >/dev/null
 rg -F '"api.github.com" = "allow"' "$repo_root/.codex/config.toml" >/dev/null
 rg -F -- '--ignore-user-config' "$repo_root/scripts/codex-loop.sh" >/dev/null
-rg -F -- '--model gpt-5.6-terra' "$repo_root/scripts/codex-loop.sh" >/dev/null
-rg -F 'model_reasoning_effort="medium"' "$repo_root/scripts/codex-loop.sh" >/dev/null
+rg -F -- '--model gpt-5.6-sol' "$repo_root/scripts/codex-loop.sh" >/dev/null
+rg -F 'model_reasoning_effort="low"' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'candidate_file=' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'stop_file=' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'git config --local user.name "Codex"' "$repo_root/scripts/codex-loop.sh" >/dev/null
@@ -57,6 +61,7 @@ rg -F 'github-connect-proxy.mjs' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'network-bridge-bin' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'PATH="$command_bridge_dir:$PATH"' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'probe_sandbox_github' "$repo_root/scripts/codex-loop.sh" >/dev/null
+rg -F 'host-command-relay.mjs' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'env -u HTTPS_PROXY -u HTTP_PROXY -u ALL_PROXY' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'CODEX_VITE_CACHE_DIR="$vite_cache_dir"' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F -- '--configLoader runner' "$repo_root/editor/package.json" >/dev/null
@@ -165,10 +170,33 @@ bridge_failure_output="$(CODEX_LOOP_SKIP_TASK_BRIEF=1 CODEX_LOOP_MAX_SESSIONS=1 
 bridge_failure_status=$?
 set -e
 test "$bridge_failure_status" -eq 2
-rg -F 'Codex sandbox cannot reach GitHub' <<<"$bridge_failure_output" >/dev/null
+rg -F 'Codex sandbox cannot reach the repository host command relay' <<<"$bridge_failure_output" >/dev/null
 if rg -F 'Starting fresh Codex' <<<"$bridge_failure_output" >/dev/null; then
   printf '%s\n' 'A failed sandbox preflight must not start a Codex session.' >&2
   exit 1
 fi
+
+relay_test_dir="$test_runtime_dir/relay-unit"
+fake_gh="$test_bin_dir/fake-gh"
+fake_git="$test_bin_dir/fake-git"
+printf '%s\n' '#!/usr/bin/env bash' 'printf "gh:%s\\n" "$*"' >"$fake_gh"
+printf '%s\n' '#!/usr/bin/env bash' 'printf "git:%s\\n" "$*"' >"$fake_git"
+chmod +x "$fake_gh" "$fake_git"
+node "$repo_root/scripts/host-command-relay.mjs" "$relay_test_dir" "$repo_root" "$fake_gh" "$fake_git" >/dev/null 2>&1 &
+relay_test_pid="$!"
+for _ in {1..50}; do
+  [[ -s "$relay_test_dir/ready" ]] && break
+  sleep 0.05
+done
+relay_result="$(node "$repo_root/scripts/host-command-client.mjs" "$relay_test_dir" gh issue list)"
+test "$relay_result" = 'gh:issue list'
+set +e
+node "$repo_root/scripts/host-command-client.mjs" "$relay_test_dir" gh repo view >/dev/null 2>&1
+relay_rejected_status=$?
+set -e
+test "$relay_rejected_status" -eq 126
+kill "$relay_test_pid"
+wait "$relay_test_pid" 2>/dev/null || true
+relay_test_pid=""
 
 printf '%s\n' 'Codex loop static checks passed.'
