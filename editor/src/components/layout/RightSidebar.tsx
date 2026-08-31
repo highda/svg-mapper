@@ -8,6 +8,7 @@ import type {
   PopupAction,
   RectGeometry,
   PolygonGeometry,
+  SceneSwitcherPosition,
   Tooltip,
   Viewport,
   View,
@@ -237,6 +238,57 @@ function ViewInspector({ view }: { view: View }) {
         placeholder={'<h3>{{name}}</h3>'}
         className="w-full resize-y rounded border border-neutral-700 bg-neutral-800 px-1.5 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
       />
+
+      <SectionHeader title="Scene Switcher" />
+      <CheckToggle
+        checked={project.settings.sceneSwitcher?.enabled ?? false}
+        onChange={(enabled) => updateSettings({
+          sceneSwitcher: {
+            enabled,
+            position: project.settings.sceneSwitcher?.position ?? "bottom-center",
+            style: project.settings.sceneSwitcher?.style ?? "buttons",
+          },
+        })}
+        label="Show view switcher"
+      />
+      <Row label="Position">
+        <select
+          aria-label="Scene Switcher Position"
+          value={project.settings.sceneSwitcher?.position ?? "bottom-center"}
+          disabled={!project.settings.sceneSwitcher?.enabled}
+          onChange={(e) => updateSettings({
+            sceneSwitcher: {
+              enabled: project.settings.sceneSwitcher?.enabled ?? false,
+              position: e.target.value as SceneSwitcherPosition,
+              style: project.settings.sceneSwitcher?.style ?? "buttons",
+            },
+          })}
+          className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500 disabled:opacity-50"
+        >
+          {(["top-left", "top-center", "top-right", "bottom-left", "bottom-center", "bottom-right"] as const).map((position) => (
+            <option key={position} value={position}>{position.replace("-", " ")}</option>
+          ))}
+        </select>
+      </Row>
+      <Row label="Style">
+        <select
+          aria-label="Scene Switcher Style"
+          value={project.settings.sceneSwitcher?.style ?? "buttons"}
+          disabled={!project.settings.sceneSwitcher?.enabled}
+          onChange={(e) => updateSettings({
+            sceneSwitcher: {
+              enabled: project.settings.sceneSwitcher?.enabled ?? false,
+              position: project.settings.sceneSwitcher?.position ?? "bottom-center",
+              style: e.target.value as "buttons" | "tabs" | "dropdown",
+            },
+          })}
+          className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500 disabled:opacity-50"
+        >
+          <option value="buttons">Buttons</option>
+          <option value="tabs">Tabs</option>
+          <option value="dropdown">Dropdown</option>
+        </select>
+      </Row>
 
       <SectionHeader title="Viewport" />
       <ViewportEditor viewport={view.viewport} viewId={view.id} />

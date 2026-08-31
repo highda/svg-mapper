@@ -538,7 +538,14 @@ class Renderer implements ClickMapInstance {
       btn.setAttribute("type", "button");
       btn.setAttribute("data-view-id", view.id);
       btn.className = "clickmap-scene-btn";
-      if (view.id === this.currentViewId) btn.classList.add("clickmap-scene-btn--active");
+      const active = view.id === this.currentViewId;
+      if (active) btn.classList.add("clickmap-scene-btn--active");
+      if (ss.style === "tabs") {
+        el.setAttribute("role", "tablist");
+        btn.setAttribute("role", "tab");
+        btn.setAttribute("aria-selected", String(active));
+        btn.tabIndex = active ? 0 : -1;
+      }
       btn.addEventListener("click", () => this.goToView(view.id));
       el.appendChild(btn);
     });
@@ -983,6 +990,7 @@ class Renderer implements ClickMapInstance {
       action: area.action,
       ...(area.metadata !== undefined ? { metadata: area.metadata } : {}),
     });
+    this.updateDeepLinkHash(this.currentViewId, area.id);
     this.dispatchAction(area.action, area);
   }
 
@@ -1000,6 +1008,7 @@ class Renderer implements ClickMapInstance {
       action: hit.area.action,
       ...(hit.area.metadata !== undefined ? { metadata: hit.area.metadata } : {}),
     });
+    this.updateDeepLinkHash(this.currentViewId, hit.area.id);
     this.dispatchAction(hit.area.action, hit.area);
   }
 
@@ -1265,9 +1274,9 @@ class Renderer implements ClickMapInstance {
   // -------------------------------------------------------------------------
 
   private fade(render: () => void) {
-    const reduced = window.matchMedia(
+    const reduced = window.matchMedia?.(
       "(prefers-reduced-motion: reduce)"
-    ).matches;
+    ).matches ?? false;
     if (reduced) {
       render();
       return;
