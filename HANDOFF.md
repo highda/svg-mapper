@@ -4,8 +4,20 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #80 — docs: complete product and integration documentation
+Branch:       feat/80-product-docs
+Started:      2026-08-31
+Last commit:  2de662e  chore: hand off #29 — done
+
+### What's done
+- Identified the missing product documentation required by the repository spec and claimed the task.
+
+### What's next
+- Author the root README and data model, renderer API, export format, and user guide references.
+- Verify links and commands against the current implementation.
+
+### Notes / gotchas
+- `.codex/runtime/task-brief.md` describes already-closed issue #27; GitHub and HANDOFF agree that its work is merged.
 
 ---
 
