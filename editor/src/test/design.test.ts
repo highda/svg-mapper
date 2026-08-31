@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useStore } from "../store";
 import { createNewProject } from "../lib/project";
-import { createRectArea, createPolygonArea, moveGeometry } from "../lib/area-utils";
+import { createRectArea, createPolygonArea, moveGeometry, snapGeometryToGrid, snapValue } from "../lib/area-utils";
 import { sanitizeSvg } from "../lib/svg-sanitize";
 
 function resetStore() {
@@ -99,6 +99,23 @@ describe("moveGeometry", () => {
       expect(moved.points[0]).toEqual([2, 4]);
       expect(moved.points[1]).toEqual([12, 4]);
     }
+  });
+});
+
+describe("grid snapping", () => {
+  it("rounds values to the nearest grid point", () => {
+    expect(snapValue(14, 10)).toBe(10);
+    expect(snapValue(16, 10)).toBe(20);
+    expect(snapValue(16, 0)).toBe(16);
+  });
+
+  it("snaps rect bounds and polygon vertices", () => {
+    expect(snapGeometryToGrid({ type: "rect", x: 14, y: 16, width: 33, height: 27 }, 10)).toMatchObject({
+      x: 10, y: 20, width: 40, height: 20,
+    });
+    expect(snapGeometryToGrid({ type: "polygon", points: [[4, 6], [24, 27]] }, 10)).toMatchObject({
+      points: [[0, 10], [20, 30]],
+    });
   });
 });
 

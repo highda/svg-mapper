@@ -9,6 +9,8 @@ import {
   polygonPointsToString,
   resizeRect,
   moveGeometry,
+  snapGeometryToGrid,
+  snapValue,
   type RectHandle,
 } from "../../lib/area-utils";
 
@@ -80,6 +82,12 @@ export function Canvas() {
   const panX = editorState?.pan.x ?? 0;
   const panY = editorState?.pan.y ?? 0;
   const zoom = editorState?.zoom ?? 1;
+  const grid = editorState?.grid ?? { enabled: false, size: 10 };
+
+  const snapGeometry = useCallback(
+    (geometry: Area["geometry"]) => grid.enabled ? snapGeometryToGrid(geometry, grid.size) : geometry,
+    [grid.enabled, grid.size],
+  );
 
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -339,7 +347,10 @@ export function Canvas() {
       drag.current = { type: "draw-circle", startSvg: sp, startContent: cp };
       setCirclePreview({ cx: cp.x, cy: cp.y, r: 0 });
     } else if (activeTool === "polygon") {
-      setPolyPts((pts) => [...pts, [cp.x, cp.y]]);
+      setPolyPts((pts) => [...pts, [
+        grid.enabled ? snapValue(cp.x, grid.size) : cp.x,
+        grid.enabled ? snapValue(cp.y, grid.size) : cp.y,
+      ]]);
     }
   }
 
@@ -466,7 +477,7 @@ export function Canvas() {
       const dy = cp.y - d.startContent.y;
       // Live-update via updateAreaGeometry using the snapshot + delta
       if (d.areaGeoBefore) {
-        const newGeo = moveGeometry(d.areaGeoBefore, dx, dy);
+        const newGeo = snapGeometry(moveGeometry(d.areaGeoBefore, dx, dy));
         // Directly mutate store for smooth dragging (no undo entry mid-drag)
         useStore.setState((s) => {
           for (const v of s.project.views) {
@@ -484,7 +495,7 @@ export function Canvas() {
       if (d.areaGeoBefore.type !== "rect") return;
       const dx = cp.x - d.startContent.x;
       const dy = cp.y - d.startContent.y;
-      const newGeo = resizeRect(d.areaGeoBefore, d.handle, dx, dy);
+      const newGeo = snapGeometry(resizeRect(d.areaGeoBefore, d.handle, dx, dy));
       useStore.setState((s) => {
         for (const v of s.project.views) {
           for (const layer of v.layers) {
@@ -504,7 +515,7 @@ export function Canvas() {
     } else if (d.type === "resize-circle" && d.areaId && d.areaGeoBefore) {
       if (d.areaGeoBefore.type !== "circle") return;
       const geo = d.areaGeoBefore as CircleGeometry & { type: "circle" };
-      const newR = Math.max(1, cp.x - geo.cx);
+      const newR = grid.enabled ? Math.max(grid.size, snapValue(cp.x - geo.cx, grid.size)) : Math.max(1, cp.x - geo.cx);
       useStore.setState((s) => {
         for (const v of s.project.views) {
           for (const layer of v.layers) {
@@ -543,18 +554,20 @@ export function Canvas() {
       const rh = Math.abs(cp.y - d.startContent.y);
       setPreviewRect(null);
       if (rw > 4 && rh > 4) {
-        addArea(createRectArea(rx, ry, rw, rh));
+        const area = createRectArea(rx, ry, rw, rh);
+        area.geometry = snapGeometry(area.geometry);
+        addArea(area);
       }
     } else if (d.type === "move" && d.areaId && d.areaGeoBefore) {
       const dx = cp.x - d.startContent.x;
       const dy = cp.y - d.startContent.y;
-      const finalGeo = moveGeometry(d.areaGeoBefore, dx, dy);
+      const finalGeo = snapGeometry(moveGeometry(d.areaGeoBefore, dx, dy));
       useStore.getState().updateAreaGeometry(d.areaId, finalGeo);
     } else if (d.type === "resize" && d.areaId && d.handle && d.areaGeoBefore) {
       if (d.areaGeoBefore.type !== "rect") return;
       const dx = cp.x - d.startContent.x;
       const dy = cp.y - d.startContent.y;
-      const finalGeo = resizeRect(d.areaGeoBefore, d.handle, dx, dy);
+      const finalGeo = snapGeometry(resizeRect(d.areaGeoBefore, d.handle, dx, dy));
       useStore.getState().updateAreaGeometry(d.areaId, finalGeo);
     } else if (d.type === "draw-circle") {
       const r = Math.sqrt(
@@ -562,12 +575,14 @@ export function Canvas() {
       );
       setCirclePreview(null);
       if (r > 4) {
-        addArea(createCircleArea(d.startContent.x, d.startContent.y, r));
+        const area = createCircleArea(d.startContent.x, d.startContent.y, r);
+        area.geometry = snapGeometry(area.geometry);
+        addArea(area);
       }
     } else if (d.type === "resize-circle" && d.areaId && d.areaGeoBefore) {
       if (d.areaGeoBefore.type !== "circle") return;
       const geo = d.areaGeoBefore as CircleGeometry & { type: "circle" };
-      const newR = Math.max(1, cp.x - geo.cx);
+      const newR = grid.enabled ? Math.max(grid.size, snapValue(cp.x - geo.cx, grid.size)) : Math.max(1, cp.x - geo.cx);
       useStore.getState().updateAreaGeometry(d.areaId, { ...geo, r: newR });
     }
   }
@@ -616,6 +631,13 @@ export function Canvas() {
             transformOrigin: "0 0",
           }}
         >
+          {grid.enabled && grid.size > 0 && (
+            <defs>
+              <pattern id="clickmap-grid-pattern" width={grid.size} height={grid.size} patternUnits="userSpaceOnUse">
+                <circle cx={0} cy={0} r={1 / zoom} fill="#94a3b8" opacity="0.55" />
+              </pattern>
+            </defs>
+          )}
           {/* View frame */}
           <rect
             x={0}
@@ -626,6 +648,17 @@ export function Canvas() {
             stroke="#94a3b8"
             strokeWidth={1 / zoom}
           />
+          {grid.enabled && grid.size > 0 && (
+            <rect
+              className="clickmap-grid"
+              x={0}
+              y={0}
+              width={canvasSize.width}
+              height={canvasSize.height}
+              fill="url(#clickmap-grid-pattern)"
+              pointerEvents="none"
+            />
+          )}
 
           {/* Background image */}
           {backgroundAsset && (
