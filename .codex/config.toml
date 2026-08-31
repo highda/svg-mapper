@@ -42,3 +42,6 @@ required = true
 startup_timeout_sec = 30
 tool_timeout_sec = 120
 default_tools_approval_mode = "auto"
+
+[mcp_servers.playwright.env]
+PLAYWRIGHT_BROWSERS_PATH = "/ms-playwright"

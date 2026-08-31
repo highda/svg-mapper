@@ -20,7 +20,7 @@ Last commit:  1f634c2  chore: unblock #27 browser validation
 
 ### Notes / gotchas
 - The session task brief is stale; issue #24 was completed in PR #74.
-- Playwright Chromium revision 1237 is installed in the persistent agentbox cache and launches successfully, but the repository Playwright MCP is not exposed to this session. Policy forbids substituting another browser driver, so browser validation remains blocked.
+- Playwright MCP is verified end-to-end: Codex discovered `browser_navigate`, launched Chromium revision 1237 from `/ms-playwright`, and captured an `about:blank` snapshot.
 
 ---
 

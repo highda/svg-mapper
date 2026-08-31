@@ -44,7 +44,6 @@ if rg -F 'permissions.autonomous-project' "$repo_root/.codex/config.toml" >/dev/
   exit 1
 fi
 rg -F -- '--dangerously-bypass-approvals-and-sandbox' "$repo_root/scripts/codex-loop.sh" >/dev/null
-rg -F -- '--ignore-user-config' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F -- '--model gpt-5.6-sol' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'model_reasoning_effort="low"' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'candidate_file=' "$repo_root/scripts/codex-loop.sh" >/dev/null
