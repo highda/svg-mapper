@@ -10,6 +10,7 @@ Branch:       main
 ---
 
 ## Ledger (most recent first)
+- 2026-08-31 — dropped the scoped permission profile, network allowlist, and GitHub loopback bridge/relay for `danger-full-access` on this disposable agentbox (operator instruction, not from the issue backlog — no `gh` auth available to open a tracked issue/PR); branch `chore/agentbox-danger-full-access`.
 - 2026-08-31 — closed #67 — flattened relay queue into writable runtime root and documented approval mode; PR #68.
 - 2026-08-31 — closed #65 — added repository-scoped host command relay and switched loop to Sol/low; PR #66.
 - 2026-08-31 — closed #63 — fixed inherited proxy leakage in direct loop fallback; PR #64.

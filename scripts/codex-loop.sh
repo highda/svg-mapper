@@ -17,20 +17,9 @@ work_prompt_file="$repo_root/.codex/prompts/autonomous-loop.md"
 review_prompt_file="$repo_root/.codex/prompts/completion-review.md"
 candidate_file="$runtime_dir/completion-candidate.md"
 stop_file="$runtime_dir/loop-complete.md"
-proxy_script="${CODEX_LOOP_PROXY_SCRIPT:-$repo_root/scripts/github-connect-proxy.mjs}"
-proxy_port_file="$runtime_dir/github-proxy-port"
-proxy_log="$runtime_dir/github-proxy.log"
-command_bridge_dir="$runtime_dir/network-bridge-bin"
-preflight_log="$runtime_dir/loop-preflight.log"
 vite_cache_dir="$runtime_dir/vite-cache"
 task_brief_file="$runtime_dir/task-brief.md"
-relay_queue_dir="$runtime_dir"
-relay_log="$runtime_dir/host-command-relay.log"
-relay_script="$repo_root/scripts/host-command-relay.mjs"
-relay_client="$repo_root/scripts/host-command-client.mjs"
 skip_task_brief="${CODEX_LOOP_SKIP_TASK_BRIEF:-0}"
-proxy_pid=""
-relay_pid=""
 
 if ! [[ "$max_sessions" =~ ^[0-9]+$ ]]; then
   printf '%s\n' 'CODEX_LOOP_MAX_SESSIONS must be a non-negative integer.' >&2
@@ -96,7 +85,7 @@ if ! command -v "$codex_bin" >/dev/null 2>&1; then
 fi
 
 if ! command -v node >/dev/null 2>&1; then
-  printf '%s\n' 'Node.js is required for the restricted GitHub network bridge.' >&2
+  printf '%s\n' 'Node.js is required for issue/PR JSON handling.' >&2
   exit 2
 fi
 
@@ -137,115 +126,6 @@ prepare_task_brief() {
 
 prepare_task_brief
 
-gh_path="$(command -v gh)"
-git_path="$(command -v git)"
-mkdir -p "$relay_queue_dir"
-rm -f "$relay_queue_dir/host-command-relay.ready"
-GH_TOKEN="$github_token" node "$relay_script" "$relay_queue_dir" "$repo_root" "$gh_path" "$git_path" >"$relay_log" 2>&1 &
-relay_pid="$!"
-for _ in {1..50}; do
-  [[ -s "$relay_queue_dir/host-command-relay.ready" ]] && break
-  sleep 0.1
-done
-if [[ ! -s "$relay_queue_dir/host-command-relay.ready" ]] || ! kill -0 "$relay_pid" 2>/dev/null; then
-  printf 'Host command relay did not start. See %s.\n' "$relay_log" >&2
-  exit 2
-fi
-
-rm -f "$proxy_port_file"
-node "$proxy_script" "$proxy_port_file" >"$proxy_log" 2>&1 &
-proxy_pid="$!"
-cleanup_proxy() {
-  [[ -n "$proxy_pid" ]] && kill "$proxy_pid" 2>/dev/null || true
-  [[ -n "$proxy_pid" ]] && wait "$proxy_pid" 2>/dev/null || true
-  rm -f "$proxy_port_file"
-  [[ -n "$relay_pid" ]] && kill "$relay_pid" 2>/dev/null || true
-  [[ -n "$relay_pid" ]] && wait "$relay_pid" 2>/dev/null || true
-}
-trap cleanup_proxy EXIT INT TERM
-for _ in {1..50}; do
-  [[ -s "$proxy_port_file" ]] && break
-  sleep 0.1
-done
-bridge_available=0
-if [[ -s "$proxy_port_file" ]] && kill -0 "$proxy_pid" 2>/dev/null; then
-  bridge_available=1
-  proxy_url="http://127.0.0.1:$(<"$proxy_port_file")"
-else
-  printf 'GitHub network bridge did not start; will probe configured direct access instead. See %s.\n' \
-    "$proxy_log" >&2
-fi
-mkdir -p "$command_bridge_dir"
-write_command_wrappers() {
-  local mode="$1" command_name command_path
-  for command_name in gh git npm npx yarn pnpm; do
-    command_path="$(command -v "$command_name" 2>/dev/null || true)"
-    [[ -n "$command_path" ]] || continue
-    if [[ "$mode" == "bridge" ]]; then
-      printf '#!/usr/bin/env bash\nexec env -u ALL_PROXY -u https_proxy -u http_proxy -u all_proxy HTTPS_PROXY=%q HTTP_PROXY=%q NO_PROXY=localhost,127.0.0.1 %q "$@"\n' \
-        "$proxy_url" "$proxy_url" "$command_path" >"$command_bridge_dir/$command_name"
-    elif [[ "$mode" == "direct" ]]; then
-      # Do not let the host's Codex-control proxy leak into agent shell commands:
-      # it is loopback-only and the sandbox cannot connect to it. Keep the Codex
-      # process itself untouched; only Git/GitHub/package subprocesses are clean.
-      printf '#!/usr/bin/env bash\nexec env -u HTTPS_PROXY -u HTTP_PROXY -u ALL_PROXY -u https_proxy -u http_proxy -u all_proxy %q "$@"\n' \
-        "$command_path" >"$command_bridge_dir/$command_name"
-    elif [[ "$command_name" == "gh" ]]; then
-      printf '#!/usr/bin/env bash\nexec node %q %q gh "$@"\n' \
-        "$relay_client" "$relay_queue_dir" >"$command_bridge_dir/$command_name"
-    elif [[ "$command_name" == "git" ]]; then
-      printf '#!/usr/bin/env bash\nfor arg in "$@"; do case "$arg" in fetch|pull|push|ls-remote) exec node %q %q git "$@";; esac; done\nexec %q "$@"\n' \
-        "$relay_client" "$relay_queue_dir" "$command_path" >"$command_bridge_dir/$command_name"
-    else
-      printf '#!/usr/bin/env bash\nexec %q "$@"\n' "$command_path" >"$command_bridge_dir/$command_name"
-    fi
-    chmod 700 "$command_bridge_dir/$command_name"
-  done
-}
-
-# The child runs under a tighter macOS sandbox than this runner. Prove that its
-# network policy can reach GitHub before spending a Codex session on work that
-# will inevitably report blocked. Some Codex sandbox versions reject loopback
-# proxy connects even when direct access to the configured GitHub allowlist is
-# available, so safely fall back to that direct path.
-probe_sandbox_github() {
-  local mode="$1"
-  if [[ "$mode" == "bridge" ]]; then
-    GH_TOKEN="$github_token" CODEX_LOOP_BRIDGE_ACTIVE=1 PATH="$command_bridge_dir:$PATH" \
-      "$codex_bin" sandbox -C "$repo_root" -P autonomous-project -- \
-      gh api rate_limit --jq '.resources.core.limit' >>"$preflight_log" 2>&1
-  else
-    GH_TOKEN="$github_token" PATH="$command_bridge_dir:$PATH" \
-      "$codex_bin" sandbox -C "$repo_root" -P autonomous-project -- \
-      gh api rate_limit --jq '.resources.core.limit' >>"$preflight_log" 2>&1
-  fi
-}
-
-: >"$preflight_log"
-agent_path="$command_bridge_dir:$PATH"
-if ((bridge_available)); then
-  write_command_wrappers bridge
-else
-  write_command_wrappers direct
-fi
-if ((bridge_available)) && probe_sandbox_github bridge; then
-  printf 'Sandbox preflight: GitHub bridge is reachable.\n' >>"$preflight_log"
-else
-  write_command_wrappers direct
-  if probe_sandbox_github direct; then
-    printf 'Sandbox preflight: loopback bridge was unavailable; using direct configured GitHub access.\n' >>"$preflight_log"
-  else
-    write_command_wrappers relay
-    if probe_sandbox_github direct; then
-      printf 'Sandbox preflight: using repository-scoped host command relay.\n' >>"$preflight_log"
-    else
-      printf 'Codex sandbox cannot reach the repository host command relay. See %s.\n' \
-        "$preflight_log" >&2
-      exit 2
-    fi
-  fi
-fi
-
 # Vite's default config bundler writes into node_modules/.vite-temp, which is
 # intentionally not writable to an unattended agent. The runner config loader
 # and this cache directory keep all generated tool state under ignored runtime.
@@ -278,7 +158,7 @@ while ((max_sessions == 0 || session < max_sessions)); do
   printf 'Starting fresh Codex %s session %s. Log: %s\n' "$session_kind" "$session" "$log_file"
 
   set +e
-  GH_TOKEN="$github_token" PATH="$agent_path" CODEX_VITE_CACHE_DIR="$vite_cache_dir" \
+  GH_TOKEN="$github_token" CODEX_VITE_CACHE_DIR="$vite_cache_dir" \
     "$codex_bin" --add-dir "$repo_root/.git" exec \
     --json \
     --model gpt-5.6-sol \

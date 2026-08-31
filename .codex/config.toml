@@ -1,38 +1,17 @@
 # Repository-local Codex behavior. Codex loads this layer only after this
 # project has been trusted; see docs/codex-loop.md for the one-time setup.
-default_permissions = "autonomous-project"
+#
+# This box is an isolated, disposable agentbox: the loop runs with full
+# filesystem and network access instead of a scoped permission profile.
+# There is no protection against a session rewriting this file, its own
+# hooks, or its own prompts. The PreCompact hook and the completion guard
+# (autonomous-loop.md / completion-review.md) stay in force, but only
+# because the agent follows them, not because the sandbox enforces them.
 approval_policy = "never"
+sandbox_mode = "danger-full-access"
 
 [features]
 hooks = true
-network_proxy = true
-
-# The loop can write all product files and its Git/memento state, but cannot
-# rewrite its own prompts, hooks, or permission policy between fresh sessions.
-[permissions.autonomous-project]
-description = "Unattended svg-mapper development constrained to this repository."
-extends = ":workspace"
-
-[permissions.autonomous-project.filesystem.":workspace_roots"]
-"." = "write"
-".git" = "write"
-".codex" = "read"
-".codex/MEMENTO.md" = "write"
-".codex/runtime" = "write"
-
-# The command sandbox can serve and test the local app, install dependencies,
-# and use GitHub. The proxy enforces this list for shell commands.
-[permissions.autonomous-project.network]
-enabled = true
-
-[permissions.autonomous-project.network.domains]
-"localhost" = "allow"
-"127.0.0.1" = "allow"
-"registry.npmjs.org" = "allow"
-"registry.yarnpkg.com" = "allow"
-"**.github.com" = "allow"
-"**.githubusercontent.com" = "allow"
-"api.github.com" = "allow"
 
 # Compaction is an emergency cutoff, never a handoff workflow. The agent's
 # Git checkpoint and MEMENTO.md must already make recovery possible.
