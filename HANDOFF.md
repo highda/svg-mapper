@@ -4,32 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #69 — Run the codex loop with danger-full-access on this agentbox
-Branch:       chore/agentbox-danger-full-access
-Started:      2026-08-31
-Last commit:  616d970  chore: run the codex loop with danger-full-access on this agentbox
-
-### What's done
-- .codex/config.toml: danger-full-access, no permission profile, no network allowlist
-- scripts/codex-loop.sh: bridge/relay/proxy machinery removed, gh/git run directly
-- scripts/github-connect-proxy.mjs, host-command-relay.mjs, host-command-client.mjs: deleted
-- scripts/test-codex-loop.sh: bridge/relay assertions/fixtures removed, passing
-- docs/codex-loop.md: Safety/Recovery sections rewritten
-- .codex/hooks/precompact.sh + docs: PreCompact hook documented as a deliberate
-  kill switch (cleared context > compressed context under this loop), not a
-  mere failsafe
-
-### What's next
-- Open PR, merge, clear this block
-
-### Notes / gotchas
-- editor/node_modules was never installed; that was the real reason the
-  pinned Playwright MCP bin path looked broken, not the config reference
-  itself. Ran `npm --prefix editor install`.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-08-31 — closed #69 — dropped the scoped permission profile, network allowlist, and GitHub loopback bridge/relay for `danger-full-access` on this disposable agentbox; documented the PreCompact hook as a deliberate kill switch (cleared context > compressed context under this loop); PR #70.
 - 2026-08-31 — closed #67 — flattened relay queue into writable runtime root and documented approval mode; PR #68.
 - 2026-08-31 — closed #65 — added repository-scoped host command relay and switched loop to Sol/low; PR #66.
 - 2026-08-31 — closed #63 — fixed inherited proxy leakage in direct loop fallback; PR #64.
