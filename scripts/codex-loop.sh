@@ -21,6 +21,8 @@ proxy_script="$repo_root/scripts/github-connect-proxy.mjs"
 proxy_port_file="$runtime_dir/github-proxy-port"
 proxy_log="$runtime_dir/github-proxy.log"
 command_bridge_dir="$runtime_dir/network-bridge-bin"
+task_brief_file="$runtime_dir/task-brief.md"
+skip_task_brief="${CODEX_LOOP_SKIP_TASK_BRIEF:-0}"
 proxy_pid=""
 
 if ! [[ "$max_sessions" =~ ^[0-9]+$ ]]; then
@@ -102,6 +104,31 @@ if [[ -z "$github_token" ]]; then
   printf '%s\n' 'Unable to read a GitHub token. Run gh auth login first, or supply CODEX_LOOP_GITHUB_TOKEN for an isolated runner environment.' >&2
   exit 2
 fi
+
+prepare_task_brief() {
+  rm -f "$task_brief_file"
+  [[ "$skip_task_brief" == "1" ]] && return 0
+
+  local issue_json issue_number
+  issue_json="$(GH_TOKEN="$github_token" gh issue list --label 'agent:in-progress' --state open --limit 1 --json number,title,url,body,labels)"
+  issue_number="$(node -e 'const x=JSON.parse(process.argv[1]); process.stdout.write(x[0]?.number?.toString() ?? "")' "$issue_json")"
+  if [[ -z "$issue_number" ]]; then
+    issue_json="$(GH_TOKEN="$github_token" gh issue list --label 'agent:ready' --state open --limit 1 --json number,title,url,body,labels)"
+    issue_number="$(node -e 'const x=JSON.parse(process.argv[1]); process.stdout.write(x[0]?.number?.toString() ?? "")' "$issue_json")"
+  fi
+  if [[ -z "$issue_number" ]]; then
+    issue_json="$(GH_TOKEN="$github_token" gh issue list --state open --limit 100 --json number,title,url,body,labels)"
+    issue_number="$(node -e 'const x=JSON.parse(process.argv[1]); const p=x.filter(i=>i.labels.some(l=>l.name.startsWith("p"))).sort((a,b)=>a.number-b.number)[0]; process.stdout.write(p?.number?.toString() ?? "")' "$issue_json")"
+    if [[ -n "$issue_number" ]]; then
+      GH_TOKEN="$github_token" gh issue edit "$issue_number" --add-label agent:ready >/dev/null
+      issue_json="$(GH_TOKEN="$github_token" gh issue view "$issue_number" --json number,title,url,body,labels)"
+    fi
+  fi
+  [[ -n "$issue_number" ]] || return 0
+  printf '# Assigned task\n\n%s\n' "$issue_json" >"$task_brief_file"
+}
+
+prepare_task_brief
 
 rm -f "$proxy_port_file"
 node "$proxy_script" "$proxy_port_file" >"$proxy_log" 2>&1 &

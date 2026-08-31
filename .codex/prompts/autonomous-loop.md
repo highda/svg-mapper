@@ -7,6 +7,10 @@ doing anything else. Read .codex/GOAL.md as the only standard for determining
 whether the full loop could ever finish. Do not resume or rely on a previous
 Codex transcript.
 
+If `.codex/runtime/task-brief.md` exists, it is the host-selected task for this
+session. Read it and advance that task; do not use GitHub to rediscover or
+select work before doing so.
+
 Run the AGENTS.md GitHub pre-flight as an independent command before optional
 repository inspection. A missing optional file or a failed exploratory command
 is not a blocker by itself: inspect the failure, use the repository's actual
