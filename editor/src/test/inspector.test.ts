@@ -104,6 +104,29 @@ describe("store: setViewport", () => {
   });
 });
 
+describe("store: setViewBackgroundFit", () => {
+  beforeEach(resetStore);
+
+  it("updates an existing background fit and is undoable", () => {
+    const { project } = useStore.getState();
+    const viewId = project.views[0].id;
+    useStore.setState((state) => ({
+      project: {
+        ...state.project,
+        assets: [{ id: "asset_1", name: "Plan", type: "image/png", src: "plan.png", inline: false, width: 1600, height: 900 }],
+        views: state.project.views.map((view) => view.id === viewId
+          ? { ...view, background: { assetId: "asset_1", fit: "contain" as const } }
+          : view),
+      },
+    }));
+
+    useStore.getState().setViewBackgroundFit(viewId, "cover");
+    expect(useStore.getState().project.views[0].background?.fit).toBe("cover");
+    useStore.getState().undo();
+    expect(useStore.getState().project.views[0].background?.fit).toBe("contain");
+  });
+});
+
 // ── Layer CRUD ─────────────────────────────────────────────────────────────
 
 describe("store: addLayer", () => {

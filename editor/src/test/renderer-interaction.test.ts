@@ -39,6 +39,30 @@ function areaElement(id: string): SVGElement {
 }
 
 describe("renderer interaction model", () => {
+  it("renders zoom controls, applies padding, and resets the viewBox", () => {
+    const project = createNewProject();
+    project.settings.zoomControls = { enabled: true, position: "bottom-left" };
+    project.settings.padding = { top: 10, right: 20, bottom: 30, left: 40 };
+    create({ container: "#map", definition: toDefinition(project) });
+
+    const svg = document.querySelector<SVGSVGElement>(".clickmap-areas")!;
+    expect(svg).toHaveAttribute("viewBox", "-40 -10 1660 940");
+    expect(document.querySelector(".clickmap-zoom-controls--bottom-left")).not.toBeNull();
+    document.querySelector<HTMLButtonElement>(".clickmap-zoom-in")!.click();
+    expect(svg.getAttribute("viewBox")).not.toBe("-40 -10 1660 940");
+    document.querySelector<HTMLButtonElement>(".clickmap-zoom-reset")!.click();
+    expect(svg).toHaveAttribute("viewBox", "-40 -10 1660 940");
+  });
+
+  it("maps the configured background fit mode to the rendered image", () => {
+    const project = createNewProject();
+    project.assets = [{ id: "asset_1", name: "Plan", type: "image/png", src: "plan.png", inline: false, width: 1600, height: 900 }];
+    project.views[0].background = { assetId: "asset_1", fit: "cover" };
+    create({ container: "#map", definition: toDefinition(project) });
+
+    expect(document.querySelector<HTMLImageElement>(".clickmap-bg-img")?.style.objectFit).toBe("cover");
+  });
+
   it("renders centered, styled area labels with per-area overrides", () => {
     const named = createRectArea(10, 20, 100, 40);
     named.name = "Default name";
