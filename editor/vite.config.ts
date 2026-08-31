@@ -3,6 +3,11 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
+  // The autonomous loop points this at its ignored writable runtime directory.
+  // Normal local development retains Vite's standard node_modules cache.
+  ...(process.env.CODEX_VITE_CACHE_DIR
+    ? { cacheDir: process.env.CODEX_VITE_CACHE_DIR }
+    : {}),
   plugins: [tailwindcss(), react()],
   server: {
     fs: {
