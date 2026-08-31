@@ -4,25 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #23 — renderer+shared: content presentation — popover action, rich tooltip
-Branch:       feat/23-popover-rich-tooltip
-Started:      2026-08-31
-Last commit:  338e9fc  chore: claim #23 — popover-rich-tooltip
-
-### What's done
-- Verified the existing shared/editor/rich-content implementation and fixed popovers closing on their opening click.
-- Added directional auto-positioning, a complete keyboard focus trap, focus restoration, semantic dialog attributes, and listener cleanup.
-- Added renderer and export acceptance coverage; all 113 editor tests, lint, typechecks, and production build pass.
-
-### What's next
-- Open and merge the PR, then clear the handoff.
-
-### Notes / gotchas
-- Four pre-existing autonomous-loop files are modified in the worktree; preserve and do not stage them for #23.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-08-31 — closed #23 — completed accessible anchored popovers and sanitised rich tooltips with export round-trip coverage; PR #71.
 - 2026-08-31 — closed #69 — dropped the scoped permission profile, network allowlist, and GitHub loopback bridge/relay for `danger-full-access` on this disposable agentbox; documented the PreCompact hook as a deliberate kill switch (cleared context > compressed context under this loop); PR #70.
 - 2026-08-31 — closed #67 — flattened relay queue into writable runtime root and documented approval mode; PR #68.
 - 2026-08-31 — closed #65 — added repository-scoped host command relay and switched loop to Sol/low; PR #66.
