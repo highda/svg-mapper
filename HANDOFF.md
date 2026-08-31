@@ -7,16 +7,20 @@
 Issue:        #27 — renderer+shared: renderer UI chrome — zoom controls, background fit, spacebar pan, padding
 Branch:       feat/27-renderer-ui-chrome
 Started:      2026-08-31
-Last commit:  7979d15  chore: hand off #26 — done
+Last commit:  09fc199  feat: complete renderer UI chrome controls
 
 ### What's done
-- Claimed the highest-priority feasible backlog issue after the host brief pointed to already-closed #24.
+- Added editor controls for background fit, renderer zoom controls, and per-side padding.
+- Completed inline/raster background fit behavior and limited spacebar pan to zoomed pannable views.
+- Added regression tests; editor typecheck, 127 tests, lint, production build, and renderer checks pass.
 
 ### What's next
-- Implement and verify zoom controls, background fit, spacebar pan, and configurable padding.
+- Exercise the editor and exported renderer golden path with the repository Playwright MCP.
+- If browser behavior is clean, open, merge, and hand off PR #27.
 
 ### Notes / gotchas
 - The session task brief is stale; issue #24 was completed in PR #74.
+- No Playwright MCP tool was exposed in this session, so required browser validation remains.
 
 ---
 
