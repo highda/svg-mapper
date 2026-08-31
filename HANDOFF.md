@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #23 — renderer+shared: content presentation — popover action, rich tooltip
+Branch:       feat/23-popover-rich-tooltip
+Started:      2026-08-31
+Last commit:  17d9ac0  chore: hand off #69 — done
+
+### What's done
+- Claimed the task; existing partial implementation identified across shared, renderer, and editor.
+
+### What's next
+- Harden popover interaction and positioning, add acceptance coverage, and validate editor/export round trips.
+
+### Notes / gotchas
+- Four pre-existing autonomous-loop files are modified in the worktree; preserve and do not stage them for #23.
 
 ---
 
