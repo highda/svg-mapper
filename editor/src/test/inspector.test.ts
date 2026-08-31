@@ -301,6 +301,23 @@ describe("store: area data and content template", () => {
     expect(useStore.getState().project.settings.contentTemplate).toBe("<b>{{name}}</b>");
   });
 
+  it("stores project label settings and per-area overrides", () => {
+    const area = createRectArea(0, 0, 20, 20);
+    useStore.getState().addArea(area);
+
+    useStore.getState().updateSettings({
+      areaLabels: { enabled: true, fontSize: 16, color: "#123456" },
+    });
+    useStore.getState().updateAreaLabel(area.id, { text: "Room A", visible: true });
+
+    expect(useStore.getState().project.settings.areaLabels).toEqual({
+      enabled: true, fontSize: 16, color: "#123456",
+    });
+    expect(useStore.getState().project.views[0].layers[0].areas[0].label).toEqual({
+      text: "Room A", visible: true,
+    });
+  });
+
   it("stores scene switcher presentation settings", () => {
     useStore.getState().updateSettings({
       sceneSwitcher: { enabled: true, position: "top-right", style: "tabs" },
