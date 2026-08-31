@@ -154,15 +154,24 @@ else
     "$proxy_log" >&2
 fi
 mkdir -p "$command_bridge_dir"
-if ((bridge_available)); then
+write_command_wrappers() {
+  local mode="$1" command_name command_path
   for command_name in gh git npm npx yarn pnpm; do
     command_path="$(command -v "$command_name" 2>/dev/null || true)"
     [[ -n "$command_path" ]] || continue
-    printf '#!/usr/bin/env bash\nexec env HTTPS_PROXY=%q HTTP_PROXY=%q NO_PROXY=localhost,127.0.0.1 %q "$@"\n' \
-      "$proxy_url" "$proxy_url" "$command_path" >"$command_bridge_dir/$command_name"
+    if [[ "$mode" == "bridge" ]]; then
+      printf '#!/usr/bin/env bash\nexec env -u ALL_PROXY -u https_proxy -u http_proxy -u all_proxy HTTPS_PROXY=%q HTTP_PROXY=%q NO_PROXY=localhost,127.0.0.1 %q "$@"\n' \
+        "$proxy_url" "$proxy_url" "$command_path" >"$command_bridge_dir/$command_name"
+    else
+      # Do not let the host's Codex-control proxy leak into agent shell commands:
+      # it is loopback-only and the sandbox cannot connect to it. Keep the Codex
+      # process itself untouched; only Git/GitHub/package subprocesses are clean.
+      printf '#!/usr/bin/env bash\nexec env -u HTTPS_PROXY -u HTTP_PROXY -u ALL_PROXY -u https_proxy -u http_proxy -u all_proxy %q "$@"\n' \
+        "$command_path" >"$command_bridge_dir/$command_name"
+    fi
     chmod 700 "$command_bridge_dir/$command_name"
   done
-fi
+}
 
 # The child runs under a tighter macOS sandbox than this runner. Prove that its
 # network policy can reach GitHub before spending a Codex session on work that
@@ -176,23 +185,30 @@ probe_sandbox_github() {
       "$codex_bin" sandbox -C "$repo_root" -P autonomous-project -- \
       gh api rate_limit --jq '.resources.core.limit' >>"$preflight_log" 2>&1
   else
-    GH_TOKEN="$github_token" \
+    GH_TOKEN="$github_token" PATH="$command_bridge_dir:$PATH" \
       "$codex_bin" sandbox -C "$repo_root" -P autonomous-project -- \
       gh api rate_limit --jq '.resources.core.limit' >>"$preflight_log" 2>&1
   fi
 }
 
 : >"$preflight_log"
-agent_path="$PATH"
-if ((bridge_available)) && probe_sandbox_github bridge; then
-  agent_path="$command_bridge_dir:$PATH"
-  printf 'Sandbox preflight: GitHub bridge is reachable.\n' >>"$preflight_log"
-elif probe_sandbox_github direct; then
-  printf 'Sandbox preflight: loopback bridge was unavailable; using direct configured GitHub access.\n' >>"$preflight_log"
+agent_path="$command_bridge_dir:$PATH"
+if ((bridge_available)); then
+  write_command_wrappers bridge
 else
+  write_command_wrappers direct
+fi
+if ((bridge_available)) && probe_sandbox_github bridge; then
+  printf 'Sandbox preflight: GitHub bridge is reachable.\n' >>"$preflight_log"
+else
+  write_command_wrappers direct
+  if probe_sandbox_github direct; then
+  printf 'Sandbox preflight: loopback bridge was unavailable; using direct configured GitHub access.\n' >>"$preflight_log"
+  else
   printf 'Codex sandbox cannot reach GitHub through the bridge or configured direct access. See %s.\n' \
     "$preflight_log" >&2
   exit 2
+  fi
 fi
 
 # Vite's default config bundler writes into node_modules/.vite-temp, which is

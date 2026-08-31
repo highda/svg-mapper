@@ -57,6 +57,7 @@ rg -F 'github-connect-proxy.mjs' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'network-bridge-bin' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'PATH="$command_bridge_dir:$PATH"' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'probe_sandbox_github' "$repo_root/scripts/codex-loop.sh" >/dev/null
+rg -F 'env -u HTTPS_PROXY -u HTTP_PROXY -u ALL_PROXY' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'CODEX_VITE_CACHE_DIR="$vite_cache_dir"' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F -- '--configLoader runner' "$repo_root/editor/package.json" >/dev/null
 rg -F 'CODEX_VITE_CACHE_DIR' "$repo_root/editor/vite.config.ts" >/dev/null
@@ -150,6 +151,7 @@ fallback_runtime="$test_runtime_dir/bridge-fallback"
 fallback_output="$(CODEX_LOOP_SKIP_TASK_BRIEF=1 CODEX_LOOP_MAX_SESSIONS=1 CODEX_LOOP_RUNTIME_DIR="$fallback_runtime" CODEX_LOOP_GITHUB_TOKEN=test-token CODEX_LOOP_PROXY_SCRIPT="$fake_proxy" CODEX_BIN="$bridge_fallback_codex" "$repo_root/scripts/codex-loop.sh" 2>&1)"
 rg -F 'Session 1 ended normally' <<<"$fallback_output" >/dev/null
 rg -F 'loopback bridge was unavailable; using direct configured GitHub access' "$fallback_runtime/loop-preflight.log" >/dev/null
+rg -F 'env -u HTTPS_PROXY -u HTTP_PROXY -u ALL_PROXY' "$fallback_runtime/network-bridge-bin/gh" >/dev/null
 
 bridge_failure_codex="$test_bin_dir/bridge-failure-codex"
 printf '%s\n' \

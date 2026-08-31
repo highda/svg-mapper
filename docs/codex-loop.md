@@ -97,6 +97,12 @@ GitHub allowlist works directly, it uses the direct path instead. If neither
 path works, the runner stops before consuming a session and records the command output in
 `.codex/runtime/loop-preflight.log`.
 
+The host may itself use a local proxy for Codex control traffic. In direct mode,
+the runner regenerates wrappers for agent-launched Git, GitHub, and package
+commands that clear inherited HTTP(S) and SOCKS proxy variables; this prevents
+a fallback from accidentally reconnecting to the blocked loopback bridge. The
+Codex process itself keeps the host environment unchanged.
+
 Vite and Vitest run with their config runner, avoiding Vite's temporary config
 bundle under `node_modules/.vite-temp`. During loop runs their dependency cache
 is instead placed in `.codex/runtime/vite-cache`, which is ignored and already
