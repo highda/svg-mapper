@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #26 — renderer+shared+editor: area labels — auto-centered text overlays on areas
+Branch:       feat/26-area-labels
+Started:      2026-08-31
+Last commit:  a37270f  chore: hand off #25 — done
+
+### What's done
+- Claimed the task and reviewed its acceptance criteria.
+
+### What's next
+- Implement shared label settings and overrides, renderer labels, editor controls/canvas preview, and tests.
+
+### Notes / gotchas
+- `.codex/runtime/task-brief.md` still describes closed issue #24; GitHub lock and HANDOFF now track #26.
 
 ---
 
