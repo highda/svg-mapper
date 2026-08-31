@@ -4,8 +4,16 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #56 — fix: detect only real GitHub API failures in loop logs
+Branch:       fix/56-precise-github-retry
+Started:      2026-08-31
+Last commit:  (uncommitted)  correct false retry classification
+
+### What's done
+- Identified a false retry caused by matching fixture text in repository inspection output.
+
+### What's next
+- Verify precise command-output classification and publish the fix.
 
 ---
 

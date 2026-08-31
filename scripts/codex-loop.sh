@@ -51,6 +51,30 @@ is_quota_failure() {
     "$log_file"
 }
 
+has_github_api_failure() {
+  local log_file="$1"
+  node - "$log_file" <<'NODE'
+const fs = require('node:fs');
+const target = 'error connecting to api.github.com';
+const log = fs.readFileSync(process.argv[2], 'utf8');
+
+if (log.split(/\r?\n/).some((line) => line.trim() === target)) process.exit(0);
+
+for (const line of log.split(/\r?\n/)) {
+  try {
+    const event = JSON.parse(line);
+    const output = event.item?.aggregated_output;
+    if (typeof output === 'string' && output.split(/\r?\n/).some((line) => line.trim() === target)) {
+      process.exit(0);
+    }
+  } catch {
+    // Non-JSON lines are handled by the exact-line check above.
+  }
+}
+process.exit(1);
+NODE
+}
+
 mkdir -p "$runtime_dir"
 if [[ -f "$stop_file" ]]; then
   printf 'Loop already complete. Evidence: %s\n' "$stop_file"
@@ -173,7 +197,7 @@ while ((max_sessions == 0 || session < max_sessions)); do
   fi
 
   final_status="$(tr -d '\r\n' <"$last_message" 2>/dev/null || true)"
-  if [[ "$final_status" == "blocked" ]] && ((github_retry_seconds > 0)) && rg -qF 'error connecting to api.github.com' "$log_file"; then
+  if [[ "$final_status" == "blocked" ]] && ((github_retry_seconds > 0)) && has_github_api_failure "$log_file"; then
     printf 'GitHub API was temporarily unreachable; waiting %ss before a fresh session. Press Ctrl-C to pause.\n' \
       "$github_retry_seconds" >&2
     sleep "$github_retry_seconds"
