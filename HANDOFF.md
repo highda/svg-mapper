@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #22 — renderer+shared: interaction model — per-area trigger, always-on highlight, disabled state
+Branch:       feat/22-area-interaction-model
+Started:      2026-08-31
+Last commit:  e212717  fix: give loop sessions a host task brief (#59)
+
+### What's done
+- Claimed the interaction-model task; existing partial implementation and tests need acceptance review.
+
+### What's next
+- Verify renderer, editor inspector, validation, serialisation, tests, and browser behaviour; fill any gaps.
+
+### Notes / gotchas
+- The prior sandboxed loop session could not start its GitHub bridge or write Vite's temporary config bundle; this host session can proceed.
 
 ---
 
