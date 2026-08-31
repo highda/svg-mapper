@@ -67,8 +67,15 @@ if ! command -v node >/dev/null 2>&1; then
   exit 2
 fi
 
-if ! github_token="$(gh auth token)" || [[ -z "$github_token" ]]; then
-  printf '%s\n' 'Unable to read the host GitHub token; run gh auth login first.' >&2
+# An explicitly injected token makes isolated runner tests independent of the
+# operator's GitHub login. Normal launches continue to use gh's host-managed
+# credential, so the token is never written to the repository or its logs.
+github_token="${CODEX_LOOP_GITHUB_TOKEN:-}"
+if [[ -z "$github_token" ]] && ! github_token="$(gh auth token)"; then
+  github_token=""
+fi
+if [[ -z "$github_token" ]]; then
+  printf '%s\n' 'Unable to read a GitHub token. Run gh auth login first, or supply CODEX_LOOP_GITHUB_TOKEN for an isolated runner environment.' >&2
   exit 2
 fi
 
@@ -87,6 +94,10 @@ for _ in {1..50}; do
 done
 if [[ ! -s "$proxy_port_file" ]]; then
   printf 'GitHub network bridge did not start. See %s.\n' "$proxy_log" >&2
+  exit 2
+fi
+if ! kill -0 "$proxy_pid" 2>/dev/null; then
+  printf 'GitHub network bridge exited during startup. See %s.\n' "$proxy_log" >&2
   exit 2
 fi
 proxy_url="http://127.0.0.1:$(<"$proxy_port_file")"

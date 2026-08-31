@@ -4,8 +4,20 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #52 — infra: make autonomous loop self-starting and testable
+Branch:       fix/52-loop-self-start
+Started:      2026-08-31
+Last commit:  (uncommitted)  runner repair in progress
+
+### What's done
+- Isolated the prior loop failure to invalid GitHub auth and an empty Ready queue.
+- Made the loop test independent of host credentials and hardened bridge startup checks.
+
+### What's next
+- Claim, checkpoint, and push the runner repair; then run one clean real loop session.
+
+### Notes / gotchas
+- The loop uses GitHub labels as its serial lock; all open backlog issues were missing `agent:ready`.
 
 ---
 
