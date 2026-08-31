@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #28 — editor: tooling improvements — circle tool, snap to grid, zoom to fit, canvas size from image, area search
+Branch:       feat/28-editor-tooling
+Started:      2026-08-31
+Last commit:  2265ccd  chore: hand off #27 — done
+
+### What's done
+- Claimed the next highest-priority feasible backlog task.
+
+### What's next
+- Implement and verify the editor tooling improvements, beginning with circle authoring.
+
+### Notes / gotchas
+- The host task brief still describes closed issue #27; GitHub and HANDOFF confirm it was completed by PR #77.
 
 ---
 
