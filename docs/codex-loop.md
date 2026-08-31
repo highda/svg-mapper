@@ -19,6 +19,17 @@ run `npm --prefix editor install` after a fresh checkout before starting the
 loop. Every spawned session is pinned by the runner to `gpt-5.6-terra` with
 medium reasoning effort.
 
+The loop needs a valid GitHub CLI credential to perform its required issue and
+PR hand-offs. Verify it before an unattended launch:
+
+```sh
+gh auth status
+```
+
+If necessary, refresh it with `gh auth login`. In an isolated CI/test
+environment only, an ephemeral `CODEX_LOOP_GITHUB_TOKEN` may be supplied
+instead; it is passed to spawned sessions but is never persisted by the runner.
+
 ## Run
 
 ```sh
