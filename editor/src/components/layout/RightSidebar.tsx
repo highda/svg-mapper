@@ -175,7 +175,7 @@ function StyleStateEditor({
 // ---------------------------------------------------------------------------
 
 function ViewInspector({ view }: { view: View }) {
-  const { renameView, setCanvasSize, project, setViewBackground } = useStore();
+  const { renameView, setCanvasSize, project, setViewBackground, updateSettings } = useStore();
   const canvasSize = project.settings.canvasSize;
 
   function handleAssetChange(e: React.ChangeEvent<HTMLSelectElement>) {
@@ -224,6 +224,19 @@ function ViewInspector({ view }: { view: View }) {
           onCommit={(v) => setCanvasSize(canvasSize.width, v)}
         />
       </Row>
+
+      <SectionHeader title="Content Template" />
+      <p className="text-[10px] text-neutral-600 -mt-1">
+        HTML with {"{{name}}"}, {"{{id}}"}, {"{{viewName}}"}, or {"{{metadata.key}}"} variables.
+      </p>
+      <textarea
+        aria-label="Content Template"
+        defaultValue={project.settings.contentTemplate ?? ""}
+        onBlur={(e) => updateSettings({ contentTemplate: e.target.value || undefined })}
+        rows={4}
+        placeholder={'<h3>{{name}}</h3>'}
+        className="w-full resize-y rounded border border-neutral-700 bg-neutral-800 px-1.5 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
+      />
 
       <SectionHeader title="Viewport" />
       <ViewportEditor viewport={view.viewport} viewId={view.id} />
@@ -697,13 +710,16 @@ function InteractionEditor({ areaId, area }: { areaId: string; area: { trigger?:
 function MetadataEditor({ areaId, metadata }: { areaId: string; metadata: Record<string, unknown> | undefined }) {
   const { updateAreaMetadata } = useStore();
   const [newKey, setNewKey] = useState("");
+  const [newValue, setNewValue] = useState("");
   const entries = Object.entries(metadata ?? {});
 
   function addRow() {
     const k = newKey.trim();
     if (!k) return;
-    updateAreaMetadata(areaId, { ...(metadata ?? {}), [k]: "" });
+    if (Object.hasOwn(metadata ?? {}, k)) return;
+    updateAreaMetadata(areaId, { ...(metadata ?? {}), [k]: newValue });
     setNewKey("");
+    setNewValue("");
   }
 
   function updateRow(key: string, value: string) {
@@ -716,13 +732,31 @@ function MetadataEditor({ areaId, metadata }: { areaId: string; metadata: Record
     updateAreaMetadata(areaId, next);
   }
 
+  function renameRow(oldKey: string, nextKey: string) {
+    const k = nextKey.trim();
+    if (!k || k === oldKey || Object.hasOwn(metadata ?? {}, k)) return;
+    const next: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(metadata ?? {})) {
+      next[key === oldKey ? k : key] = value;
+    }
+    updateAreaMetadata(areaId, next);
+  }
+
   return (
     <div className="space-y-1">
       {entries.map(([k, v]) => (
         <div key={k} className="flex items-center gap-1">
-          <span className="w-16 shrink-0 truncate text-[10px] text-neutral-500" title={k}>{k}</span>
           <input
             type="text"
+            aria-label={`Metadata key ${k}`}
+            defaultValue={k}
+            onBlur={(e) => renameRow(k, e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+            className="w-16 shrink-0 rounded border border-neutral-700 bg-neutral-800 px-1 py-0.5 text-[10px] text-neutral-400 outline-none focus:border-blue-500"
+          />
+          <input
+            type="text"
+            aria-label={`Metadata value ${k}`}
             defaultValue={String(v)}
             onBlur={(e) => updateRow(k, e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
@@ -742,6 +776,16 @@ function MetadataEditor({ areaId, metadata }: { areaId: string; metadata: Record
           onChange={(e) => setNewKey(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") addRow(); }}
           placeholder="key"
+          aria-label="New metadata key"
+          className="w-16 shrink-0 rounded border border-neutral-700 bg-neutral-800 px-1 py-0.5 text-[10px] text-neutral-400 outline-none focus:border-blue-500"
+        />
+        <input
+          type="text"
+          value={newValue}
+          onChange={(e) => setNewValue(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") addRow(); }}
+          placeholder="value"
+          aria-label="New metadata value"
           className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-800 px-1 py-0.5 text-[10px] text-neutral-400 outline-none focus:border-blue-500"
         />
         <button

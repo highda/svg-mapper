@@ -283,6 +283,25 @@ describe("store: updateAreaTooltip", () => {
   });
 });
 
+describe("store: area data and content template", () => {
+  beforeEach(resetStore);
+
+  it("persists metadata values on an area", () => {
+    const area = createRectArea(0, 0, 100, 100);
+    useStore.getState().addArea(area);
+    useStore.getState().updateAreaMetadata(area.id, { price: "12", category: "retail" });
+    expect(useStore.getState().project.views[0].layers[0].areas[0].metadata).toEqual({
+      price: "12",
+      category: "retail",
+    });
+  });
+
+  it("stores a project content template", () => {
+    useStore.getState().updateSettings({ contentTemplate: "<b>{{name}}</b>" });
+    expect(useStore.getState().project.settings.contentTemplate).toBe("<b>{{name}}</b>");
+  });
+});
+
 // ── Selection mutual exclusion ─────────────────────────────────────────────
 
 describe("store: selection mutual exclusion", () => {

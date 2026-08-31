@@ -52,9 +52,11 @@ describe("generateExportPackage", () => {
     );
   });
 
-  it("round-trips rich tooltip and popup fields in map.json", () => {
+  it("round-trips templates, metadata, rich tooltips, and popups in map.json", () => {
     const project = createNewProject("Content Map");
+    project.settings.contentTemplate = "<h3>{{name}}</h3><p>{{metadata.price}}</p>";
     const richArea = createRectArea(0, 0, 10, 10);
+    richArea.metadata = { price: "€12", available: true };
     richArea.tooltip = { enabled: true, body: "<b>Rich</b>", imageUrl: "thumb.png" };
     richArea.action = {
       type: "popup",
@@ -69,6 +71,8 @@ describe("generateExportPackage", () => {
     });
     const parsed = JSON.parse(pkg.mapJson) as typeof project;
     const exported = parsed.views[0].layers[0].areas[0];
+    expect(parsed.settings.contentTemplate).toBe(project.settings.contentTemplate);
+    expect(exported.metadata).toEqual(richArea.metadata);
     expect(exported.tooltip).toEqual(richArea.tooltip);
     expect(exported.action).toEqual(richArea.action);
   });
