@@ -38,6 +38,24 @@ function contentPoint(
   };
 }
 
+function areaCenter(area: Area): { x: number; y: number; width: number } | null {
+  const geometry = area.geometry;
+  if (geometry.type === "rect") {
+    return { x: geometry.x + geometry.width / 2, y: geometry.y + geometry.height / 2, width: geometry.width };
+  }
+  if (geometry.type === "circle") {
+    return { x: geometry.cx, y: geometry.cy, width: geometry.r * 2 };
+  }
+  if (geometry.type === "polygon" && geometry.points.length) {
+    const xs = geometry.points.map(([x]) => x);
+    const ys = geometry.points.map(([, y]) => y);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    return { x: (minX + maxX) / 2, y: (minY + maxY) / 2, width: maxX - minX };
+  }
+  return null;
+}
+
 // ── Canvas ───────────────────────────────────────────────────────────────────
 
 export function Canvas() {
@@ -640,6 +658,39 @@ export function Canvas() {
                 ))}
               </g>
             ))}
+
+          {project.settings.areaLabels?.enabled && (
+            <g className="clickmap-area-labels" pointerEvents="none">
+              {view.layers.filter((layer) => layer.visible).flatMap((layer) =>
+                layer.areas.map((area) => {
+                  if (area.label?.visible === false) return null;
+                  const center = areaCenter(area);
+                  if (!center) return null;
+                  const settings = project.settings.areaLabels!;
+                  const fontSize = settings.fontSize ?? 14;
+                  const text = area.label?.text ?? area.name;
+                  const hidden = settings.hideWhenSmaller !== false && text.length * fontSize * 0.6 > center.width;
+                  return (
+                    <text
+                      key={`label-${area.id}`}
+                      className="clickmap-area-label"
+                      x={center.x}
+                      y={center.y}
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      fill={settings.color ?? "#000000"}
+                      fontSize={fontSize}
+                      fontWeight={settings.fontWeight ?? "normal"}
+                      visibility={hidden ? "hidden" : "visible"}
+                      pointerEvents="none"
+                    >
+                      {text}
+                    </text>
+                  );
+                }),
+              )}
+            </g>
+          )}
 
           {/* Rect drawing preview */}
           {previewRect && (

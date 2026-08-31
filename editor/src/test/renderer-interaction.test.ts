@@ -39,6 +39,39 @@ function areaElement(id: string): SVGElement {
 }
 
 describe("renderer interaction model", () => {
+  it("renders centered, styled area labels with per-area overrides", () => {
+    const named = createRectArea(10, 20, 100, 40);
+    named.name = "Default name";
+    const overridden = createRectArea(120, 20, 80, 40);
+    overridden.label = { text: "Override" };
+    const hidden = createRectArea(210, 20, 80, 40);
+    hidden.label = { visible: false };
+    const project = createNewProject();
+    project.settings.areaLabels = {
+      enabled: true,
+      fontSize: 18,
+      color: "#123456",
+      fontWeight: "700",
+      hideWhenSmaller: false,
+    };
+    project.views[0].layers = [{
+      id: "layer_1", name: "Layer 1", visible: true, locked: false, opacity: 1,
+      areas: [named, overridden, hidden],
+    }];
+
+    create({ container: "#map", definition: toDefinition(project) });
+
+    const labels = document.querySelectorAll<SVGTextElement>(".clickmap-area-label");
+    expect(labels).toHaveLength(2);
+    expect(labels[0]).toHaveTextContent("Default name");
+    expect(labels[0]).toHaveAttribute("x", "60");
+    expect(labels[0]).toHaveAttribute("y", "40");
+    expect(labels[0]).toHaveAttribute("fill", "#123456");
+    expect(labels[0]).toHaveAttribute("font-size", "18");
+    expect(labels[0]).toHaveAttribute("pointer-events", "none");
+    expect(labels[1]).toHaveTextContent("Override");
+  });
+
   it("applies trigger mode to hover and click events", () => {
     const hoverOnly = createRectArea(0, 0, 10, 10);
     hoverOnly.trigger = "hover";

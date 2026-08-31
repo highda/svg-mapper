@@ -239,6 +239,43 @@ function ViewInspector({ view }: { view: View }) {
         className="w-full resize-y rounded border border-neutral-700 bg-neutral-800 px-1.5 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
       />
 
+      <SectionHeader title="Area Labels" />
+      <CheckToggle
+        checked={project.settings.areaLabels?.enabled ?? false}
+        onChange={(enabled) => updateSettings({
+          areaLabels: { ...project.settings.areaLabels, enabled },
+        })}
+        label="Show area labels"
+      />
+      <Row label="Font size">
+        <NumberField
+          defaultValue={project.settings.areaLabels?.fontSize ?? 14}
+          min={1}
+          max={200}
+          onCommit={(fontSize) => updateSettings({
+            areaLabels: { enabled: project.settings.areaLabels?.enabled ?? false, ...project.settings.areaLabels, fontSize },
+          })}
+        />
+      </Row>
+      <Row label="Color">
+        <input
+          aria-label="Area Label Color"
+          type="color"
+          value={project.settings.areaLabels?.color ?? "#000000"}
+          onChange={(e) => updateSettings({
+            areaLabels: { enabled: project.settings.areaLabels?.enabled ?? false, ...project.settings.areaLabels, color: e.target.value },
+          })}
+          className="h-6 w-full cursor-pointer rounded border border-neutral-700 bg-neutral-800"
+        />
+      </Row>
+      <CheckToggle
+        checked={project.settings.areaLabels?.hideWhenSmaller ?? true}
+        onChange={(hideWhenSmaller) => updateSettings({
+          areaLabels: { enabled: project.settings.areaLabels?.enabled ?? false, ...project.settings.areaLabels, hideWhenSmaller },
+        })}
+        label="Hide labels that do not fit"
+      />
+
       <SectionHeader title="Scene Switcher" />
       <CheckToggle
         checked={project.settings.sceneSwitcher?.enabled ?? false}
