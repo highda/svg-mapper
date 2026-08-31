@@ -4,27 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #27 — renderer+shared: renderer UI chrome — zoom controls, background fit, spacebar pan, padding
-Branch:       feat/27-renderer-ui-chrome
-Started:      2026-08-31
-Last commit:  1f634c2  chore: unblock #27 browser validation
-
-### What's done
-- Added editor controls for background fit, renderer zoom controls, and per-side padding.
-- Completed inline/raster background fit behavior and limited spacebar pan to zoomed pannable views.
-- Added regression tests; editor typecheck, 127 tests, lint, production build, and renderer checks pass.
-
-### What's next
-- Exercise the editor and exported renderer golden path with the repository Playwright MCP.
-- If browser behavior is clean, open, merge, and hand off PR #27.
-
-### Notes / gotchas
-- The session task brief is stale; issue #24 was completed in PR #74.
-- Playwright MCP is verified end-to-end: Codex discovered `browser_navigate`, launched Chromium revision 1237 from `/ms-playwright`, and captured an `about:blank` snapshot.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-08-31 — closed #27 — completed renderer zoom controls, fitted backgrounds, spacebar pan, configurable padding, and imported SVG rendering; PR #77.
 - 2026-08-31 — closed #26 — completed configurable, auto-centered renderer and editor area labels with per-area overrides; PR #76.
 - 2026-08-31 — closed #25 — completed URL deep linking and accessible, editor-configurable scene switcher navigation; PR #75.
 - 2026-08-31 — closed #24 — added content templates, editable area metadata, metadata-rich events, and live choropleth rendering; PR #74.
