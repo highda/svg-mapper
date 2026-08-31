@@ -46,6 +46,7 @@ rg -F 'stop_file=' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'git config --local user.name "Codex"' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'CODEX_LOOP_QUOTA_RETRY_SECONDS' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'CODEX_LOOP_GITHUB_RETRY_SECONDS' "$repo_root/scripts/codex-loop.sh" >/dev/null
+rg -F 'has_github_api_failure' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'github-connect-proxy.mjs' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'network-bridge-bin' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'PATH="$command_bridge_dir:$PATH"' "$repo_root/scripts/codex-loop.sh" >/dev/null
@@ -94,5 +95,28 @@ chmod +x "$github_codex"
 github_output="$(CODEX_LOOP_MAX_SESSIONS=2 CODEX_LOOP_GITHUB_RETRY_SECONDS=1 CODEX_LOOP_RUNTIME_DIR="$test_runtime_dir/github" CODEX_LOOP_GITHUB_TOKEN=test-token CODEX_LOOP_TEST_GITHUB_COUNTER="$github_counter_file" CODEX_BIN="$github_codex" "$repo_root/scripts/codex-loop.sh" 2>&1)"
 rg -F 'GitHub API was temporarily unreachable; waiting 1s' <<<"$github_output" >/dev/null
 rg -F 'Session 2 ended normally' <<<"$github_output" >/dev/null
+
+source_only_codex="$test_bin_dir/source-only-codex"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'last_message=""' \
+  'while (($#)); do' \
+  '  if [[ "$1" == "--output-last-message" ]]; then last_message="$2"; shift 2; continue; fi' \
+  '  shift' \
+  'done' \
+  'printf "%s\\n" "{\\\"type\\\":\\\"item.completed\\\",\\\"item\\\":{\\\"type\\\":\\\"command_execution\\\",\\\"command\\\":\\\"rg error connecting to api.github.com\\\",\\\"aggregated_output\\\":\\\"scripts/test-codex-loop.sh: fixture text\\\"}}"' \
+  'printf "%s" "blocked" >"$last_message"' \
+  'exit 0' >"$source_only_codex"
+chmod +x "$source_only_codex"
+set +e
+source_only_output="$(CODEX_LOOP_MAX_SESSIONS=1 CODEX_LOOP_RUNTIME_DIR="$test_runtime_dir/source-only" CODEX_LOOP_GITHUB_TOKEN=test-token CODEX_BIN="$source_only_codex" "$repo_root/scripts/codex-loop.sh" 2>&1)"
+source_only_status=$?
+set -e
+test "$source_only_status" -eq 1
+rg -F 'Codex reported blocked' <<<"$source_only_output" >/dev/null
+if rg -F 'GitHub API was temporarily unreachable' <<<"$source_only_output" >/dev/null; then
+  printf '%s\n' 'Source text must not be classified as a GitHub API failure.' >&2
+  exit 1
+fi
 
 printf '%s\n' 'Codex loop static checks passed.'
