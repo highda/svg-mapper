@@ -8,6 +8,7 @@ import type {
   AreaStyle,
   AreaTrigger,
   Asset,
+  BackgroundFit,
   EditorState,
   Layer,
   ProjectFile,
@@ -72,6 +73,7 @@ export interface AppState {
   // ── Asset / background ───────────────────────────────────────────────────
   importAsset: (asset: Asset) => void;
   setViewBackground: (viewId: string, assetId: string) => void;
+  setViewBackgroundFit: (viewId: string, fit: BackgroundFit) => void;
 
   // ── View CRUD ────────────────────────────────────────────────────────────
   addView: () => void;
@@ -340,6 +342,15 @@ export const useStore = create<AppState>()(
             s.canvasSizeSuggestion = { width: asset.width, height: asset.height };
           }
         }
+      });
+    },
+
+    setViewBackgroundFit(viewId: string, fit: BackgroundFit) {
+      set((s) => {
+        const view = s.project.views.find((v) => v.id === viewId);
+        if (!view?.background || view.background.fit === fit) return;
+        pushHistory(s);
+        view.background.fit = fit;
       });
     },
 

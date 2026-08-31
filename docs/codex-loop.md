@@ -12,9 +12,10 @@ repository, and use `/hooks` to trust the displayed project hook. Do not use
 the hook-trust bypass flag unless an isolated automation environment has
 independently vetted the hook source.
 
-The loop ignores user-level Codex configuration, so it loads only this
-repository's `.codex/config.toml` and Playwright MCP configuration (plus any
-system-managed policy). `@playwright/mcp` is pinned in `editor/package.json`;
+The loop loads the trusted repository's `.codex/config.toml` and Playwright MCP
+configuration. It must also load user-level configuration because that is where
+Codex persists the repository trust decision; `--ignore-user-config` therefore
+silently suppresses the repository MCP. `@playwright/mcp` is pinned in `editor/package.json`;
 run `npm --prefix editor install` after a fresh checkout before starting the
 loop. Every spawned session is pinned by the runner to `gpt-5.6-sol` with low
 reasoning effort.

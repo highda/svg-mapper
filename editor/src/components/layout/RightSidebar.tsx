@@ -4,11 +4,13 @@ import type {
   AreaStyle,
   AreaStyleState,
   AreaTrigger,
+  BackgroundFit,
   CircleGeometry,
   PopupAction,
   RectGeometry,
   PolygonGeometry,
   SceneSwitcherPosition,
+  ZoomControlsPosition,
   Tooltip,
   Viewport,
   View,
@@ -176,7 +178,7 @@ function StyleStateEditor({
 // ---------------------------------------------------------------------------
 
 function ViewInspector({ view }: { view: View }) {
-  const { renameView, setCanvasSize, project, setViewBackground, updateSettings } = useStore();
+  const { renameView, setCanvasSize, project, setViewBackground, setViewBackgroundFit, updateSettings } = useStore();
   const canvasSize = project.settings.canvasSize;
 
   function handleAssetChange(e: React.ChangeEvent<HTMLSelectElement>) {
@@ -193,6 +195,20 @@ function ViewInspector({ view }: { view: View }) {
           onCommit={(name) => { const t = name.trim(); if (t && t !== view.name) renameView(view.id, t); }}
         />
       </Row>
+      {view.background && (
+        <Row label="Fit">
+          <select
+            aria-label="Background Fit"
+            value={view.background.fit}
+            onChange={(e) => setViewBackgroundFit(view.id, e.target.value as BackgroundFit)}
+            className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+          >
+            {(["contain", "cover", "fill", "none"] as const).map((fit) => (
+              <option key={fit} value={fit}>{fit}</option>
+            ))}
+          </select>
+        </Row>
+      )}
 
       <Row label="Background">
         <select
@@ -329,6 +345,51 @@ function ViewInspector({ view }: { view: View }) {
 
       <SectionHeader title="Viewport" />
       <ViewportEditor viewport={view.viewport} viewId={view.id} />
+
+      <SectionHeader title="Renderer Controls" />
+      <CheckToggle
+        checked={project.settings.zoomControls?.enabled ?? false}
+        onChange={(enabled) => updateSettings({
+          zoomControls: { enabled, position: project.settings.zoomControls?.position ?? "top-right" },
+        })}
+        label="Show zoom controls"
+      />
+      <Row label="Position">
+        <select
+          aria-label="Zoom Controls Position"
+          value={project.settings.zoomControls?.position ?? "top-right"}
+          disabled={!project.settings.zoomControls?.enabled}
+          onChange={(e) => updateSettings({
+            zoomControls: {
+              enabled: project.settings.zoomControls?.enabled ?? false,
+              position: e.target.value as ZoomControlsPosition,
+            },
+          })}
+          className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500 disabled:opacity-50"
+        >
+          {(["top-left", "top-right", "bottom-left", "bottom-right"] as const).map((position) => (
+            <option key={position} value={position}>{position.replace("-", " ")}</option>
+          ))}
+        </select>
+      </Row>
+      {(["top", "right", "bottom", "left"] as const).map((side) => (
+        <Row key={side} label={`Padding ${side}`}>
+          <NumberField
+            defaultValue={project.settings.padding?.[side] ?? 0}
+            min={0}
+            max={10000}
+            onCommit={(value) => updateSettings({
+              padding: {
+                top: project.settings.padding?.top ?? 0,
+                right: project.settings.padding?.right ?? 0,
+                bottom: project.settings.padding?.bottom ?? 0,
+                left: project.settings.padding?.left ?? 0,
+                [side]: value,
+              },
+            })}
+          />
+        </Row>
+      ))}
     </div>
   );
 }

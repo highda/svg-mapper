@@ -317,8 +317,8 @@ class Renderer implements ClickMapInstance {
     window.addEventListener("keydown", this.onWindowKeyDown);
     window.addEventListener("keyup", this.onWindowKeyUp);
     this.svgEl.addEventListener("pointerdown", (e) => this.onPanStart(e));
-    window.addEventListener("pointermove", (e) => this.onPanMove(e));
-    window.addEventListener("pointerup", () => this.onPanEnd());
+    window.addEventListener("pointermove", this.onWindowPointerMove);
+    window.addEventListener("pointerup", this.onWindowPointerUp);
 
     // Close popover on outside click
     document.addEventListener("click", this.onDocumentClick);
@@ -364,12 +364,16 @@ class Renderer implements ClickMapInstance {
 
     const fit = view.background.fit ?? "contain";
 
-    if (asset.type === "image/svg+xml" && asset.inline) {
+    if (asset.type === "image/svg+xml" && asset.inline && /^\s*<svg\b/i.test(asset.src)) {
       this.bgEl.innerHTML = asset.src;
       const inlineSvg = this.bgEl.querySelector("svg");
       if (inlineSvg) {
         inlineSvg.classList.add("clickmap-bg-img");
-        inlineSvg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+        inlineSvg.style.objectFit = fit;
+        inlineSvg.setAttribute(
+          "preserveAspectRatio",
+          fit === "cover" ? "xMidYMid slice" : fit === "fill" ? "none" : "xMidYMid meet"
+        );
       }
     } else {
       const img = document.createElement("img");
@@ -666,8 +670,13 @@ class Renderer implements ClickMapInstance {
     }
   };
 
+  private onWindowPointerMove = (e: PointerEvent) => this.onPanMove(e);
+  private onWindowPointerUp = () => this.onPanEnd();
+
   private onPanStart(e: PointerEvent) {
     if (!this.spaceHeld || !this.currentViewBox) return;
+    const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
+    if (!view?.viewport.panEnabled || !this.isZoomedIn()) return;
     this.panStart = { x: e.clientX, y: e.clientY };
     this.panStartViewBox = { ...this.currentViewBox };
     this.svgEl.setPointerCapture(e.pointerId);
@@ -691,6 +700,15 @@ class Renderer implements ClickMapInstance {
   private onPanEnd() {
     this.panStart = null;
     this.panStartViewBox = null;
+  }
+
+  private isZoomedIn() {
+    if (!this.currentViewBox) return false;
+    const { width, height } = this.def.settings.canvasSize;
+    const pad = this.def.settings.padding;
+    const initialWidth = width + (pad?.left ?? 0) + (pad?.right ?? 0);
+    const initialHeight = height + (pad?.top ?? 0) + (pad?.bottom ?? 0);
+    return this.currentViewBox.w < initialWidth || this.currentViewBox.h < initialHeight;
   }
 
   // -------------------------------------------------------------------------
@@ -1375,6 +1393,8 @@ class Renderer implements ClickMapInstance {
     this.ro.disconnect();
     window.removeEventListener("keydown", this.onWindowKeyDown);
     window.removeEventListener("keyup", this.onWindowKeyUp);
+    window.removeEventListener("pointermove", this.onWindowPointerMove);
+    window.removeEventListener("pointerup", this.onWindowPointerUp);
     document.removeEventListener("click", this.onDocumentClick);
     document.removeEventListener("keydown", this.onDocumentKeyDown);
     if (this.shadowRoot) {
