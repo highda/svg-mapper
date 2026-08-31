@@ -5,13 +5,13 @@
   "type": "module",
   "scripts": {
     "predev": "npm --prefix ../renderer run build",
-    "dev": "vite",
+    "dev": "vite --configLoader runner",
     "prebuild": "npm --prefix ../renderer run build",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build --configLoader runner",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "vitest run --configLoader runner",
+    "test:watch": "vitest --configLoader runner",
     "preview": "vite preview"
   },
   "dependencies": {

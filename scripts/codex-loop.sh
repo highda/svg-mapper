@@ -17,10 +17,12 @@ work_prompt_file="$repo_root/.codex/prompts/autonomous-loop.md"
 review_prompt_file="$repo_root/.codex/prompts/completion-review.md"
 candidate_file="$runtime_dir/completion-candidate.md"
 stop_file="$runtime_dir/loop-complete.md"
-proxy_script="$repo_root/scripts/github-connect-proxy.mjs"
+proxy_script="${CODEX_LOOP_PROXY_SCRIPT:-$repo_root/scripts/github-connect-proxy.mjs}"
 proxy_port_file="$runtime_dir/github-proxy-port"
 proxy_log="$runtime_dir/github-proxy.log"
 command_bridge_dir="$runtime_dir/network-bridge-bin"
+preflight_log="$runtime_dir/loop-preflight.log"
+vite_cache_dir="$runtime_dir/vite-cache"
 task_brief_file="$runtime_dir/task-brief.md"
 skip_task_brief="${CODEX_LOOP_SKIP_TASK_BRIEF:-0}"
 proxy_pid=""
@@ -143,23 +145,60 @@ for _ in {1..50}; do
   [[ -s "$proxy_port_file" ]] && break
   sleep 0.1
 done
-if [[ ! -s "$proxy_port_file" ]]; then
-  printf 'GitHub network bridge did not start. See %s.\n' "$proxy_log" >&2
-  exit 2
+bridge_available=0
+if [[ -s "$proxy_port_file" ]] && kill -0 "$proxy_pid" 2>/dev/null; then
+  bridge_available=1
+  proxy_url="http://127.0.0.1:$(<"$proxy_port_file")"
+else
+  printf 'GitHub network bridge did not start; will probe configured direct access instead. See %s.\n' \
+    "$proxy_log" >&2
 fi
-if ! kill -0 "$proxy_pid" 2>/dev/null; then
-  printf 'GitHub network bridge exited during startup. See %s.\n' "$proxy_log" >&2
-  exit 2
-fi
-proxy_url="http://127.0.0.1:$(<"$proxy_port_file")"
 mkdir -p "$command_bridge_dir"
-for command_name in gh git npm npx yarn pnpm; do
-  command_path="$(command -v "$command_name" 2>/dev/null || true)"
-  [[ -n "$command_path" ]] || continue
-  printf '#!/usr/bin/env bash\nexec env HTTPS_PROXY=%q HTTP_PROXY=%q NO_PROXY=localhost,127.0.0.1 %q "$@"\n' \
-    "$proxy_url" "$proxy_url" "$command_path" >"$command_bridge_dir/$command_name"
-  chmod 700 "$command_bridge_dir/$command_name"
-done
+if ((bridge_available)); then
+  for command_name in gh git npm npx yarn pnpm; do
+    command_path="$(command -v "$command_name" 2>/dev/null || true)"
+    [[ -n "$command_path" ]] || continue
+    printf '#!/usr/bin/env bash\nexec env HTTPS_PROXY=%q HTTP_PROXY=%q NO_PROXY=localhost,127.0.0.1 %q "$@"\n' \
+      "$proxy_url" "$proxy_url" "$command_path" >"$command_bridge_dir/$command_name"
+    chmod 700 "$command_bridge_dir/$command_name"
+  done
+fi
+
+# The child runs under a tighter macOS sandbox than this runner. Prove that its
+# network policy can reach GitHub before spending a Codex session on work that
+# will inevitably report blocked. Some Codex sandbox versions reject loopback
+# proxy connects even when direct access to the configured GitHub allowlist is
+# available, so safely fall back to that direct path.
+probe_sandbox_github() {
+  local mode="$1"
+  if [[ "$mode" == "bridge" ]]; then
+    GH_TOKEN="$github_token" CODEX_LOOP_BRIDGE_ACTIVE=1 PATH="$command_bridge_dir:$PATH" \
+      "$codex_bin" sandbox -C "$repo_root" -P autonomous-project -- \
+      gh api rate_limit --jq '.resources.core.limit' >>"$preflight_log" 2>&1
+  else
+    GH_TOKEN="$github_token" \
+      "$codex_bin" sandbox -C "$repo_root" -P autonomous-project -- \
+      gh api rate_limit --jq '.resources.core.limit' >>"$preflight_log" 2>&1
+  fi
+}
+
+: >"$preflight_log"
+agent_path="$PATH"
+if ((bridge_available)) && probe_sandbox_github bridge; then
+  agent_path="$command_bridge_dir:$PATH"
+  printf 'Sandbox preflight: GitHub bridge is reachable.\n' >>"$preflight_log"
+elif probe_sandbox_github direct; then
+  printf 'Sandbox preflight: loopback bridge was unavailable; using direct configured GitHub access.\n' >>"$preflight_log"
+else
+  printf 'Codex sandbox cannot reach GitHub through the bridge or configured direct access. See %s.\n' \
+    "$preflight_log" >&2
+  exit 2
+fi
+
+# Vite's default config bundler writes into node_modules/.vite-temp, which is
+# intentionally not writable to an unattended agent. The runner config loader
+# and this cache directory keep all generated tool state under ignored runtime.
+mkdir -p "$vite_cache_dir"
 
 # Commit authorship belongs to the autonomous agent operating this loop, never
 # to the human who launched it. This is local to svg-mapper and does not alter
@@ -188,7 +227,7 @@ while ((max_sessions == 0 || session < max_sessions)); do
   printf 'Starting fresh Codex %s session %s. Log: %s\n' "$session_kind" "$session" "$log_file"
 
   set +e
-  GH_TOKEN="$github_token" PATH="$command_bridge_dir:$PATH" \
+  GH_TOKEN="$github_token" PATH="$agent_path" CODEX_VITE_CACHE_DIR="$vite_cache_dir" \
     "$codex_bin" --add-dir "$repo_root/.git" exec \
     --json \
     --model gpt-5.6-terra \

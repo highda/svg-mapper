@@ -90,6 +90,19 @@ error, the runner waits one minute by default and retries a fresh session. Set
 `CODEX_LOOP_GITHUB_RETRY_SECONDS=0` to disable that retry. Any other `blocked`
 result stops the runner and preserves state for inspection.
 
+Before every Codex session, the runner uses the same permission profile to
+probe GitHub access. It prefers the restricted loopback bridge; if the bridge
+cannot start, the sandbox rejects its loopback connection, or the configured
+GitHub allowlist works directly, it uses the direct path instead. If neither
+path works, the runner stops before consuming a session and records the command output in
+`.codex/runtime/loop-preflight.log`.
+
+Vite and Vitest run with their config runner, avoiding Vite's temporary config
+bundle under `node_modules/.vite-temp`. During loop runs their dependency cache
+is instead placed in `.codex/runtime/vite-cache`, which is ignored and already
+writable to the agent. Do not grant the loop broad write access to dependency
+directories to work around a cache failure.
+
 ## Completion guard
 
 No ordinary work session can stop the outer loop. A session that believes the
