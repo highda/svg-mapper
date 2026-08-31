@@ -108,6 +108,19 @@ describe("validateProject — warnings", () => {
     });
     expect(codes(def)).toContain("UNREACHABLE_VIEW");
   });
+
+  it("warns when a disabled Area retains an action", () => {
+    const def = baseDef();
+    const area = createRectArea(0, 0, 50, 50);
+    area.disabled = true;
+    area.action = { type: "url", href: "https://example.com", target: "_blank" };
+    addAreaToFirstLayer(def, area);
+
+    const results = validateProject(def);
+    const warning = results.find((r) => r.code === "DISABLED_AREA_HAS_ACTION");
+    expect(warning).toMatchObject({ severity: "warning", ref: { areaId: area.id } });
+    expect(hasBlockingErrors(results)).toBe(false);
+  });
 });
 
 describe("validateProject — clean project", () => {
