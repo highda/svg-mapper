@@ -4,24 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #52 — infra: make autonomous loop self-starting and testable
-Branch:       fix/52-loop-self-start
-Started:      2026-08-31
-Last commit:  (uncommitted)  runner repair in progress
-
-### What's done
-- Isolated the prior loop failure to invalid GitHub auth and an empty Ready queue.
-- Made the loop test independent of host credentials and hardened bridge startup checks.
-
-### What's next
-- Claim, checkpoint, and push the runner repair; then run one clean real loop session.
-
-### Notes / gotchas
-- The loop uses GitHub labels as its serial lock; all open backlog issues were missing `agent:ready`.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-08-31 — closed #52 — made the autonomous loop self-starting, credential-testable, and explicit about bridge startup failures; PR #53.
 - 2026-08-18 — closed #48 — scoped the loopback bridge to agent Git and package commands, preserving Codex control-plane access; PR #49.
 - 2026-08-18 — closed #46 — added a restricted loopback GitHub/package-registry bridge for Codex sandbox sessions; PR #47.
 - 2026-08-18 — closed #44 — hardened unattended Git lock access and temporary GitHub API recovery; PR #45.
