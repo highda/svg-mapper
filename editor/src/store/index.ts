@@ -324,6 +324,7 @@ export const useStore = create<AppState>()(
         if (!view) return;
         pushHistory(s);
         view.background = { assetId, fit: "contain" };
+        s.canvasSizeSuggestion = null;
         if (view.layers.length === 0) {
           view.layers.push({
             id: `layer_${Math.random().toString(36).slice(2, 10)}`,

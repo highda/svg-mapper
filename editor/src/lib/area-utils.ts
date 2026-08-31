@@ -147,6 +147,29 @@ export function getGeometryBbox(geo: Geometry): { x: number; y: number; width: n
   }
 }
 
+export function calculateZoomToFit(
+  bounds: { x: number; y: number; width: number; height: number },
+  canvasSize: { width: number; height: number },
+  viewportSize: { width: number; height: number },
+  margin = 0.8,
+): { zoom: number; pan: { x: number; y: number } } {
+  const width = Math.max(bounds.width, 1);
+  const height = Math.max(bounds.height, 1);
+  const zoom = Math.max(0.1, Math.min(8, Math.min(
+    (viewportSize.width * margin) / width,
+    (viewportSize.height * margin) / height,
+  )));
+  const boundsCenterX = bounds.x + bounds.width / 2;
+  const boundsCenterY = bounds.y + bounds.height / 2;
+  return {
+    zoom,
+    pan: {
+      x: zoom * (canvasSize.width / 2 - boundsCenterX),
+      y: zoom * (canvasSize.height / 2 - boundsCenterY),
+    },
+  };
+}
+
 export function polygonPointsToString(points: [number, number][]): string {
   return points.map(([px, py]) => `${px},${py}`).join(" ");
 }

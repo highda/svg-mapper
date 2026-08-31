@@ -11,6 +11,8 @@ import {
   moveGeometry,
   snapGeometryToGrid,
   snapValue,
+  getGeometryBbox,
+  calculateZoomToFit,
   type RectHandle,
 } from "../../lib/area-utils";
 
@@ -179,26 +181,16 @@ export function Canvas() {
         const { width: svgW, height: svgH } = svg.getBoundingClientRect();
         const { selectedAreaId: saId, project: proj } = useStore.getState();
         const cv = proj.settings.canvasSize;
-        let targetX = 0, targetY = 0, targetW = cv.width, targetH = cv.height;
+        let bounds = { x: 0, y: 0, width: cv.width, height: cv.height };
         if (saId) {
-          for (const v of proj.views) {
-            for (const l of v.layers) {
-              const a = l.areas.find((ar) => ar.id === saId);
-              if (a) {
-                const g = a.geometry;
-                if (g.type === "rect") { targetX = g.x; targetY = g.y; targetW = g.width; targetH = g.height; }
-                else if (g.type === "circle") { targetX = g.cx - g.r; targetY = g.cy - g.r; targetW = g.r * 2; targetH = g.r * 2; }
-              }
-            }
-          }
+          const selectedArea = proj.views
+            .flatMap((candidateView) => candidateView.layers)
+            .flatMap((layer) => layer.areas)
+            .find((area) => area.id === saId);
+          const selectedBounds = selectedArea ? getGeometryBbox(selectedArea.geometry) : null;
+          if (selectedBounds) bounds = selectedBounds;
         }
-        const margin = 0.8;
-        const newZoom = Math.min((svgW * margin) / targetW, (svgH * margin) / targetH);
-        const centerX = targetX + targetW / 2;
-        const centerY = targetY + targetH / 2;
-        const newPanX = -centerX * newZoom;
-        const newPanY = -centerY * newZoom;
-        setEditorState({ zoom: newZoom, pan: { x: newPanX, y: newPanY } });
+        setEditorState(calculateZoomToFit(bounds, cv, { width: svgW, height: svgH }));
         return;
       }
       if ((e.key === "Delete" || e.key === "Backspace") && selectedAreaId) {
