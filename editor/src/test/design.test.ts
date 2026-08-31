@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useStore } from "../store";
 import { createNewProject } from "../lib/project";
-import { createRectArea, createPolygonArea, moveGeometry } from "../lib/area-utils";
+import { calculateZoomToFit, createCircleArea, createRectArea, createPolygonArea, getGeometryBbox, moveGeometry, snapGeometryToGrid, snapValue } from "../lib/area-utils";
 import { sanitizeSvg } from "../lib/svg-sanitize";
 
 function resetStore() {
@@ -82,6 +82,33 @@ describe("createPolygonArea", () => {
   });
 });
 
+describe("circle authoring", () => {
+  it("creates a circle and reports its complete bounds", () => {
+    const area = createCircleArea(60, 40, 20);
+    expect(area.geometry).toEqual({ type: "circle", cx: 60, cy: 40, r: 20 });
+    expect(getGeometryBbox(area.geometry)).toEqual({ x: 40, y: 20, width: 40, height: 40 });
+  });
+});
+
+describe("zoom to fit", () => {
+  it("fits and centers polygon bounds in the viewport", () => {
+    const bounds = getGeometryBbox({ type: "polygon", points: [[100, 200], [300, 200], [200, 300]] });
+    expect(bounds).not.toBeNull();
+    expect(calculateZoomToFit(bounds!, { width: 1000, height: 800 }, { width: 500, height: 400 })).toEqual({
+      zoom: 2,
+      pan: { x: 600, y: 300 },
+    });
+  });
+
+  it("centers the full canvas without introducing pan", () => {
+    expect(calculateZoomToFit(
+      { x: 0, y: 0, width: 1000, height: 500 },
+      { width: 1000, height: 500 },
+      { width: 1000, height: 500 },
+    )).toEqual({ zoom: 0.8, pan: { x: 0, y: 0 } });
+  });
+});
+
 describe("moveGeometry", () => {
   it("translates rect", () => {
     const geo = { type: "rect" as const, x: 10, y: 20, width: 100, height: 50 };
@@ -99,6 +126,23 @@ describe("moveGeometry", () => {
       expect(moved.points[0]).toEqual([2, 4]);
       expect(moved.points[1]).toEqual([12, 4]);
     }
+  });
+});
+
+describe("grid snapping", () => {
+  it("rounds values to the nearest grid point", () => {
+    expect(snapValue(14, 10)).toBe(10);
+    expect(snapValue(16, 10)).toBe(20);
+    expect(snapValue(16, 0)).toBe(16);
+  });
+
+  it("snaps rect bounds and polygon vertices", () => {
+    expect(snapGeometryToGrid({ type: "rect", x: 14, y: 16, width: 33, height: 27 }, 10)).toMatchObject({
+      x: 10, y: 20, width: 40, height: 20,
+    });
+    expect(snapGeometryToGrid({ type: "polygon", points: [[4, 6], [24, 27]] }, 10)).toMatchObject({
+      points: [[0, 10], [20, 30]],
+    });
   });
 });
 
@@ -121,6 +165,49 @@ describe("store: addArea", () => {
   it("pushes to undo history", () => {
     useStore.getState().addArea(createRectArea(0, 0, 50, 50));
     expect(useStore.getState().past).toHaveLength(1);
+  });
+});
+
+describe("store: canvas size suggestion", () => {
+  beforeEach(resetStore);
+
+  it("suggests imported raster dimensions and applies them", () => {
+    const viewId = useStore.getState().activeViewId;
+    useStore.getState().importAsset({
+      id: "asset_large",
+      name: "floor.png",
+      type: "image/png",
+      src: "data:image/png;base64,",
+      width: 1200,
+      height: 800,
+      inline: true,
+    });
+    useStore.getState().setViewBackground(viewId, "asset_large");
+    expect(useStore.getState().canvasSizeSuggestion).toEqual({ width: 1200, height: 800 });
+
+    useStore.getState().setCanvasSize(1200, 800);
+    useStore.getState().dismissCanvasSizeSuggestion();
+    expect(useStore.getState().project.settings.canvasSize).toEqual({ width: 1200, height: 800 });
+    expect(useStore.getState().canvasSizeSuggestion).toBeNull();
+  });
+
+  it("does not retain a stale suggestion when dimensions already match", () => {
+    const viewId = useStore.getState().activeViewId;
+    for (const asset of [
+      { id: "different", width: 1200, height: 800 },
+      { id: "matching", width: 1600, height: 900 },
+    ]) {
+      useStore.getState().importAsset({
+        ...asset,
+        name: `${asset.id}.png`,
+        type: "image/png",
+        src: "data:image/png;base64,",
+        inline: true,
+      });
+    }
+    useStore.getState().setViewBackground(viewId, "different");
+    useStore.getState().setViewBackground(viewId, "matching");
+    expect(useStore.getState().canvasSizeSuggestion).toBeNull();
   });
 });
 

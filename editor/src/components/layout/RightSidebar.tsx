@@ -178,8 +178,9 @@ function StyleStateEditor({
 // ---------------------------------------------------------------------------
 
 function ViewInspector({ view }: { view: View }) {
-  const { renameView, setCanvasSize, project, setViewBackground, setViewBackgroundFit, updateSettings } = useStore();
+  const { renameView, setCanvasSize, project, setViewBackground, setViewBackgroundFit, updateSettings, setEditorState } = useStore();
   const canvasSize = project.settings.canvasSize;
+  const grid = project.editor?.grid ?? { enabled: false, size: 10 };
 
   function handleAssetChange(e: React.ChangeEvent<HTMLSelectElement>) {
     if (e.target.value) setViewBackground(view.id, e.target.value);
@@ -239,6 +240,21 @@ function ViewInspector({ view }: { view: View }) {
           min={1}
           max={10000}
           onCommit={(v) => setCanvasSize(canvasSize.width, v)}
+        />
+      </Row>
+
+      <SectionHeader title="Grid" />
+      <CheckToggle
+        checked={grid.enabled}
+        onChange={(enabled) => setEditorState({ grid: { ...grid, enabled } })}
+        label="Snap to grid"
+      />
+      <Row label="Grid size">
+        <NumberField
+          defaultValue={grid.size}
+          min={1}
+          max={1000}
+          onCommit={(size) => setEditorState({ grid: { ...grid, size } })}
         />
       </Row>
 

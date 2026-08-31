@@ -55,6 +55,32 @@ export function moveGeometry(geo: Geometry, dx: number, dy: number): Geometry {
   }
 }
 
+export function snapValue(value: number, gridSize: number): number {
+  if (!Number.isFinite(gridSize) || gridSize <= 0) return value;
+  return Math.round(value / gridSize) * gridSize;
+}
+
+/** Snap all editable geometry coordinates to the nearest grid point. */
+export function snapGeometryToGrid(geo: Geometry, gridSize: number): Geometry {
+  switch (geo.type) {
+    case "rect": {
+      const left = snapValue(geo.x, gridSize);
+      const top = snapValue(geo.y, gridSize);
+      const right = snapValue(geo.x + geo.width, gridSize);
+      const bottom = snapValue(geo.y + geo.height, gridSize);
+      return { ...geo, x: left, y: top, width: Math.max(gridSize, right - left), height: Math.max(gridSize, bottom - top) };
+    }
+    case "polygon":
+      return { ...geo, points: geo.points.map(([x, y]) => [snapValue(x, gridSize), snapValue(y, gridSize)] as [number, number]) };
+    case "circle":
+      return { ...geo, cx: snapValue(geo.cx, gridSize), cy: snapValue(geo.cy, gridSize), r: Math.max(gridSize, snapValue(geo.r, gridSize)) };
+    case "marker":
+      return { ...geo, x: snapValue(geo.x, gridSize), y: snapValue(geo.y, gridSize) };
+    case "path":
+      return geo;
+  }
+}
+
 export type RectHandle = "nw" | "ne" | "sw" | "se";
 
 export function resizeRect(
@@ -119,6 +145,29 @@ export function getGeometryBbox(geo: Geometry): { x: number; y: number; width: n
     default:
       return null;
   }
+}
+
+export function calculateZoomToFit(
+  bounds: { x: number; y: number; width: number; height: number },
+  canvasSize: { width: number; height: number },
+  viewportSize: { width: number; height: number },
+  margin = 0.8,
+): { zoom: number; pan: { x: number; y: number } } {
+  const width = Math.max(bounds.width, 1);
+  const height = Math.max(bounds.height, 1);
+  const zoom = Math.max(0.1, Math.min(8, Math.min(
+    (viewportSize.width * margin) / width,
+    (viewportSize.height * margin) / height,
+  )));
+  const boundsCenterX = bounds.x + bounds.width / 2;
+  const boundsCenterY = bounds.y + bounds.height / 2;
+  return {
+    zoom,
+    pan: {
+      x: zoom * (canvasSize.width / 2 - boundsCenterX),
+      y: zoom * (canvasSize.height / 2 - boundsCenterY),
+    },
+  };
 }
 
 export function polygonPointsToString(points: [number, number][]): string {

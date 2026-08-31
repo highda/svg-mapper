@@ -4,8 +4,23 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #28 — editor: tooling improvements — circle tool, snap to grid, zoom to fit, canvas size from image, area search
+Branch:       feat/28-editor-tooling
+Started:      2026-08-31
+Last commit:  e378510  feat: complete editor grid snapping
+
+### What's done
+- Claimed issue #28 and completed configurable visual grid snapping for draw, move, and resize operations.
+- Added focused snapping tests; editor typecheck, 130 tests, and lint pass.
+- Browser-verified grid enablement and snapped circle drawing with no console errors.
+
+### What's next
+- Verify and harden zoom-to-fit (especially polygon bounds and centering).
+- Add acceptance-level coverage for circle authoring, image-size suggestion, and area search, then browser-test the full golden path.
+
+### Notes / gotchas
+- The host task brief still describes closed issue #27; GitHub and HANDOFF confirm it was completed by PR #77.
+- A prior shared-types commit began all five issue #28 features; inspect existing behavior before adding duplicate implementation.
 
 ---
 
