@@ -48,13 +48,20 @@ function renderTemplate(
   template: string,
   vars: { name: string; id: string; metadata?: Record<string, unknown>; viewName?: string }
 ): string {
+  const escapeHtml = (value: unknown) =>
+    String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   return template.replace(/\{\{([\w.]+)\}\}/g, (_, key: string) => {
-    if (key === "name") return vars.name;
-    if (key === "id") return vars.id;
-    if (key === "viewName") return vars.viewName ?? "";
+    if (key === "name") return escapeHtml(vars.name);
+    if (key === "id") return escapeHtml(vars.id);
+    if (key === "viewName") return escapeHtml(vars.viewName);
     if (key.startsWith("metadata.")) {
       const mk = key.slice(9);
-      return String(vars.metadata?.[mk] ?? "");
+      return escapeHtml(vars.metadata?.[mk]);
     }
     return "";
   });
@@ -64,8 +71,8 @@ function renderTemplate(
 // Colour interpolation for choropleth
 // ---------------------------------------------------------------------------
 
-function hexToRgb(hex: string): [number, number, number] | null {
-  const clean = hex.replace(/^#/, "");
+function colorToRgb(color: string): [number, number, number] | null {
+  const clean = color.replace(/^#/, "");
   if (clean.length === 3) {
     const r = parseInt(clean[0]! + clean[0], 16);
     const g = parseInt(clean[1]! + clean[1], 16);
@@ -78,7 +85,17 @@ function hexToRgb(hex: string): [number, number, number] | null {
     const b = parseInt(clean.slice(4, 6), 16);
     return [r, g, b];
   }
-  return null;
+  const probe = document.createElement("span");
+  probe.style.color = color;
+  if (!probe.style.color) return null;
+  probe.style.display = "none";
+  document.body.appendChild(probe);
+  const resolved = getComputedStyle(probe).color;
+  probe.remove();
+  const match = resolved.match(/^rgba?\(\s*(\d+(?:\.\d+)?)\D+(\d+(?:\.\d+)?)\D+(\d+(?:\.\d+)?)/);
+  return match
+    ? [Number(match[1]), Number(match[2]), Number(match[3])]
+    : null;
 }
 
 function lerpColor(
@@ -86,8 +103,8 @@ function lerpColor(
   high: string,
   t: number
 ): string {
-  const lo = hexToRgb(low);
-  const hi = hexToRgb(high);
+  const lo = colorToRgb(low);
+  const hi = colorToRgb(high);
   if (!lo || !hi) return low;
   const r = Math.round(lo[0] + (hi[0] - lo[0]) * t);
   const g = Math.round(lo[1] + (hi[1] - lo[1]) * t);
@@ -760,15 +777,25 @@ class Renderer implements ClickMapInstance {
 
   private applyChoropleth() {
     const opts = this.choroplethOptions;
-    if (!opts || this.choroplethData.size === 0) return;
+    this.root.querySelector(".clickmap-legend")?.remove();
+
+    const view = this.def.views.find((v) => v.id === this.currentViewId);
+    if (!view) return;
+    if (!opts) return;
+    if (this.choroplethData.size === 0) {
+      for (const layer of view.layers) {
+        for (const area of layer.areas) {
+          const el = this.findAreaEl(area.id);
+          if (el) this.applyRestingStyle(area, el);
+        }
+      }
+      return;
+    }
 
     const values = Array.from(this.choroplethData.values());
     const minV = Math.min(...values);
     const maxV = Math.max(...values);
     const range = maxV - minV || 1;
-
-    const view = this.def.views.find((v) => v.id === this.currentViewId);
-    if (!view) return;
 
     for (const layer of view.layers) {
       for (const area of layer.areas) {
@@ -788,9 +815,6 @@ class Renderer implements ClickMapInstance {
   }
 
   private renderChoroplethLegend(opts: ChoroplethOptions) {
-    const existing = this.root.querySelector(".clickmap-legend");
-    existing?.remove();
-
     const legend = document.createElement("div");
     legend.className = "clickmap-legend";
     legend.style.cssText =
@@ -822,6 +846,29 @@ class Renderer implements ClickMapInstance {
       this.choroplethOptions = { ...this.choroplethOptions, data };
       this.applyChoropleth();
     }
+  }
+
+  private applyRestingStyle(area: Area, el: SVGElement) {
+    if (area.disabled) {
+      this.applyStyle(el, area.style.disabled ?? this.makeDisabledStyle(area.style.default));
+      return;
+    }
+    if (area.alwaysHighlight) {
+      this.applyStyle(el, area.style.hover);
+      return;
+    }
+    this.applyStyle(el, area.style.default);
+    const opts = this.choroplethOptions;
+    if (!opts || this.choroplethData.size === 0) return;
+    const value = this.choroplethData.get(area.id);
+    if (value === undefined) {
+      if (opts.noDataColor) el.setAttribute("fill", opts.noDataColor);
+      return;
+    }
+    const values = Array.from(this.choroplethData.values());
+    const minV = Math.min(...values);
+    const range = Math.max(...values) - minV || 1;
+    el.setAttribute("fill", lerpColor(opts.colorLow, opts.colorHigh, (value - minV) / range));
   }
 
   // -------------------------------------------------------------------------
@@ -880,7 +927,7 @@ class Renderer implements ClickMapInstance {
       const prev = this.findAreaInCurrentView(this.hoveredId);
       const prevEl = prev ? this.findAreaEl(this.hoveredId) : null;
       if (prev && prevEl) {
-        this.applyStyle(prevEl, prev.alwaysHighlight ? prev.style.hover : prev.style.default);
+        this.applyRestingStyle(prev, prevEl);
       }
     }
 
@@ -910,7 +957,7 @@ class Renderer implements ClickMapInstance {
     const prev = this.findAreaInCurrentView(this.hoveredId);
     const prevEl = this.findAreaEl(this.hoveredId);
     if (prev && prevEl) {
-      this.applyStyle(prevEl, prev.alwaysHighlight ? prev.style.hover : prev.style.default);
+      this.applyRestingStyle(prev, prevEl);
     }
 
     this.hoveredId = null;
@@ -1033,6 +1080,18 @@ class Renderer implements ClickMapInstance {
     this.tooltipEl.classList.add("clickmap-tooltip--visible");
   }
 
+  private resolveAreaTemplate(area: Area): string | null {
+    const template = this.def.settings.contentTemplate;
+    if (!template) return null;
+    const view = this.def.views.find((v) => v.id === this.currentViewId);
+    return renderTemplate(template, {
+      name: area.name,
+      id: area.id,
+      ...(area.metadata !== undefined ? { metadata: area.metadata } : {}),
+      ...(view?.name !== undefined ? { viewName: view.name } : {}),
+    });
+  }
+
   private hideTooltip() {
     this.tooltipEl.setAttribute("aria-hidden", "true");
     this.tooltipEl.classList.remove("clickmap-tooltip--visible");
@@ -1050,6 +1109,7 @@ class Renderer implements ClickMapInstance {
 
   private openPopover(action: import("../../shared/types.js").PopupAction, area: Area) {
     const content = action.content;
+    const templatedBody = this.resolveAreaTemplate(area);
     this.popoverReturnFocus = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
@@ -1064,16 +1124,16 @@ class Renderer implements ClickMapInstance {
       this.popoverEl.appendChild(img);
     }
 
-    if (content.title) {
+    if (content.title && templatedBody === null) {
       const h = document.createElement("strong");
       h.style.cssText = "display:block;margin-bottom:4px;";
       h.textContent = content.title;
       this.popoverEl.appendChild(h);
     }
 
-    if (content.body) {
+    if (templatedBody !== null || content.body) {
       const p = document.createElement("div");
-      p.innerHTML = sanitiseHtml(content.body);
+      p.innerHTML = sanitiseHtml(templatedBody ?? content.body ?? "");
       p.style.fontSize = "12px";
       this.popoverEl.appendChild(p);
     }
@@ -1105,7 +1165,7 @@ class Renderer implements ClickMapInstance {
     this.openPopoverId = area.id;
 
     // Aria live announcement
-    this.ariaLiveEl.textContent = content.title ?? "Popup opened";
+    this.ariaLiveEl.textContent = templatedBody === null ? (content.title ?? "Popup opened") : area.name;
     setTimeout(() => { this.ariaLiveEl.textContent = ""; }, 1000);
 
     // Focus trap

@@ -115,6 +115,101 @@ describe("renderer interaction model", () => {
     expect(tooltip.querySelector("script")).toBeNull();
   });
 
+  it("renders escaped area data through the project content template", () => {
+    const area = createRectArea(0, 0, 10, 10);
+    area.name = "Cafe & Shop";
+    area.metadata = { price: '<img src=x onerror="bad()">' };
+    area.tooltip = { enabled: true, title: "Fallback", body: "Fallback body" };
+    const project = createNewProject();
+    project.settings.contentTemplate =
+      "<h3>{{name}}</h3><p>{{id}} / {{viewName}} / {{metadata.price}}</p>";
+    project.views[0].name = "Ground Floor";
+    project.views[0].layers = [{
+      id: "layer_1", name: "Layer 1", visible: true, locked: false, opacity: 1, areas: [area],
+    }];
+    create({ container: "#map", definition: toDefinition(project) });
+
+    areaElement(area.id).dispatchEvent(new Event("pointerover", { bubbles: true }));
+    const tooltip = document.querySelector<HTMLElement>(".clickmap-tooltip")!;
+    expect(tooltip.querySelector("h3")).toHaveTextContent("Cafe & Shop");
+    expect(tooltip).toHaveTextContent(`${area.id} / Ground Floor / <img src=x onerror="bad()">`);
+    expect(tooltip.querySelector("img")).toBeNull();
+    expect(tooltip).not.toHaveTextContent("Fallback body");
+  });
+
+  it("includes metadata in hover and click events", () => {
+    const area = createRectArea(0, 0, 10, 10);
+    area.metadata = { price: 42 };
+    const instance = renderAreas(area);
+    const onHover = vi.fn();
+    const onClick = vi.fn();
+    instance.on("area:hover", onHover);
+    instance.on("area:click", onClick);
+
+    areaElement(area.id).dispatchEvent(new Event("pointerover", { bubbles: true }));
+    areaElement(area.id).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(onHover).toHaveBeenCalledWith(expect.objectContaining({ metadata: { price: 42 } }));
+    expect(onClick).toHaveBeenCalledWith(expect.objectContaining({ metadata: { price: 42 } }));
+  });
+
+  it("applies and live-updates choropleth colors and its optional legend", () => {
+    const low = createRectArea(0, 0, 10, 10);
+    const high = createRectArea(20, 0, 10, 10);
+    const missing = createRectArea(40, 0, 10, 10);
+    const project = createNewProject();
+    project.views[0].layers = [{
+      id: "layer_1", name: "Layer 1", visible: true, locked: false, opacity: 1,
+      areas: [low, high, missing],
+    }];
+    const instance = create({
+      container: "#map",
+      definition: toDefinition(project),
+      choropleth: {
+        data: [{ id: low.id, value: 0 }, { id: high.id, value: 100 }],
+        colorLow: "#000000",
+        colorHigh: "#ffffff",
+        noDataColor: "#ff00ff",
+        legend: true,
+      },
+    });
+
+    expect(areaElement(low.id)).toHaveAttribute("fill", "rgb(0,0,0)");
+    expect(areaElement(high.id)).toHaveAttribute("fill", "rgb(255,255,255)");
+    expect(areaElement(missing.id)).toHaveAttribute("fill", "#ff00ff");
+    expect(document.querySelector(".clickmap-legend")).toHaveTextContent("0.0");
+
+    areaElement(low.id).dispatchEvent(new Event("pointerover", { bubbles: true }));
+    expect(areaElement(low.id)).toHaveAttribute("fill", low.style.hover.fill);
+    areaElement(low.id).dispatchEvent(new MouseEvent("pointerout", { bubbles: true }));
+    expect(areaElement(low.id)).toHaveAttribute("fill", "rgb(0,0,0)");
+
+    instance.setChoroplethData([{ id: low.id, value: 50 }, { id: high.id, value: 50 }]);
+    expect(areaElement(low.id)).toHaveAttribute("fill", "rgb(0,0,0)");
+    expect(document.querySelector(".clickmap-legend")).toHaveTextContent("50.0");
+
+    instance.setChoroplethData([]);
+    expect(areaElement(low.id)).toHaveAttribute("fill", low.style.default.fill);
+    expect(document.querySelector(".clickmap-legend")).toBeNull();
+  });
+
+  it("uses the content template for popup actions", () => {
+    const area = createRectArea(0, 0, 10, 10);
+    area.name = "Room 12";
+    area.metadata = { capacity: 8 };
+    area.action = { type: "popup", content: { title: "Fallback", body: "Old body" } };
+    const project = createNewProject();
+    project.settings.contentTemplate = "<b>{{name}}</b>: {{metadata.capacity}} seats";
+    project.views[0].layers = [{
+      id: "layer_1", name: "Layer 1", visible: true, locked: false, opacity: 1, areas: [area],
+    }];
+    create({ container: "#map", definition: toDefinition(project) });
+
+    areaElement(area.id).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const popover = document.querySelector<HTMLElement>(".clickmap-popover")!;
+    expect(popover).toHaveTextContent("Room 12: 8 seats");
+    expect(popover).not.toHaveTextContent("Fallback");
+  });
+
   it("keeps a popover open after its trigger click and closes it outside or with Escape", () => {
     const area = createRectArea(0, 0, 10, 10);
     area.action = { type: "popup", content: { title: "Welcome" } };
