@@ -39,7 +39,9 @@ function buildEmbedSnippet(basePath = "/maps/my-map"): string {
 <script>
   ClickMapRenderer.create({
     container: "#clickmap",
-    definitionUrl: "${basePath}/map.json"
+    definitionUrl: "${basePath}/map.json",
+    // shadowDom: true, // Optional: isolate the map from host-page CSS.
+    // css: ".clickmap-root { /* custom overrides */ }", // Shadow mode only.
   });
 </script>`;
 }
@@ -94,7 +96,9 @@ function buildEmbedHtml(basePath = "/maps/my-map"): string {
 <script>
   ClickMapRenderer.create({
     container: "#clickmap",
-    definitionUrl: "${basePath}/map.json"
+    definitionUrl: "${basePath}/map.json",
+    // shadowDom: true, // Optional: isolate the map from host-page CSS.
+    // css: ".clickmap-root { /* custom overrides */ }", // Shadow mode only.
   });
 </script>`;
 }
