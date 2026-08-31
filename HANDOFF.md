@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #54 — infra: keep loop screenshots out of Git
+Branch:       fix/54-ignore-loop-screenshots
+Started:      2026-08-31
+Last commit:  (uncommitted)  remove tracked development screenshots
+
+### What's done
+- Identified 16 tracked `sweep-*.png` development artifacts.
+
+### What's next
+- Remove the tracked artifacts, enforce ignore/prompt safeguards, and verify.
+
+### Notes / gotchas
+- Removal is forward-looking; prior Git history retains the old blobs unless rewritten separately.
 
 ---
 

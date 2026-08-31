@@ -30,7 +30,9 @@ Git is your durable memory:
 Complete or advance exactly one tracked task according to AGENTS.md. Run the
 relevant checks and browser validation for UI work. Use the project Playwright
 MCP only against the local development server. Do not add or enable remote MCP
-servers, apps, or connectors during the unattended loop. If there is no ready
+servers, apps, or connectors during the unattended loop. Keep browser
+screenshots and other visual-test artifacts in `.codex/runtime/` (or another
+ignored temporary directory); never stage or commit them. If there is no ready
 task and no active task, perform a candid goal assessment. If you believe every
 goal condition is met, write a concise evidence-backed proposal to
 `.codex/runtime/completion-candidate.md` and end. You may never write
