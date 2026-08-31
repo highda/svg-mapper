@@ -4,8 +4,20 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #67 — fix: flatten host relay queue into writable runtime root
+Branch:       fix/67-flat-host-relay
+Started:      2026-08-31
+Last commit:  5eced81  chore: hand off #65 — done
+
+### What's done
+- Diagnosed nested relay queue EPERM and flattened namespaced files into `.codex/runtime`.
+- Documented that the loop uses approval `never` with sandboxing, not auto-approve or bypass.
+
+### What's next
+- Run relay and repository checks, merge, and retry a bounded loop session.
+
+### Notes / gotchas
+- Direct `.codex/runtime` children are writable; nested host-created relay directories are not.
 
 ---
 

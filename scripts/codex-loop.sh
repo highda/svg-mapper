@@ -24,7 +24,7 @@ command_bridge_dir="$runtime_dir/network-bridge-bin"
 preflight_log="$runtime_dir/loop-preflight.log"
 vite_cache_dir="$runtime_dir/vite-cache"
 task_brief_file="$runtime_dir/task-brief.md"
-relay_queue_dir="$runtime_dir/host-command-relay"
+relay_queue_dir="$runtime_dir"
 relay_log="$runtime_dir/host-command-relay.log"
 relay_script="$repo_root/scripts/host-command-relay.mjs"
 relay_client="$repo_root/scripts/host-command-client.mjs"
@@ -140,14 +140,14 @@ prepare_task_brief
 gh_path="$(command -v gh)"
 git_path="$(command -v git)"
 mkdir -p "$relay_queue_dir"
-rm -f "$relay_queue_dir/ready"
+rm -f "$relay_queue_dir/host-command-relay.ready"
 GH_TOKEN="$github_token" node "$relay_script" "$relay_queue_dir" "$repo_root" "$gh_path" "$git_path" >"$relay_log" 2>&1 &
 relay_pid="$!"
 for _ in {1..50}; do
-  [[ -s "$relay_queue_dir/ready" ]] && break
+  [[ -s "$relay_queue_dir/host-command-relay.ready" ]] && break
   sleep 0.1
 done
-if [[ ! -s "$relay_queue_dir/ready" ]] || ! kill -0 "$relay_pid" 2>/dev/null; then
+if [[ ! -s "$relay_queue_dir/host-command-relay.ready" ]] || ! kill -0 "$relay_pid" 2>/dev/null; then
   printf 'Host command relay did not start. See %s.\n' "$relay_log" >&2
   exit 2
 fi
