@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { unzipSync, strFromU8 } from "fflate";
 import { generateExportPackage } from "../lib/export-package";
+import { createRectArea } from "../lib/area-utils";
 import { createNewProject, toDefinition } from "../lib/project";
 
 const STUB_JS = "/* renderer */";
@@ -49,6 +50,27 @@ describe("generateExportPackage", () => {
     expect((mapJson["settings"] as Record<string, unknown>)["initialViewId"]).toBe(
       def.settings.initialViewId,
     );
+  });
+
+  it("round-trips rich tooltip and popup fields in map.json", () => {
+    const project = createNewProject("Content Map");
+    const richArea = createRectArea(0, 0, 10, 10);
+    richArea.tooltip = { enabled: true, body: "<b>Rich</b>", imageUrl: "thumb.png" };
+    richArea.action = {
+      type: "popup",
+      content: { title: "Info", body: "<em>Details</em>", imageUrl: "hero.png", linkHref: "/more" },
+      position: "left",
+    };
+    project.views[0].layers = [{ id: "layer_content", name: "Content", visible: true, locked: false, opacity: 1, areas: [richArea] }];
+
+    const pkg = generateExportPackage(toDefinition(project), STUB_JS, STUB_CSS, {
+      inlineAssets: true,
+      minifyRenderer: false,
+    });
+    const parsed = JSON.parse(pkg.mapJson) as typeof project;
+    const exported = parsed.views[0].layers[0].areas[0];
+    expect(exported.tooltip).toEqual(richArea.tooltip);
+    expect(exported.action).toEqual(richArea.action);
   });
 
   it("index.html embeds the renderer JS and map definition", () => {

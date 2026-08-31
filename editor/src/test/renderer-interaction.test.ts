@@ -95,4 +95,87 @@ describe("renderer interaction model", () => {
     expect(onHover).not.toHaveBeenCalled();
     expect(onClick).not.toHaveBeenCalled();
   });
+
+  it("renders rich tooltip content while stripping executable HTML", () => {
+    const area = createRectArea(0, 0, 10, 10);
+    area.tooltip = {
+      enabled: true,
+      title: "Details",
+      body: '<em onclick="alert(1)">Safe</em><script>alert(2)</script>',
+      imageUrl: "https://example.com/thumb.png",
+    };
+    renderAreas(area);
+
+    areaElement(area.id).dispatchEvent(new Event("pointerover", { bubbles: true }));
+    const tooltip = document.querySelector<HTMLElement>(".clickmap-tooltip")!;
+    expect(tooltip).toHaveClass("clickmap-tooltip--visible");
+    expect(tooltip.querySelector("img")).toHaveAttribute("src", area.tooltip.imageUrl);
+    expect(tooltip.querySelector("em")).toHaveTextContent("Safe");
+    expect(tooltip.querySelector("em")).not.toHaveAttribute("onclick");
+    expect(tooltip.querySelector("script")).toBeNull();
+  });
+
+  it("keeps a popover open after its trigger click and closes it outside or with Escape", () => {
+    const area = createRectArea(0, 0, 10, 10);
+    area.action = { type: "popup", content: { title: "Welcome" } };
+    const instance = renderAreas(area);
+
+    areaElement(area.id).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const popover = document.querySelector<HTMLElement>(".clickmap-popover")!;
+    expect(popover).toHaveClass("clickmap-popover--visible");
+    expect(popover).toHaveTextContent("Welcome");
+
+    document.body.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(popover).not.toHaveClass("clickmap-popover--visible");
+
+    areaElement(area.id).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(popover).not.toHaveClass("clickmap-popover--visible");
+    instance.destroy();
+  });
+
+  it("replaces the open popover, sanitises its body, and traps focus", () => {
+    const first = createRectArea(0, 0, 10, 10);
+    first.action = { type: "popup", content: { title: "First" } };
+    const second = createRectArea(20, 0, 10, 10);
+    second.action = {
+      type: "popup",
+      content: {
+        title: "Second",
+        body: '<b onmouseover="bad()">Body</b>',
+        linkHref: "https://example.com",
+        linkLabel: "Learn more",
+      },
+    };
+    renderAreas(first, second);
+
+    areaElement(first.id).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    areaElement(second.id).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const popover = document.querySelector<HTMLElement>(".clickmap-popover")!;
+    expect(document.querySelectorAll(".clickmap-popover--visible")).toHaveLength(1);
+    expect(popover).not.toHaveTextContent("First");
+    expect(popover).toHaveTextContent("Second");
+    expect(popover.querySelector("b")).not.toHaveAttribute("onmouseover");
+
+    const close = popover.querySelector<HTMLButtonElement>("button")!;
+    close.focus();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+    expect(document.activeElement).toBe(popover.querySelector("a"));
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true }));
+    expect(document.activeElement).toBe(close);
+  });
+
+  it("auto-positions popovers away from the nearest container edge", () => {
+    const area = createRectArea(0, 40, 10, 10);
+    area.action = { type: "popup", content: { title: "Edge" }, position: "auto" };
+    const map = document.querySelector<HTMLElement>("#map")!;
+    vi.spyOn(map, "getBoundingClientRect").mockReturnValue({
+      x: 0, y: 0, left: 0, top: 0, right: 1000, bottom: 500,
+      width: 1000, height: 500, toJSON: () => ({}),
+    });
+    renderAreas(area);
+
+    areaElement(area.id).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(document.querySelector(".clickmap-popover")).toHaveClass("clickmap-popover--right");
+  });
 });
