@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #27 — renderer+shared: renderer UI chrome — zoom controls, background fit, spacebar pan, padding
+Branch:       feat/27-renderer-ui-chrome
+Started:      2026-08-31
+Last commit:  7979d15  chore: hand off #26 — done
+
+### What's done
+- Claimed the highest-priority feasible backlog issue after the host brief pointed to already-closed #24.
+
+### What's next
+- Implement and verify zoom controls, background fit, spacebar pan, and configurable padding.
+
+### Notes / gotchas
+- The session task brief is stale; issue #24 was completed in PR #74.
 
 ---
 
