@@ -4,20 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #56 — fix: detect only real GitHub API failures in loop logs
-Branch:       fix/56-precise-github-retry
-Started:      2026-08-31
-Last commit:  (uncommitted)  correct false retry classification
-
-### What's done
-- Identified a false retry caused by matching fixture text in repository inspection output.
-
-### What's next
-- Verify precise command-output classification and publish the fix.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-08-31 — closed #56 — prevented source-text false positives from triggering GitHub retry; PR #57.
 - 2026-08-31 — closed #54 — removed development screenshots and made browser-test evidence runtime-only; PR #55.
 - 2026-08-31 — closed #52 — made the autonomous loop self-starting, credential-testable, and explicit about bridge startup failures; PR #53.
 - 2026-08-18 — closed #48 — scoped the loopback bridge to agent Git and package commands, preserving Codex control-plane access; PR #49.
