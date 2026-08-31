@@ -300,6 +300,17 @@ describe("store: area data and content template", () => {
     useStore.getState().updateSettings({ contentTemplate: "<b>{{name}}</b>" });
     expect(useStore.getState().project.settings.contentTemplate).toBe("<b>{{name}}</b>");
   });
+
+  it("stores scene switcher presentation settings", () => {
+    useStore.getState().updateSettings({
+      sceneSwitcher: { enabled: true, position: "top-right", style: "tabs" },
+    });
+    expect(useStore.getState().project.settings.sceneSwitcher).toEqual({
+      enabled: true,
+      position: "top-right",
+      style: "tabs",
+    });
+  });
 });
 
 // ── Selection mutual exclusion ─────────────────────────────────────────────

@@ -10,6 +10,7 @@ class ResizeObserverStub {
 
 beforeEach(() => {
   vi.stubGlobal("ResizeObserver", ResizeObserverStub);
+  window.history.replaceState(null, "", window.location.pathname);
   document.body.innerHTML = '<div id="map"></div>';
 });
 
@@ -272,5 +273,66 @@ describe("renderer interaction model", () => {
 
     areaElement(area.id).dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(document.querySelector(".clickmap-popover")).toHaveClass("clickmap-popover--right");
+  });
+
+  it("restores slug deep links and writes view and clicked-area hashes", () => {
+    vi.useFakeTimers();
+    const project = createNewProject();
+    const first = project.views[0];
+    first.slug = "ground-floor";
+    const area = createRectArea(0, 0, 10, 10);
+    area.action = { type: "none" };
+    first.layers = [{
+      id: "layer_1", name: "Layer 1", visible: true, locked: false, opacity: 1, areas: [area],
+    }];
+    const second = {
+      ...first,
+      id: "view_upper",
+      name: "Upper Floor",
+      slug: "upper-floor",
+      layers: [],
+    };
+    project.views.push(second);
+    window.history.replaceState(null, "", "#upper-floor");
+
+    const instance = create({
+      container: "#map",
+      definition: toDefinition(project),
+      deepLink: { enabled: true },
+    });
+    expect(instance.getCurrentView()).toBe(second.id);
+
+    instance.goToView(first.id);
+    expect(window.location.hash).toBe("#ground-floor");
+    vi.runAllTimers();
+    areaElement(area.id).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(window.location.hash).toBe(`#ground-floor/${area.id}`);
+    vi.useRealTimers();
+  });
+
+  it("renders an accessible scene switcher and keeps its active view in sync", () => {
+    vi.useFakeTimers();
+    const project = createNewProject();
+    const first = project.views[0];
+    first.name = "Ground Floor";
+    const second = { ...first, id: "view_upper", name: "Upper Floor", slug: "upper", layers: [] };
+    project.views.push(second);
+    project.settings.sceneSwitcher = { enabled: true, position: "top-right", style: "tabs" };
+    const instance = create({ container: "#map", definition: toDefinition(project) });
+
+    const switcher = document.querySelector(".clickmap-scene-switcher")!;
+    const tabs = Array.from(switcher.querySelectorAll<HTMLButtonElement>("button"));
+    expect(switcher).toHaveClass("clickmap-scene-switcher--top-right");
+    expect(switcher).toHaveAttribute("role", "tablist");
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["Ground Floor", "Upper Floor"]);
+    expect(tabs[0]).toHaveAttribute("aria-selected", "true");
+
+    tabs[1].click();
+    expect(instance.getCurrentView()).toBe(second.id);
+    vi.runAllTimers();
+    const active = document.querySelector<HTMLButtonElement>('[data-view-id="view_upper"]')!;
+    expect(active).toHaveClass("clickmap-scene-btn--active");
+    expect(active).toHaveAttribute("aria-selected", "true");
+    vi.useRealTimers();
   });
 });
