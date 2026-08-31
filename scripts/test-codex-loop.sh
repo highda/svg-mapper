@@ -35,11 +35,15 @@ rg -F 'completion-candidate.md' "$repo_root/.codex/prompts/autonomous-loop.md" >
 rg -F 'loop-complete.md' "$repo_root/.codex/prompts/completion-review.md" >/dev/null
 rg -F '.codex/GOAL.md' "$repo_root/.codex/prompts/completion-review.md" >/dev/null
 rg -F 'codex exec resume' "$repo_root/docs/codex-loop.md" >/dev/null
-rg -F 'sandbox_mode = "danger-full-access"' "$repo_root/.codex/config.toml" >/dev/null
+if rg -qP '^\s*sandbox_mode\s*=' "$repo_root/.codex/config.toml"; then
+  printf '%s\n' 'sandbox_mode belongs in the loop CLI flag, not config.toml (it still routes through bwrap).' >&2
+  exit 1
+fi
 if rg -F 'permissions.autonomous-project' "$repo_root/.codex/config.toml" >/dev/null; then
   printf '%s\n' 'The scoped permission profile should be gone from config.toml.' >&2
   exit 1
 fi
+rg -F -- '--dangerously-bypass-approvals-and-sandbox' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F -- '--ignore-user-config' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F -- '--model gpt-5.6-sol' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'model_reasoning_effort="low"' "$repo_root/scripts/codex-loop.sh" >/dev/null
@@ -62,7 +66,6 @@ for gone in github-connect-proxy.mjs host-command-relay.mjs host-command-client.
 done
 rg -F -- '--configLoader runner' "$repo_root/editor/package.json" >/dev/null
 rg -F 'CODEX_VITE_CACHE_DIR' "$repo_root/editor/vite.config.ts" >/dev/null
-rg -F -- '--add-dir "$repo_root/.git"' "$repo_root/scripts/codex-loop.sh" >/dev/null
 rg -F 'Proactively invent and implement valuable in-scope improvements' "$repo_root/.codex/GOAL.md" >/dev/null
 test -x "$repo_root/editor/node_modules/.bin/playwright-mcp"
 git check-ignore -q "$repo_root/sweep-future-proof.png"

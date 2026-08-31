@@ -4,8 +4,28 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #72 — Fix codex-loop.sh: danger-full-access still fails under bwrap-less containers
+Branch:       feat/72-loop-bypass-flag
+Started:      2026-08-31
+Last commit:  (pending)
+
+### What's done
+- Replaced `sandbox_mode = "danger-full-access"` (still routes through bwrap,
+  fails without unprivileged user namespaces) with the CLI flag
+  `--dangerously-bypass-approvals-and-sandbox` in scripts/codex-loop.sh
+- Removed the now-unused `sandbox_mode`/`approval_policy` keys from
+  .codex/config.toml and the redundant `--add-dir .git`
+- Updated scripts/test-codex-loop.sh and docs/codex-loop.md to match
+- Live-verified: a real `CODEX_LOOP_MAX_SESSIONS=1` run with this fix claimed
+  #23, ran real checks, opened and merged PR #71, ended `checkpoint complete`
+
+### What's next
+- Open PR, merge, clear this block
+
+### Notes / gotchas
+- This flag is intentionally not settable via config.toml — Codex keeps it
+  CLI-only so the bypass can't be silently persisted. Any interactive
+  `codex` session in this repo still goes through normal approval/sandbox.
 
 ---
 

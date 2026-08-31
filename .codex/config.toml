@@ -1,14 +1,23 @@
 # Repository-local Codex behavior. Codex loads this layer only after this
 # project has been trusted; see docs/codex-loop.md for the one-time setup.
 #
-# This box is an isolated, disposable agentbox: the loop runs with full
-# filesystem and network access instead of a scoped permission profile.
-# There is no protection against a session rewriting this file, its own
-# hooks, or its own prompts. The PreCompact hook and the completion guard
-# (autonomous-loop.md / completion-review.md) stay in force, but only
-# because the agent follows them, not because the sandbox enforces them.
-approval_policy = "never"
-sandbox_mode = "danger-full-access"
+# This box is an isolated, disposable agentbox, but the unattended-loop
+# bypass lives as an explicit CLI flag in scripts/codex-loop.sh
+# (--dangerously-bypass-approvals-and-sandbox), not here. That flag skips
+# Codex's own bwrap-based sandbox wrapper entirely, which this container
+# needs: it doesn't support unprivileged user namespaces, so even
+# `sandbox_mode = "danger-full-access"` fails every command with "No
+# permissions to create a new namespace" before running anything. Codex
+# also does not expose that flag as a config field — it's meant to be an
+# explicit, per-invocation choice, not something silently persisted here.
+# Any interactive `codex` session in this repo (e.g. the one-time hook-trust
+# setup below) still goes through normal approval prompts.
+#
+# There is no protection against an unattended loop session rewriting this
+# file, its own hooks, or its own prompts. The PreCompact hook and the
+# completion guard (autonomous-loop.md / completion-review.md) stay in
+# force, but only because the agent follows them, not because the sandbox
+# enforces them.
 
 [features]
 hooks = true
