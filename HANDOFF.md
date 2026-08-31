@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #25 — renderer+shared: navigation — URL deep linking, floors/scenes switcher control
+Branch:       feat/25-navigation
+Started:      2026-08-31
+Last commit:  e19d5ad  chore: hand off #24 — done
+
+### What's done
+- Claimed the issue; existing partial implementation identified in shared types and renderer.
+
+### What's next
+- Complete and test deep linking, scene switcher behavior, and editor settings.
+
+### Notes / gotchas
+- Issue #25 code was partially present on main without dedicated acceptance coverage.
 
 ---
 
