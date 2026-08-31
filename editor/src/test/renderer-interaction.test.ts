@@ -63,6 +63,26 @@ describe("renderer interaction model", () => {
     expect(document.querySelector<HTMLImageElement>(".clickmap-bg-img")?.style.objectFit).toBe("cover");
   });
 
+  it("renders imported inline SVG data URIs as fitted images", () => {
+    const project = createNewProject();
+    project.assets = [{
+      id: "asset_1",
+      name: "Plan",
+      type: "image/svg+xml",
+      src: "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%2F%3E",
+      inline: true,
+      width: 1600,
+      height: 900,
+    }];
+    project.views[0].background = { assetId: "asset_1", fit: "cover" };
+    create({ container: "#map", definition: toDefinition(project) });
+
+    const background = document.querySelector<HTMLImageElement>(".clickmap-bg-img");
+    expect(background?.tagName).toBe("IMG");
+    expect(background?.src).toContain("data:image/svg+xml");
+    expect(background?.style.objectFit).toBe("cover");
+  });
+
   it("renders centered, styled area labels with per-area overrides", () => {
     const named = createRectArea(10, 20, 100, 40);
     named.name = "Default name";

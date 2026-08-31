@@ -364,7 +364,7 @@ class Renderer implements ClickMapInstance {
 
     const fit = view.background.fit ?? "contain";
 
-    if (asset.type === "image/svg+xml" && asset.inline) {
+    if (asset.type === "image/svg+xml" && asset.inline && /^\s*<svg\b/i.test(asset.src)) {
       this.bgEl.innerHTML = asset.src;
       const inlineSvg = this.bgEl.querySelector("svg");
       if (inlineSvg) {
