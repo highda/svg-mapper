@@ -7,13 +7,15 @@
 Issue:        #23 — renderer+shared: content presentation — popover action, rich tooltip
 Branch:       feat/23-popover-rich-tooltip
 Started:      2026-08-31
-Last commit:  17d9ac0  chore: hand off #69 — done
+Last commit:  338e9fc  chore: claim #23 — popover-rich-tooltip
 
 ### What's done
-- Claimed the task; existing partial implementation identified across shared, renderer, and editor.
+- Verified the existing shared/editor/rich-content implementation and fixed popovers closing on their opening click.
+- Added directional auto-positioning, a complete keyboard focus trap, focus restoration, semantic dialog attributes, and listener cleanup.
+- Added renderer and export acceptance coverage; all 113 editor tests, lint, typechecks, and production build pass.
 
 ### What's next
-- Harden popover interaction and positioning, add acceptance coverage, and validate editor/export round trips.
+- Open and merge the PR, then clear the handoff.
 
 ### Notes / gotchas
 - Four pre-existing autonomous-loop files are modified in the worktree; preserve and do not stage them for #23.

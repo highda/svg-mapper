@@ -147,6 +147,49 @@ class Renderer implements ClickMapInstance {
 
   // Popover state
   private openPopoverId: string | null = null;
+  private popoverReturnFocus: HTMLElement | null = null;
+
+  private onDocumentClick = (e: MouseEvent) => {
+    if (this.openPopoverId === null || this.popoverEl.contains(e.target as Node)) return;
+
+    const targetArea = (e.target as Element | null)?.closest?.("[data-area-id]");
+    if (targetArea?.getAttribute("data-area-id") === this.openPopoverId) return;
+    this.closePopover();
+  };
+
+  private onDocumentKeyDown = (e: KeyboardEvent) => {
+    if (this.openPopoverId === null) return;
+    if (e.key === "Escape") {
+      e.preventDefault();
+      this.closePopover();
+      return;
+    }
+    if (e.key !== "Tab") return;
+
+    const focusable = Array.from(
+      this.popoverEl.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter((el) => !el.hidden);
+    if (focusable.length === 0) {
+      e.preventDefault();
+      this.popoverEl.focus();
+      return;
+    }
+
+    const first = focusable[0]!;
+    const last = focusable[focusable.length - 1]!;
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    } else if (!this.popoverEl.contains(document.activeElement)) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
 
   constructor(options: RendererOptions, def: ClickMapDefinition) {
     this.def = def;
@@ -216,7 +259,10 @@ class Renderer implements ClickMapInstance {
 
     this.popoverEl = document.createElement("div");
     this.popoverEl.className = "clickmap-popover";
+    this.popoverEl.setAttribute("role", "dialog");
+    this.popoverEl.setAttribute("aria-modal", "true");
     this.popoverEl.setAttribute("aria-hidden", "true");
+    this.popoverEl.tabIndex = -1;
 
     this.ariaLiveEl = document.createElement("div");
     this.ariaLiveEl.setAttribute("aria-live", "polite");
@@ -258,16 +304,8 @@ class Renderer implements ClickMapInstance {
     window.addEventListener("pointerup", () => this.onPanEnd());
 
     // Close popover on outside click
-    document.addEventListener("click", (e) => {
-      if (this.openPopoverId !== null && !this.popoverEl.contains(e.target as Node)) {
-        this.closePopover();
-      }
-    });
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && this.openPopoverId !== null) {
-        this.closePopover();
-      }
-    });
+    document.addEventListener("click", this.onDocumentClick);
+    document.addEventListener("keydown", this.onDocumentKeyDown);
   }
 
   // -------------------------------------------------------------------------
@@ -1012,6 +1050,9 @@ class Renderer implements ClickMapInstance {
 
   private openPopover(action: import("../../shared/types.js").PopupAction, area: Area) {
     const content = action.content;
+    this.popoverReturnFocus = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
     this.popoverEl.innerHTML = "";
 
     // Build content
@@ -1094,7 +1135,13 @@ class Renderer implements ClickMapInstance {
 
     let resolved = position;
     if (resolved === "auto") {
-      resolved = cy > containerRect.height / 2 ? "top" : "bottom";
+      const horizontal = (cx / Math.max(containerRect.width, 1)) - 0.5;
+      const vertical = (cy / Math.max(containerRect.height, 1)) - 0.5;
+      if (Math.abs(horizontal) > Math.abs(vertical)) {
+        resolved = horizontal < 0 ? "right" : "left";
+      } else {
+        resolved = vertical < 0 ? "bottom" : "top";
+      }
     }
 
     this.popoverEl.style.transform = "";
@@ -1130,6 +1177,8 @@ class Renderer implements ClickMapInstance {
     this.popoverEl.setAttribute("aria-hidden", "true");
     this.popoverEl.classList.remove("clickmap-popover--visible");
     this.popoverEl.innerHTML = "";
+    if (this.popoverReturnFocus?.isConnected) this.popoverReturnFocus.focus();
+    this.popoverReturnFocus = null;
   }
 
   // -------------------------------------------------------------------------
@@ -1257,6 +1306,8 @@ class Renderer implements ClickMapInstance {
     this.ro.disconnect();
     window.removeEventListener("keydown", this.onWindowKeyDown);
     window.removeEventListener("keyup", this.onWindowKeyUp);
+    document.removeEventListener("click", this.onDocumentClick);
+    document.removeEventListener("keydown", this.onDocumentKeyDown);
     if (this.shadowRoot) {
       // Remove shadow root by clearing the container's shadow
       this.root.remove();
