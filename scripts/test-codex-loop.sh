@@ -71,7 +71,7 @@ printf '%s\n' \
   'fi' \
   'exit 0' >"$fake_codex"
 chmod +x "$fake_codex"
-quota_output="$(CODEX_LOOP_MAX_SESSIONS=2 CODEX_LOOP_QUOTA_RETRY_SECONDS=1 CODEX_LOOP_RUNTIME_DIR="$test_runtime_dir" CODEX_LOOP_GITHUB_TOKEN=test-token CODEX_LOOP_TEST_COUNTER="$counter_file" CODEX_BIN="$fake_codex" "$repo_root/scripts/codex-loop.sh" 2>&1)"
+quota_output="$(CODEX_LOOP_SKIP_TASK_BRIEF=1 CODEX_LOOP_MAX_SESSIONS=2 CODEX_LOOP_QUOTA_RETRY_SECONDS=1 CODEX_LOOP_RUNTIME_DIR="$test_runtime_dir" CODEX_LOOP_GITHUB_TOKEN=test-token CODEX_LOOP_TEST_COUNTER="$counter_file" CODEX_BIN="$fake_codex" "$repo_root/scripts/codex-loop.sh" 2>&1)"
 rg -F 'reached a usage limit; waiting 1s' <<<"$quota_output" >/dev/null
 rg -F 'Session 2 ended normally' <<<"$quota_output" >/dev/null
 
@@ -92,7 +92,7 @@ printf '%s\n' \
   'printf "%s" "checkpoint complete" >"$last_message"' \
   'exit 0' >"$github_codex"
 chmod +x "$github_codex"
-github_output="$(CODEX_LOOP_MAX_SESSIONS=2 CODEX_LOOP_GITHUB_RETRY_SECONDS=1 CODEX_LOOP_RUNTIME_DIR="$test_runtime_dir/github" CODEX_LOOP_GITHUB_TOKEN=test-token CODEX_LOOP_TEST_GITHUB_COUNTER="$github_counter_file" CODEX_BIN="$github_codex" "$repo_root/scripts/codex-loop.sh" 2>&1)"
+github_output="$(CODEX_LOOP_SKIP_TASK_BRIEF=1 CODEX_LOOP_MAX_SESSIONS=2 CODEX_LOOP_GITHUB_RETRY_SECONDS=1 CODEX_LOOP_RUNTIME_DIR="$test_runtime_dir/github" CODEX_LOOP_GITHUB_TOKEN=test-token CODEX_LOOP_TEST_GITHUB_COUNTER="$github_counter_file" CODEX_BIN="$github_codex" "$repo_root/scripts/codex-loop.sh" 2>&1)"
 rg -F 'GitHub API was temporarily unreachable; waiting 1s' <<<"$github_output" >/dev/null
 rg -F 'Session 2 ended normally' <<<"$github_output" >/dev/null
 
@@ -109,7 +109,7 @@ printf '%s\n' \
   'exit 0' >"$source_only_codex"
 chmod +x "$source_only_codex"
 set +e
-source_only_output="$(CODEX_LOOP_MAX_SESSIONS=1 CODEX_LOOP_RUNTIME_DIR="$test_runtime_dir/source-only" CODEX_LOOP_GITHUB_TOKEN=test-token CODEX_BIN="$source_only_codex" "$repo_root/scripts/codex-loop.sh" 2>&1)"
+source_only_output="$(CODEX_LOOP_SKIP_TASK_BRIEF=1 CODEX_LOOP_MAX_SESSIONS=1 CODEX_LOOP_RUNTIME_DIR="$test_runtime_dir/source-only" CODEX_LOOP_GITHUB_TOKEN=test-token CODEX_BIN="$source_only_codex" "$repo_root/scripts/codex-loop.sh" 2>&1)"
 source_only_status=$?
 set -e
 test "$source_only_status" -eq 1
