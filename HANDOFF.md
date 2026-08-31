@@ -15,12 +15,12 @@ Last commit:  09fc199  feat: complete renderer UI chrome controls
 - Added regression tests; editor typecheck, 127 tests, lint, production build, and renderer checks pass.
 
 ### What's next
-- Resume in a session exposing the repository Playwright MCP and exercise the editor and exported renderer golden path.
-- If browser behavior is clean, remove `agent:blocked`, open, merge, and hand off PR #27.
+- Exercise the editor and exported renderer golden path with the repository Playwright MCP.
+- If browser behavior is clean, open, merge, and hand off PR #27.
 
 ### Notes / gotchas
 - The session task brief is stale; issue #24 was completed in PR #74.
-- Blocked because two consecutive sessions exposed no repository Playwright MCP; unattended-loop policy forbids substituting another browser driver for the required UI validation.
+- Playwright Chromium revision 1237 is installed in the persistent agentbox cache, launches successfully, and the repository MCP is enabled.
 
 ---
 
