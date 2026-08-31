@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #61 — fix: make Codex loop preflight sandbox bridge and Vite cache
-Branch:       fix/61-loop-sandbox-preflight
-Started:      2026-08-31
-Last commit:  7f02803  chore: hand off #22 — done
-
-### What's done
-- Diagnosed session 1: loopback bridge and Vite temporary writes were denied by the sandbox.
-
-### What's next
-- Add preflights, move Vite cache into the ignored runtime directory, test the failure paths, and document recovery.
-
-### Notes / gotchas
-- Do not broaden dependency-directory writes; runtime artifacts must stay under `.codex/runtime`.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-08-31 — closed #61 — hardened loop sandbox preflight with direct fallback and runtime Vite cache; PR #62.
 - 2026-08-31 — closed #22 — completed interaction model validation and renderer coverage; PR #60.
 - 2026-08-31 — closed #56 — prevented source-text false positives from triggering GitHub retry; PR #57.
 - 2026-08-31 — closed #54 — removed development screenshots and made browser-test evidence runtime-only; PR #55.
