@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #24 — renderer+shared+editor: area data & templates — metadata, content templates, choropleth coloring
+Branch:       feat/24-area-data-templates
+Started:      2026-08-31
+Last commit:  pending — task claimed
+
+### What's done
+- Claimed the host-selected task.
+
+### What's next
+- Implement and verify content templates, metadata editing/events, and choropleth runtime support.
+
+### Notes / gotchas
+- None.
 
 ---
 
