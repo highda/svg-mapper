@@ -98,13 +98,15 @@ describe("renderer interaction model", () => {
     expect(svg).toHaveAttribute("viewBox", "-40 -10 1660 940");
   });
 
-  it("maps the configured background fit mode to the rendered image", () => {
+  it("maps the configured background fit mode to SVG image geometry", () => {
     const project = createNewProject();
     project.assets = [{ id: "asset_1", name: "Plan", type: "image/png", src: "plan.png", inline: false, width: 1600, height: 900 }];
     project.views[0].background = { assetId: "asset_1", fit: "cover" };
     create({ container: "#map", definition: toDefinition(project) });
 
-    expect(document.querySelector<HTMLImageElement>(".clickmap-bg-img")?.style.objectFit).toBe("cover");
+    const background = document.querySelector<SVGImageElement>(".clickmap-bg-img");
+    expect(background?.getAttribute("preserveAspectRatio")).toBe("xMidYMid slice");
+    expect(background).toHaveAttribute("width", "1600");
   });
 
   it("renders imported inline SVG data URIs as fitted images", () => {
@@ -121,10 +123,37 @@ describe("renderer interaction model", () => {
     project.views[0].background = { assetId: "asset_1", fit: "cover" };
     create({ container: "#map", definition: toDefinition(project) });
 
-    const background = document.querySelector<HTMLImageElement>(".clickmap-bg-img");
-    expect(background?.tagName).toBe("IMG");
-    expect(background?.src).toContain("data:image/svg+xml");
-    expect(background?.style.objectFit).toBe("cover");
+    const background = document.querySelector<SVGImageElement>(".clickmap-bg-img");
+    expect(background?.tagName.toLowerCase()).toBe("image");
+    expect(background?.getAttribute("href")).toContain("data:image/svg+xml");
+    expect(background?.getAttribute("preserveAspectRatio")).toBe("xMidYMid slice");
+  });
+
+  it("keeps the background and areas on the same viewBox while zooming", () => {
+    const project = createNewProject();
+    project.settings.zoomControls = { enabled: true };
+    project.assets = [{ id: "asset_1", name: "Plan", type: "image/png", src: "plan.png", inline: false, width: 1600, height: 900 }];
+    project.views[0].background = { assetId: "asset_1", fit: "contain" };
+    create({ container: "#map", definition: toDefinition(project) });
+
+    const areas = document.querySelector<SVGSVGElement>(".clickmap-areas")!;
+    const background = document.querySelector<SVGSVGElement>(".clickmap-bg-svg")!;
+    expect(background.getAttribute("viewBox")).toBe(areas.getAttribute("viewBox"));
+    document.querySelector<HTMLButtonElement>(".clickmap-zoom-in")!.click();
+    expect(background.getAttribute("viewBox")).toBe(areas.getAttribute("viewBox"));
+  });
+
+  it("renders background fit none at intrinsic size and centered", () => {
+    const project = createNewProject();
+    project.assets = [{ id: "asset_1", name: "Stamp", type: "image/png", src: "stamp.png", inline: false, width: 400, height: 300 }];
+    project.views[0].background = { assetId: "asset_1", fit: "none" };
+    create({ container: "#map", definition: toDefinition(project) });
+
+    const background = document.querySelector<SVGImageElement>(".clickmap-bg-img")!;
+    expect(background).toHaveAttribute("x", "600");
+    expect(background).toHaveAttribute("y", "300");
+    expect(background).toHaveAttribute("width", "400");
+    expect(background).toHaveAttribute("height", "300");
   });
 
   it("renders centered, styled area labels with per-area overrides", () => {

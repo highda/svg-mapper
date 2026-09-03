@@ -142,6 +142,7 @@ class Renderer implements ClickMapInstance {
   private root!: HTMLDivElement;
   private viewEl!: HTMLDivElement;
   private bgEl!: HTMLDivElement;
+  private bgSvgEl: SVGSVGElement | null = null;
   private svgEl!: SVGSVGElement;
   private tooltipEl!: HTMLDivElement;
   private popoverEl!: HTMLDivElement;
@@ -365,6 +366,7 @@ class Renderer implements ClickMapInstance {
 
   private renderBackground(view: View) {
     this.bgEl.innerHTML = "";
+    this.bgSvgEl = null;
     if (!view.background) return;
 
     const asset = this.def.assets.find(
@@ -373,28 +375,38 @@ class Renderer implements ClickMapInstance {
     if (!asset) return;
 
     const fit = view.background.fit ?? "contain";
+    const { width, height } = this.def.settings.canvasSize;
+    const backgroundSvg = svgEl<SVGSVGElement>("svg");
+    backgroundSvg.setAttribute("class", "clickmap-bg-svg");
+    backgroundSvg.setAttribute("aria-hidden", "true");
 
-    if (asset.type === "image/svg+xml" && asset.inline && /^\s*<svg\b/i.test(asset.src)) {
-      this.bgEl.innerHTML = asset.src;
-      const inlineSvg = this.bgEl.querySelector("svg");
-      if (inlineSvg) {
-        inlineSvg.classList.add("clickmap-bg-img");
-        inlineSvg.style.objectFit = fit;
-        inlineSvg.setAttribute(
-          "preserveAspectRatio",
-          fit === "cover" ? "xMidYMid slice" : fit === "fill" ? "none" : "xMidYMid meet"
-        );
-      }
+    const image = svgEl<SVGImageElement>("image");
+    image.setAttribute("class", "clickmap-bg-img");
+    const src = asset.type === "image/svg+xml" && /^\s*<svg\b/i.test(asset.src)
+      ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(asset.src)}`
+      : asset.src;
+    image.setAttribute("href", src);
+
+    if (fit === "none") {
+      image.setAttribute("x", String((width - asset.width) / 2));
+      image.setAttribute("y", String((height - asset.height) / 2));
+      image.setAttribute("width", String(asset.width));
+      image.setAttribute("height", String(asset.height));
+      image.setAttribute("preserveAspectRatio", "xMidYMid meet");
     } else {
-      const img = document.createElement("img");
-      img.src = asset.src;
-      img.className = "clickmap-bg-img";
-      img.alt = "";
-      img.setAttribute("aria-hidden", "true");
-      // Wire up background fit mode (issue #27 G2)
-      img.style.objectFit = fit;
-      this.bgEl.appendChild(img);
+      image.setAttribute("x", "0");
+      image.setAttribute("y", "0");
+      image.setAttribute("width", String(width));
+      image.setAttribute("height", String(height));
+      image.setAttribute(
+        "preserveAspectRatio",
+        fit === "cover" ? "xMidYMid slice" : fit === "fill" ? "none" : "xMidYMid meet"
+      );
     }
+
+    backgroundSvg.appendChild(image);
+    this.bgEl.appendChild(backgroundSvg);
+    this.bgSvgEl = backgroundSvg;
   }
 
   private renderAreas(view: View) {
@@ -413,6 +425,7 @@ class Renderer implements ClickMapInstance {
     this.currentViewBox = pad
       ? { x: -pad.left, y: -pad.top, w: width + pad.left + pad.right, h: height + pad.top + pad.bottom }
       : { x: 0, y: 0, w: width, h: height };
+    this.applyViewBox();
 
     const labelSettings = this.def.settings.areaLabels;
 
@@ -656,6 +669,7 @@ class Renderer implements ClickMapInstance {
     if (!this.currentViewBox) return;
     const { x, y, w, h } = this.currentViewBox;
     this.svgEl.setAttribute("viewBox", `${x} ${y} ${w} ${h}`);
+    this.bgSvgEl?.setAttribute("viewBox", `${x} ${y} ${w} ${h}`);
   }
 
   // -------------------------------------------------------------------------

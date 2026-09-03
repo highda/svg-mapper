@@ -127,6 +127,7 @@ export function Canvas() {
   const backgroundAsset = view?.background
     ? project.assets.find((a) => a.id === view.background!.assetId)
     : undefined;
+  const backgroundFit = view?.background?.fit ?? "contain";
 
   // ── Non-passive wheel listener (fixes passive event listener console error) ──
 
@@ -655,12 +656,17 @@ export function Canvas() {
           {/* Background image */}
           {backgroundAsset && (
             <image
-              x={0}
-              y={0}
-              width={canvasSize.width}
-              height={canvasSize.height}
+              x={backgroundFit === "none" ? (canvasSize.width - backgroundAsset.width) / 2 : 0}
+              y={backgroundFit === "none" ? (canvasSize.height - backgroundAsset.height) / 2 : 0}
+              width={backgroundFit === "none" ? backgroundAsset.width : canvasSize.width}
+              height={backgroundFit === "none" ? backgroundAsset.height : canvasSize.height}
               href={backgroundAsset.src}
-              preserveAspectRatio="xMidYMid meet"
+              preserveAspectRatio={
+                backgroundFit === "cover" ? "xMidYMid slice" :
+                backgroundFit === "fill" ? "none" :
+                "xMidYMid meet"
+              }
+              pointerEvents="none"
             />
           )}
 

@@ -20,22 +20,17 @@
 .clickmap-bg {
   position: absolute;
   inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
 }
 
-.clickmap-bg-img {
+.clickmap-bg-svg {
   width: 100%;
   height: 100%;
-  object-fit: contain;
   display: block;
 }
 
-.clickmap-bg svg {
-  width: 100%;
-  height: 100%;
+.clickmap-bg-img {
+  pointer-events: none;
 }
 
 /* SVG areas overlay */
