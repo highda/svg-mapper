@@ -1099,7 +1099,7 @@ export function RightSidebar() {
   }
 
   return (
-    <aside className="flex w-64 flex-col border-l border-neutral-700 bg-neutral-900">
+    <aside className="hidden w-64 flex-col border-l border-neutral-700 bg-neutral-900 lg:flex">
       <div className="border-b border-neutral-700 px-3 py-1.5">
         <span className="text-xs font-semibold text-neutral-300">Inspector</span>
       </div>

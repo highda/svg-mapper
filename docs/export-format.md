@@ -20,7 +20,7 @@ The Export screen validates the current project before packaging it. Errors disa
 
 With inlining disabled, `map.json` uses generated relative paths under `assets/`. Upload the complete extracted directory without renaming files. Filenames are sanitized and deduplicated. The editor can also copy the current `map.json` or embed snippet without downloading a ZIP.
 
-The **Use minified renderer** control is currently disabled; exports contain the standard renderer build.
+Every export includes the optimized production renderer automatically. There is no separate development renderer to choose or deploy.
 
 ## Deployment
 
@@ -31,4 +31,3 @@ The host page must allow scripts and styles under its Content Security Policy. I
 For protection from host CSS, enable `shadowDom: true`. Default styles are bundled into the script in this mode, and optional `css` is appended inside the shadow root. See the [Renderer API](renderer-api.md) for lifecycle and events.
 
 Static hosts, object storage, and CDNs are all suitable. No SVG Mapper backend is required.
-

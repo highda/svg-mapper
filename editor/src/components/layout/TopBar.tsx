@@ -47,7 +47,7 @@ export function TopBar() {
   return (
     <header className="flex h-10 items-center gap-2 border-b border-neutral-700 bg-neutral-900 px-3 text-sm text-neutral-200">
       {/* Project name */}
-      <div className="flex min-w-0 flex-1 items-center gap-2">
+      <div className="hidden min-w-0 flex-1 items-center gap-2 lg:flex">
         {editingName ? (
           <input
             autoFocus
@@ -109,7 +109,7 @@ export function TopBar() {
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-1">
+      <div className="hidden items-center gap-1 lg:flex">
         <button
           onClick={newProject}
           className="rounded px-2 py-0.5 text-xs text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200"

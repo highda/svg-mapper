@@ -7,16 +7,12 @@ import { createNewProject, toDefinition } from "../lib/project";
 const STUB_JS = "/* renderer */";
 const STUB_CSS = "/* styles */";
 
-function makePackage(overrides?: {
-  inlineAssets?: boolean;
-  minifyRenderer?: boolean;
-}) {
+function makePackage(overrides?: { inlineAssets?: boolean }) {
   const project = createNewProject("Test Map");
   const def = toDefinition(project);
   return {
     pkg: generateExportPackage(def, STUB_JS, STUB_CSS, {
       inlineAssets: overrides?.inlineAssets ?? true,
-      minifyRenderer: overrides?.minifyRenderer ?? false,
     }),
     def,
   };
@@ -67,7 +63,6 @@ describe("generateExportPackage", () => {
 
     const pkg = generateExportPackage(toDefinition(project), STUB_JS, STUB_CSS, {
       inlineAssets: true,
-      minifyRenderer: false,
     });
     const parsed = JSON.parse(pkg.mapJson) as typeof project;
     const exported = parsed.views[0].layers[0].areas[0];
@@ -130,7 +125,6 @@ describe("generateExportPackage", () => {
     const def = toDefinition(project);
     const pkg = generateExportPackage(def, STUB_JS, STUB_CSS, {
       inlineAssets: false,
-      minifyRenderer: false,
     });
     const files = unzipSync(pkg.zip);
     const mapJson = JSON.parse(strFromU8(files["map.json"]!)) as {

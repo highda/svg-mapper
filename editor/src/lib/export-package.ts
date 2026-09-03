@@ -8,8 +8,6 @@ import type { ClickMapDefinition, Asset } from "@svg-mapper/shared";
 export interface ExportOptions {
   /** Inline all assets into map.json as data-URIs instead of separate files. */
   inlineAssets: boolean;
-  /** Use the minified renderer bundle (clickmap-renderer.min.js). Not yet built — falls back to regular. */
-  minifyRenderer: boolean;
 }
 
 export interface ExportPackage {
