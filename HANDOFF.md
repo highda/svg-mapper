@@ -4,8 +4,21 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #80 — docs: complete product and integration documentation
+Branch:       feat/80-product-docs
+Started:      2026-08-31
+Last commit:  4e78de7  chore: claim #80 — product docs
+
+### What's done
+- Authored the root product/development README and replaced the editor's Vite template README.
+- Added current data model, renderer API, export/deployment, and editor workflow references.
+- Verified every documented command and local link; all package checks pass.
+
+### What's next
+- Commit and merge the completed documentation through a PR.
+
+### Notes / gotchas
+- The renderer schema includes `toggleLayer`, but the current runtime intentionally has no implementation; the data model calls this out.
 
 ---
 
