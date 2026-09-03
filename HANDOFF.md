@@ -4,24 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #82 — fix: remove placeholder export options and reconcile export behavior
-Branch:       fix/82-export-placeholder
-Started:      2026-09-03
-
-### What's done
-- Removed the disabled renderer-minification option and ignored export flag.
-- Documented that every export includes the optimized production renderer.
-- Made editor chrome responsive so Export remains usable without horizontal overflow on mobile.
-
-### What's next
-- Commit, push, open PR, and merge after final checks.
-
-### Notes / gotchas
-- The renderer build is already production-minified and is always included in exports.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-03 — closed #82 — removed placeholder export behavior and restored a usable mobile Export flow; PR #83.
 - 2026-09-03 — closed #80 — completed product, editor, schema, renderer API, and static deployment documentation; PR #81.
 - 2026-08-31 — closed #29 — added opt-in renderer shadow DOM isolation with bundled/custom CSS, lifecycle cleanup, and embed guidance; PR #79.
 - 2026-08-31 — closed #28 — completed circle authoring, grid snapping, zoom-to-fit, background-size suggestions, and area search; PR #78.
