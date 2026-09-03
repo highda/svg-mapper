@@ -64,7 +64,6 @@ export function ExportScreen() {
   const project = useStore((s) => s.project);
   const [confirmingWarnings, setConfirmingWarnings] = useState(false);
   const [inlineAssets, setInlineAssets] = useState(true);
-  const [minifyRenderer, setMinifyRenderer] = useState(false);
 
   const definition = useMemo(() => toDefinition(project), [project]);
   const results = useMemo(() => validateProject(definition), [definition]);
@@ -77,7 +76,6 @@ export function ExportScreen() {
   function doExport() {
     const pkg = generateExportPackage(definition, rendererJs, rendererCss, {
       inlineAssets,
-      minifyRenderer,
     });
 
     // Trigger download.
@@ -103,9 +101,8 @@ export function ExportScreen() {
   }
 
   const embedSnippet = useMemo(
-    () =>
-      generateExportPackage(definition, "", "", { inlineAssets, minifyRenderer }).embedSnippet,
-    [definition, inlineAssets, minifyRenderer],
+    () => generateExportPackage(definition, "", "", { inlineAssets }).embedSnippet,
+    [definition, inlineAssets],
   );
 
   return (
@@ -193,16 +190,9 @@ export function ExportScreen() {
             />
             Inline assets into map.json (larger file, no separate assets/ folder)
           </label>
-          <label className="mt-1.5 flex cursor-pointer items-center gap-2 text-xs text-neutral-400">
-            <input
-              type="checkbox"
-              checked={minifyRenderer}
-              onChange={(e) => setMinifyRenderer(e.target.checked)}
-              className="accent-blue-500"
-              disabled
-            />
-            Use minified renderer (not yet available — coming soon)
-          </label>
+          <p className="mt-2 text-[11px] leading-relaxed text-neutral-500">
+            The optimized production renderer is included automatically.
+          </p>
         </section>
 
         {/* Quick copy actions */}
