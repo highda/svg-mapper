@@ -7,17 +7,18 @@
 Issue:        #80 — docs: complete product and integration documentation
 Branch:       feat/80-product-docs
 Started:      2026-08-31
-Last commit:  2de662e  chore: hand off #29 — done
+Last commit:  4e78de7  chore: claim #80 — product docs
 
 ### What's done
-- Identified the missing product documentation required by the repository spec and claimed the task.
+- Authored the root product/development README and replaced the editor's Vite template README.
+- Added current data model, renderer API, export/deployment, and editor workflow references.
+- Verified every documented command and local link; all package checks pass.
 
 ### What's next
-- Author the root README and data model, renderer API, export format, and user guide references.
-- Verify links and commands against the current implementation.
+- Commit and merge the completed documentation through a PR.
 
 ### Notes / gotchas
-- `.codex/runtime/task-brief.md` describes already-closed issue #27; GitHub and HANDOFF agree that its work is merged.
+- The renderer schema includes `toggleLayer`, but the current runtime intentionally has no implementation; the data model calls this out.
 
 ---
 
