@@ -1,0 +1,53 @@
+name: Build release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to publish (for example v0.2.0)
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            shared/package-lock.json
+            renderer/package-lock.json
+            editor/package-lock.json
+      - run: npm ci --prefix shared
+      - run: npm ci --prefix renderer
+      - run: npm ci --prefix editor
+      - run: npm run typecheck --prefix shared
+      - run: npm run typecheck --prefix renderer
+      - run: npm run test --prefix editor
+      - run: npm run build --prefix renderer
+      - run: npm run build --prefix editor
+        env:
+          VITE_BASE_PATH: ./
+      - name: Assemble archives
+        run: |
+          mkdir -p release/svg-mapper-renderer release/svg-mapper-editor
+          cp renderer/dist/clickmap-renderer.js renderer/dist/clickmap-renderer.css release/svg-mapper-renderer/
+          cp docs/renderer-api.md docs/data-model.md docs/export-format.md release/svg-mapper-renderer/
+          cp -R editor/dist/. release/svg-mapper-editor/
+          cd release
+          zip -r svg-mapper-renderer.zip svg-mapper-renderer
+          zip -r svg-mapper-editor.zip svg-mapper-editor
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: gh release create "$RELEASE_TAG" release/*.zip --generate-notes --verify-tag

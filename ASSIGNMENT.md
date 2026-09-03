@@ -1,6 +1,7 @@
 # SVG Mapper — Clickable Multi-Level Map Builder
 
-> Status: spec only. Source of truth for what the product is and what "done" means.
+> Status: living product brief. The MVP exists; implementation reality and future
+> direction are tracked in [Product reassessment](docs/product-reassessment.md).
 > Workflow rules for working on this repo live in [AGENTS.md](./AGENTS.md), not here.
 
 ## 1. Summary & Product Goal

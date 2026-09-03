@@ -4,6 +4,10 @@ SVG Mapper is a browser-only editor for turning a floor plan, diagram, or map im
 
 The editor keeps projects in memory and saves them as JSON files. It has no accounts, database, or server-side storage.
 
+Try the hosted editor at **https://highda.github.io/svg-mapper/**. Every push to
+`main` deploys the project site; version tags publish downloadable editor and
+renderer archives as GitHub Releases.
+
 ## Documentation
 
 - [User guide](docs/user-guide.md) — the editor workflow from import to deployment
@@ -11,6 +15,8 @@ The editor keeps projects in memory and saves them as JSON files. It has no acco
 - [Renderer API](docs/renderer-api.md) — initialization, options, methods, events, and embedding
 - [Export format](docs/export-format.md) — ZIP contents, asset modes, and hosting
 - [Product specification](ASSIGNMENT.md) and [agent workflow](AGENTS.md)
+- [Product reassessment](docs/product-reassessment.md) — actual capabilities, gaps, and image-first roadmap
+- [Human test plan](docs/human-test-plan.md) — repeatable browser and usability checks
 
 ## Local development
 

@@ -8,7 +8,7 @@ Read this file at the start of every session, before doing anything else.
 
 ## 1. Repo Invariants
 
-- **Private** GitHub repo at `https://github.com/highda/svg-mapper.git`.
+- **Public** GitHub repo at `https://github.com/highda/svg-mapper.git`.
 - **Default branch:** `main`. All work merges here via PR.
 - **Serial-agent repo.** Only one agent works on the tree at any given moment. Humans may interleave between agent sessions. The serial lock (§3) is what enforces this. **Never** start work that conflicts with an active hand-off.
 - **Single owner:** `highda` (`vojtahajda@gmail.com`).

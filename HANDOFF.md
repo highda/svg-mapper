@@ -10,6 +10,7 @@ Branch:       main
 ---
 
 ## Ledger (most recent first)
+- 2026-09-03 — reassessed the product as an image-first scene composer; opened roadmap #84–#90, documented human QA, corrected background coordinate behavior, and added Pages/release automation (#91).
 - 2026-09-03 — closed #82 — removed placeholder export behavior and restored a usable mobile Export flow; PR #83.
 - 2026-09-03 — closed #80 — completed product, editor, schema, renderer API, and static deployment documentation; PR #81.
 - 2026-08-31 — closed #29 — added opt-in renderer shadow DOM isolation with bundled/custom CSS, lifecycle cleanup, and embed guidance; PR #79.
