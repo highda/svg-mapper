@@ -4,25 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #80 — docs: complete product and integration documentation
-Branch:       feat/80-product-docs
-Started:      2026-08-31
-Last commit:  4e78de7  chore: claim #80 — product docs
-
-### What's done
-- Authored the root product/development README and replaced the editor's Vite template README.
-- Added current data model, renderer API, export/deployment, and editor workflow references.
-- Verified every documented command and local link; all package checks pass.
-
-### What's next
-- Commit and merge the completed documentation through a PR.
-
-### Notes / gotchas
-- The renderer schema includes `toggleLayer`, but the current runtime intentionally has no implementation; the data model calls this out.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-03 — closed #80 — completed product, editor, schema, renderer API, and static deployment documentation; PR #81.
 - 2026-08-31 — closed #29 — added opt-in renderer shadow DOM isolation with bundled/custom CSS, lifecycle cleanup, and embed guidance; PR #79.
 - 2026-08-31 — closed #28 — completed circle authoring, grid snapping, zoom-to-fit, background-size suggestions, and area search; PR #78.
 - 2026-08-31 — closed #27 — completed renderer zoom controls, fitted backgrounds, spacebar pan, configurable padding, and imported SVG rendering; PR #77.
