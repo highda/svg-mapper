@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #108 — Add marker area authoring to the editor
-Branch:       feat/108-marker-authoring
-Started:      2026-09-04
-Last commit:  51039f2  chore: hand off #90 — done
-
-### What's done
-- Claimed the marker-authoring gap identified by the independent completion review.
-
-### What's next
-- Add marker creation, inspector editing, automated coverage, and browser validation.
-
-### Notes / gotchas
-- Marker geometry already works in the shared model and renderer; editor authoring is the missing link.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-04 — closed #108 — added anchored marker creation, editing, validation, and consistent editor/runtime rendering; PR #109.
 - 2026-09-04 — closed #90 — verified and closed the six-workstream image-first scene graph roadmap; PR #107.
 - 2026-09-04 — closed #105 — added adjacent deep layer duplication with collision-safe IDs, internal reference remapping, history, persistence, and responsive UI coverage; PR #106.
 - 2026-09-04 — closed #103 — made Export fit and complete downloads cleanly at 390x844 while retaining the desktop Inspector; PR #104.
