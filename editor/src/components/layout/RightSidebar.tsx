@@ -6,6 +6,8 @@ import type {
   AreaTrigger,
   BackgroundFit,
   CircleGeometry,
+  MarkerGeometry,
+  MarkerAnchor,
   PopupAction,
   RectGeometry,
   PolygonGeometry,
@@ -637,6 +639,31 @@ function GeometryEditor({
     return (
       <div className="text-xs text-neutral-400">
         {g.points.length} vertices — vertex editing not available yet
+      </div>
+    );
+  }
+
+  if (geometry.type === "marker") {
+    const g = geometry as unknown as MarkerGeometry & { type: "marker" };
+    function setMarker(patch: Partial<MarkerGeometry>) {
+      updateAreaGeometry(areaId, { ...g, ...patch });
+    }
+    return (
+      <div className="space-y-1">
+        <Row label="X"><NumberField defaultValue={g.x} onCommit={(v) => setMarker({ x: v })} /></Row>
+        <Row label="Y"><NumberField defaultValue={g.y} onCommit={(v) => setMarker({ y: v })} /></Row>
+        <Row label="Anchor">
+          <select
+            aria-label="Marker anchor"
+            value={g.anchor}
+            onChange={(event) => setMarker({ anchor: event.target.value as MarkerAnchor })}
+            className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200"
+          >
+            {(["bottom-center", "center", "top-left", "top-center", "top-right", "bottom-left", "bottom-right", "middle-left", "middle-right"] as MarkerAnchor[]).map((anchor) => (
+              <option key={anchor} value={anchor}>{anchor}</option>
+            ))}
+          </select>
+        </Row>
       </div>
     );
   }
