@@ -137,6 +137,7 @@ function LayerRow({
     selectedLayerId,
     setSelectedLayerId,
     renameLayer,
+    duplicateLayer,
     deleteLayer,
     toggleLayerVisibility,
     toggleLayerLock,
@@ -240,6 +241,20 @@ function LayerRow({
           className={`text-[10px] ${layer.locked ? "text-amber-400 hover:text-amber-200" : "text-neutral-600 hover:text-neutral-400"}`}
         >
           {layer.locked ? "🔒" : "🔓"}
+        </button>
+
+        {/* Duplicate */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            duplicateLayer(layer.id);
+            onMoveMessage(`${layer.name} duplicated.`);
+          }}
+          aria-label={`Duplicate layer ${layer.name}`}
+          title="Duplicate layer"
+          className="text-[10px] text-neutral-600 hover:text-neutral-300"
+        >
+          ⧉
         </button>
 
         {/* Delete */}
