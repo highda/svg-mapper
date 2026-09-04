@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #86 — feature: add image elements as first-class scene content
+Branch:       feat/86-image-elements
+Started:      2026-09-04
+Last commit:  pending  task claimed
+
+### What's done
+- Claimed the task and confirmed the existing image-region foundation can be extended into ordered scene content.
+
+### What's next
+- Add the image-element model/editor controls, renderer semantics, validation, tests, and browser coverage.
+
+### Notes / gotchas
+- `.codex/runtime/task-brief.md` referenced already-closed #87; the live lock was empty and #86 was the current highest-priority ready task.
 
 ---
 
