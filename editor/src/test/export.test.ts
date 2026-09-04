@@ -72,6 +72,22 @@ describe("generateExportPackage", () => {
     expect(exported.action).toEqual(richArea.action);
   });
 
+  it("round-trips exact CSS color strings for every area state", () => {
+    const project = createNewProject("Color Map");
+    const area = createRectArea(0, 0, 10, 10);
+    area.style = {
+      default: { fill: "rebeccapurple", stroke: "#abcdef80", strokeWidth: 2 },
+      hover: { fill: "rgba(1,2,3,0.25)", stroke: "transparent", strokeWidth: 3 },
+      active: { fill: "hsl(120 100% 50% / 40%)", stroke: "rgb(10 20 30)", strokeWidth: 4 },
+      disabled: { fill: "#0000", stroke: "rgba(5,6,7,0.8)", strokeWidth: 1 },
+    };
+    project.views[0].layers = [{ id: "layer_colors", name: "Colors", visible: true, locked: false, opacity: 1, areas: [area] }];
+
+    const pkg = generateExportPackage(toDefinition(project), STUB_JS, STUB_CSS, { inlineAssets: true });
+    const parsed = JSON.parse(pkg.mapJson) as typeof project;
+    expect(parsed.views[0].layers[0].areas[0].style).toEqual(area.style);
+  });
+
   it("index.html embeds the renderer JS and map definition", () => {
     const { pkg } = makePackage();
     const files = unzipSync(pkg.zip);
