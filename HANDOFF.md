@@ -4,25 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #97 — fix: make Tree navigation an intentional editor workspace
-Branch:       fix/97-tree-workspace
-Started:      2026-09-04
-Last commit:  1871019  chore: claim #97 — tree-workspace
-
-### What's done
-- Tree now opens the existing fully interactive Views & Layers hierarchy as a dedicated, responsive workspace.
-- The normal sidebar is suppressed on that route, the active tab is exposed accessibly, and regression coverage prevents placeholder recurrence.
-- Editor typecheck, 165 tests, lint, production build, and desktop/mobile browser checks pass.
-
-### What's next
-- Open, verify, and merge the closing PR.
-
-### Notes / gotchas
-- Browser checks covered 1440×900 and 390×844 with no console errors.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-04 — closed #97 — replaced the reachable Tree placeholder with the responsive Views & Layers workspace and added navigation coverage; PR #98.
 - 2026-09-04 — closed #86 — added reusable foreground image elements with ordered composition, authoring controls, renderer support, validation, documentation, and browser coverage; PR #96.
 - 2026-09-04 — closed #87 — added deterministic bounded alpha-mask image regions with editor previews, safe fallbacks, accessible runtime interaction, and fixture coverage; PR #95.
 - 2026-09-04 — closed #85 — replaced the global canvas with independent per-view coordinate spaces across editor, renderer, fixtures, validation, and docs; PR #94.
