@@ -4,28 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #88 — design: specify responsive sizing, fit, positioning, and attachment semantics
-Branch:       feat/88-responsive-semantics
-Started:      2026-09-04
-Last commit:  (pending)  feat: add aligned background focal points
-
-### What's done
-- Added an explicit fixed/fluid-width/fill-container renderer sizing contract with legacy flag inference.
-- Documented host CSS requirements and world-versus-viewport attachment semantics.
-- Added automated coverage for each sizing mode and legacy behavior; all package checks pass.
-- Added normalized background alignment/focal points with editor controls and matching editor/runtime geometry.
-- Covered zero-size, wide, tall, mobile, touch, and reduced-motion behavior; browser golden path passes without console errors.
-
-### What's next
-- Open, verify, and merge the PR; then clear the active handoff.
-
-### Notes / gotchas
-- Host-selected task #89 was already completed by PR #92; continued with the highest-priority ready task.
-- Viewport-attached scene elements depend on first-class scene content (#86); existing controls, tooltips, and popovers already provide viewport-attached behavior.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-04 — closed #88 — defined responsive sizing and attachment semantics, added background focal positioning, and covered resize, touch, and reduced-motion behavior; PR #93.
 - 2026-09-04 — closed #89 — added canonical QA fixtures, a resizable browser gallery, automated coverage, and an evidence-ready human test matrix; PR #92.
 - 2026-09-03 — reassessed the product as an image-first scene composer; opened roadmap #84–#90, documented human QA, corrected background coordinate behavior, and added Pages/release automation (#91).
 - 2026-09-03 — closed #82 — removed placeholder export behavior and restored a usable mobile Export flow; PR #83.
