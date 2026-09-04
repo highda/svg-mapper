@@ -16,7 +16,7 @@ The editor validates only a small structural minimum when opening JSON (`schemaV
 | `schemaVersion` | `"1.0.0"` | Schema compatibility marker |
 | `project` | `ProjectMeta` | Stable ID, display name, and ISO timestamps |
 | `settings` | `Settings` | Initial view, navigation, labels, controls, and layout |
-| `assets` | `Asset[]` | Background images or SVG markup |
+| `assets` | `Asset[]` | Reusable background and foreground images or SVG markup |
 | `views` | `View[]` | Scenes containing ordered layers and areas |
 | `popups` | `Popup[]` | Legacy popup records; new popup content belongs on an area's action |
 | `sharedStyles` | object | Reserved shared-style data |
@@ -48,11 +48,13 @@ An `Asset` has `id`, MIME `type`, `name`, `src`, intrinsic `width` and `height`,
 
 A `View` has `id`, `name`, URL-friendly `slug`, its own required `canvas: {width,height}`, optional `background: {assetId, fit, position?}`, `viewport`, `ui`, and `layers`. Background fit is `contain`, `cover`, `fill`, or `none`. `position` is a normalized `{x,y}` alignment/focal point: `{0,0}` is top-left, `{0.5,0.5}` is the default center, and `{1,1}` is bottom-right. It aligns contained or intrinsic artwork and selects the focal region retained by `cover`; values are clamped to 0–1. Viewport holds minimum, maximum, and initial zoom plus pan/zoom flags. UI flags control the title, breadcrumbs, and back button.
 
-A `Layer` has `id`, `name`, `visible`, `locked`, `opacity`, and ordered `areas`. Layer order is paint order.
+A `Layer` has `id`, `name`, `visible`, `locked`, `opacity`, and ordered `areas`. Layer and area order are paint order. A rectangular area may carry an `image` that turns it into reusable foreground scene content while retaining the same transform, action, and ordering model.
 
 ## Areas
 
 Every `Area` has an `id`, `name`, `geometry`, three-state `style`, and `action`. Optional fields configure tooltips, accessibility, arbitrary JSON `metadata`, pointer `trigger` (`click`, `hover`, or `both`), permanent highlight, disabled state, and label overrides.
+
+An optional `image` references an asset by `assetId`. `fit` is `fill`, `contain`, or `cover`; `opacity` is 0–1; `rotation` is in degrees around the rectangle center; and `visible`, `locked`, and `decorative` control editor/runtime presentation and semantics. Image elements use rectangle geometry for position and size, can use any existing action, and share normal layer paint order. PNG and WebP images may additionally contain a bounded deterministic `hitMask`; other formats retain the rectangular hit area.
 
 | Geometry `type` | Coordinates |
 | --- | --- |
