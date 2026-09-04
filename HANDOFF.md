@@ -7,16 +7,18 @@
 Issue:        #100 — editor: support moving areas between layers by drag and drop
 Branch:       feat/100-move-areas-between-layers
 Started:      2026-09-04
-Last commit:  (claim checkpoint pending)
+Last commit:  2e57675  chore: claim #100 — move areas between layers
 
 ### What's done
-- Claimed the host-selected issue and reconciled the serial lock.
+- Added exact-index same-layer and cross-view area moves with undo/redo and selection preservation.
+- Added area drag/drop targets, keyboard destination controls, locked-state feedback, and live announcements.
+- Covered reorder, cross-view movement, locking, history, persistence, and accessible UI behavior.
 
 ### What's next
-- Implement cross-layer area movement, accessible controls, tests, and browser verification.
+- Commit the implementation, open and merge the PR, then clear the handoff.
 
 ### Notes / gotchas
-- Preserve area IDs and selection across views; locked destination layers must reject moves.
+- Browser-verified mouse and keyboard movement at 1280×720 and 390×844; console clean.
 
 ---
 

@@ -110,6 +110,7 @@ export interface AppState {
   deleteArea: (areaId: string) => void;
   duplicateArea: (areaId: string) => void;
   reorderArea: (areaId: string, direction: -1 | 1) => void;
+  moveAreaToLayer: (areaId: string, targetLayerId: string, targetIndex?: number) => "moved" | "locked" | "invalid";
 
   // ── Settings ──────────────────────────────────────────────────────────────
   updateSettings: (patch: Partial<Settings>) => void;
@@ -757,6 +758,40 @@ export const useStore = create<AppState>()(
         const [area] = areas.splice(loc.areaIdx, 1);
         areas.splice(next, 0, area);
       });
+    },
+
+    moveAreaToLayer(areaId: string, targetLayerId: string, targetIndex?: number) {
+      let result: "moved" | "locked" | "invalid" = "invalid";
+      set((s) => {
+        const source = findAreaLocation(s.project.views as unknown as View[], areaId);
+        const target = findLayerInViews(s.project.views, targetLayerId);
+        if (!source || !target) return;
+        const sourceLayer = s.project.views[source.viewIdx].layers[source.layerIdx];
+        const targetLayer = s.project.views[target.viewIdx].layers[target.layerIdx];
+        if (sourceLayer.locked || targetLayer.locked) {
+          result = "locked";
+          return;
+        }
+
+        let insertion = targetIndex ?? targetLayer.areas.length;
+        insertion = Math.max(0, Math.min(insertion, targetLayer.areas.length));
+        if (sourceLayer.id === targetLayer.id) {
+          if (source.areaIdx < insertion) insertion -= 1;
+          if (source.areaIdx === insertion) {
+            result = "moved";
+            return;
+          }
+        }
+
+        pushHistory(s);
+        const [area] = sourceLayer.areas.splice(source.areaIdx, 1);
+        targetLayer.areas.splice(insertion, 0, area);
+        s.selectedAreaId = area.id;
+        s.selectedLayerId = null;
+        s.activeViewId = s.project.views[target.viewIdx].id;
+        result = "moved";
+      });
+      return result;
     },
 
     // ── Clipboard ──────────────────────────────────────────────────────────

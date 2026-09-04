@@ -45,14 +45,38 @@ function InlineRename({
 // Area row
 // ---------------------------------------------------------------------------
 
-function AreaRow({ areaId, name }: { areaId: string; name: string }) {
-  const { selectedAreaId, setSelectedAreaId, reorderArea } = useStore();
+function AreaRow({ areaId, name, layerId, targetIndex, locked, onMoveMessage }: { areaId: string; name: string; layerId: string; targetIndex: number; locked: boolean; onMoveMessage: (message: string) => void }) {
+  const { selectedAreaId, setSelectedAreaId, reorderArea, moveAreaToLayer, project } = useStore();
   const selected = selectedAreaId === areaId;
+  const [dragOver, setDragOver] = useState(false);
 
   return (
     <div
+      draggable={!locked}
+      onDragStart={(event) => {
+        event.stopPropagation();
+        event.dataTransfer.setData("application/x-svg-mapper-area", areaId);
+        event.dataTransfer.effectAllowed = "move";
+      }}
+      onDragOver={(event) => {
+        if (!event.dataTransfer.types.includes("application/x-svg-mapper-area")) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.dataTransfer.dropEffect = locked ? "none" : "move";
+        setDragOver(true);
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(event) => {
+        const movedAreaId = event.dataTransfer.getData("application/x-svg-mapper-area");
+        if (!movedAreaId) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setDragOver(false);
+        const result = moveAreaToLayer(movedAreaId, layerId, targetIndex);
+        onMoveMessage(result === "moved" ? `Area moved before ${name}.` : result === "locked" ? "Layer is locked." : "Area could not be moved.");
+      }}
       onClick={() => setSelectedAreaId(areaId)}
-      className={`flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-xs ${
+      className={`flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-xs ${dragOver ? locked ? "ring-1 ring-red-500" : "ring-1 ring-blue-400" : ""} ${
         selected
           ? "bg-blue-600 text-white"
           : "text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200"
@@ -61,8 +85,28 @@ function AreaRow({ areaId, name }: { areaId: string; name: string }) {
       <span className="text-[10px] opacity-50">▸</span>
       <span className="min-w-0 truncate">{name}</span>
       <span className="ml-auto flex shrink-0 gap-1">
-        <button title="Move backward" onClick={(event) => { event.stopPropagation(); reorderArea(areaId, -1); }}>↓</button>
-        <button title="Move forward" onClick={(event) => { event.stopPropagation(); reorderArea(areaId, 1); }}>↑</button>
+        <button disabled={locked} title={locked ? "Layer is locked" : "Move backward"} onClick={(event) => { event.stopPropagation(); reorderArea(areaId, -1); }}>↓</button>
+        <button disabled={locked} title={locked ? "Layer is locked" : "Move forward"} onClick={(event) => { event.stopPropagation(); reorderArea(areaId, 1); }}>↑</button>
+        <select
+          aria-label={`Move ${name} to layer`}
+          title={locked ? "Area cannot be moved from a locked layer" : "Move to layer"}
+          value={layerId}
+          disabled={locked}
+          onClick={(event) => event.stopPropagation()}
+          onChange={(event) => {
+            const targetId = event.target.value;
+            const target = project.views.flatMap((view) => view.layers).find((layer) => layer.id === targetId);
+            const result = moveAreaToLayer(areaId, targetId);
+            onMoveMessage(result === "moved" ? `${name} moved to ${target?.name ?? "layer"}.` : result === "locked" ? `${target?.name ?? "Layer"} is locked.` : "Area could not be moved.");
+          }}
+          className="max-w-20 rounded bg-neutral-800 text-[10px] text-neutral-300 disabled:opacity-40"
+        >
+          {project.views.flatMap((view) => view.layers.map((destination) => (
+            <option key={destination.id} value={destination.id} disabled={destination.locked}>
+              {view.name} / {destination.name}{destination.locked ? " (locked)" : ""}
+            </option>
+          )))}
+        </select>
       </span>
     </div>
   );
@@ -79,6 +123,7 @@ function LayerRow({
   onDragStart,
   onDragOver,
   onDrop,
+  onMoveMessage,
 }: {
   layer: Layer;
   idx: number;
@@ -86,6 +131,7 @@ function LayerRow({
   onDragStart: (idx: number) => void;
   onDragOver: (e: React.DragEvent, idx: number) => void;
   onDrop: (e: React.DragEvent, toIdx: number) => void;
+  onMoveMessage: (message: string) => void;
 }) {
   const {
     selectedLayerId,
@@ -94,11 +140,13 @@ function LayerRow({
     deleteLayer,
     toggleLayerVisibility,
     toggleLayerLock,
+    moveAreaToLayer,
   } = useStore();
 
   const [renaming, setRenaming] = useState(false);
   const [expanded, setExpanded] = useState(true);
   const selected = selectedLayerId === layer.id;
+  const [areaDragOver, setAreaDragOver] = useState(false);
 
   function handleRowClick(e: React.MouseEvent) {
     e.stopPropagation();
@@ -115,9 +163,25 @@ function LayerRow({
     <div
       draggable
       onDragStart={(e) => { e.stopPropagation(); onDragStart(idx); }}
-      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); onDragOver(e, idx); }}
-      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); onDrop(e, idx); }}
-      className="select-none"
+      onDragOver={(e) => {
+        e.preventDefault(); e.stopPropagation();
+        if (e.dataTransfer.types.includes("application/x-svg-mapper-area")) {
+          e.dataTransfer.dropEffect = layer.locked ? "none" : "move";
+          setAreaDragOver(true);
+        } else onDragOver(e, idx);
+      }}
+      onDragLeave={() => setAreaDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault(); e.stopPropagation();
+        setAreaDragOver(false);
+        const areaId = e.dataTransfer.getData("application/x-svg-mapper-area");
+        if (areaId) {
+          const result = moveAreaToLayer(areaId, layer.id);
+          onMoveMessage(result === "moved" ? `Area moved to ${layer.name}.` : result === "locked" ? `${layer.name} is locked.` : "Area could not be moved.");
+        } else onDrop(e, idx);
+      }}
+      aria-label={`${layer.name}${layer.locked ? ", locked" : ", drop areas here"}`}
+      className={`select-none rounded ${areaDragOver ? layer.locked ? "ring-1 ring-red-500" : "ring-1 ring-blue-400" : ""}`}
     >
       {/* Layer header */}
       <div
@@ -193,8 +257,8 @@ function LayerRow({
       {/* Areas */}
       {expanded && layer.areas.length > 0 && (
         <div className="ml-5 mt-0.5 space-y-0.5">
-          {layer.areas.map((area) => (
-            <AreaRow key={area.id} areaId={area.id} name={area.name} />
+          {layer.areas.map((area, areaIndex) => (
+            <AreaRow key={area.id} areaId={area.id} name={area.name} layerId={layer.id} targetIndex={areaIndex} locked={layer.locked} onMoveMessage={onMoveMessage} />
           ))}
         </div>
       )}
@@ -206,7 +270,7 @@ function LayerRow({
 // View section
 // ---------------------------------------------------------------------------
 
-function ViewSection({ view, isActive }: { view: View; isActive: boolean }) {
+function ViewSection({ view, isActive, onMoveMessage }: { view: View; isActive: boolean; onMoveMessage: (message: string) => void }) {
   const {
     activeViewId,
     setActiveViewId,
@@ -312,6 +376,7 @@ function ViewSection({ view, isActive }: { view: View; isActive: boolean }) {
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
               onDrop={handleDrop}
+              onMoveMessage={onMoveMessage}
             />
           ))}
 
@@ -337,6 +402,7 @@ function ViewSection({ view, isActive }: { view: View; isActive: boolean }) {
 export function LeftPanel({ workspace = false }: { workspace?: boolean }) {
   const { project, activeViewId, addView, setSelectedAreaId, setActiveViewId } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
+  const [moveMessage, setMoveMessage] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
 
   // "/" shortcut focuses the search input (issue #28 I5)
@@ -417,10 +483,11 @@ export function LeftPanel({ workspace = false }: { workspace?: boolean }) {
       {!query && (
         <div className="flex-1 overflow-y-auto p-1.5">
           {project.views.map((view) => (
-            <ViewSection key={view.id} view={view} isActive={view.id === activeViewId} />
+            <ViewSection key={view.id} view={view} isActive={view.id === activeViewId} onMoveMessage={setMoveMessage} />
           ))}
         </div>
       )}
+      <div role="status" aria-live="polite" className="sr-only">{moveMessage}</div>
     </aside>
   );
 }
