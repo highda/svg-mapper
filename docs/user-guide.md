@@ -18,6 +18,8 @@ Use multiple views for drill-down maps. Each view has a unique slug, viewport li
 
 Select Rectangle (`R`), Circle (`C`), or Polygon (`P`) and draw over the background. Press Enter to finish a polygon or Escape to cancel. Select (`V`) to move and resize shapes; Delete removes the selection. The sidebar edits exact geometry, name, styles, label, metadata, tooltip, accessibility, trigger, highlight/disabled state, and action.
 
+Choose **Add image** to import reusable foreground artwork. The image is centered in the current view as a selectable rectangle. Move or resize it on the canvas; use the inspector to choose contain/cover/fill, opacity, rotation, visibility, position lock, and decorative semantics. Image rows share layer paint order with interaction regions, so the arrows in the layer tree move them backward or forward. Duplicate and delete work like other selected content. The same imported asset can be chosen again from an image's **Visual** menu or used in another view.
+
 Actions can open a URL, navigate to another view, show a rich popup, or dispatch a custom browser event. URL fields are checked before commit. Popup and tooltip HTML is sanitized by the renderer.
 
 Helpful shortcuts include `G` for grid snapping, `F` to fit the selection/canvas, Space-drag to pan, `+`/`-` to zoom, `0` to reset zoom, and Cmd/Ctrl+C, V, or D for area copy/paste/duplicate. Cmd/Ctrl+Z and Cmd/Ctrl+Shift+Z undo and redo. Press `?` for the complete list.

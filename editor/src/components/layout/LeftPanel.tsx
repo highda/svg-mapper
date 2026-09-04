@@ -46,11 +46,11 @@ function InlineRename({
 // ---------------------------------------------------------------------------
 
 function AreaRow({ areaId, name }: { areaId: string; name: string }) {
-  const { selectedAreaId, setSelectedAreaId } = useStore();
+  const { selectedAreaId, setSelectedAreaId, reorderArea } = useStore();
   const selected = selectedAreaId === areaId;
 
   return (
-    <button
+    <div
       onClick={() => setSelectedAreaId(areaId)}
       className={`flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-xs ${
         selected
@@ -60,7 +60,11 @@ function AreaRow({ areaId, name }: { areaId: string; name: string }) {
     >
       <span className="text-[10px] opacity-50">▸</span>
       <span className="min-w-0 truncate">{name}</span>
-    </button>
+      <span className="ml-auto flex shrink-0 gap-1">
+        <button title="Move backward" onClick={(event) => { event.stopPropagation(); reorderArea(areaId, -1); }}>↓</button>
+        <button title="Move forward" onClick={(event) => { event.stopPropagation(); reorderArea(areaId, 1); }}>↑</button>
+      </span>
+    </div>
   );
 }
 

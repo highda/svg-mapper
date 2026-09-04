@@ -60,6 +60,20 @@ describe("renderer interaction model", () => {
     expect(areaElement(area.id)).toHaveAttribute("aria-label", area.name);
   });
 
+  it("renders fitted, rotated image elements and removes decorative images from tab order", () => {
+    const project = createNewProject();
+    project.assets.push({ id: "logo", name: "Logo", type: "image/png", src: "logo.png", width: 100, height: 50, inline: false });
+    const area = createRectArea(10, 20, 100, 50);
+    area.image = { assetId: "logo", fit: "contain", opacity: 0.5, rotation: 30, decorative: true };
+    project.views[0].layers = [{ id: "layer", name: "Layer", visible: true, locked: false, opacity: 1, areas: [area] }];
+    create({ container: "#map", definition: toDefinition(project) });
+    const visual = document.querySelector<SVGImageElement>('image[href="logo.png"]')!;
+    expect(visual.getAttribute("preserveAspectRatio")).toBe("xMidYMid meet");
+    expect(visual.getAttribute("opacity")).toBe("0.5");
+    expect(visual.getAttribute("transform")).toContain("rotate(30");
+    expect(areaElement(area.id).getAttribute("tabindex")).toBe("-1");
+  });
+
   it.each([
     ["fixed", "1600px", "900px", ""],
     ["fluid-width", "100%", "auto", "1600 / 900"],

@@ -76,6 +76,7 @@ export interface AppState {
   setViewBackground: (viewId: string, assetId: string) => void;
   setViewBackgroundFit: (viewId: string, fit: BackgroundFit) => void;
   setViewBackgroundPosition: (viewId: string, position: BackgroundPosition) => void;
+  addImageElement: (assetId: string) => void;
 
   // ── View CRUD ────────────────────────────────────────────────────────────
   addView: () => void;
@@ -108,6 +109,7 @@ export interface AppState {
   updateAreaImage: (areaId: string, image: Area["image"]) => void;
   deleteArea: (areaId: string) => void;
   duplicateArea: (areaId: string) => void;
+  reorderArea: (areaId: string, direction: -1 | 1) => void;
 
   // ── Settings ──────────────────────────────────────────────────────────────
   updateSettings: (patch: Partial<Settings>) => void;
@@ -369,6 +371,37 @@ export const useStore = create<AppState>()(
         if (view.background.position?.x === next.x && view.background.position?.y === next.y) return;
         pushHistory(s);
         view.background.position = next;
+      });
+    },
+
+    addImageElement(assetId: string) {
+      set((s) => {
+        const view = s.project.views.find((candidate) => candidate.id === s.activeViewId);
+        const asset = s.project.assets.find((candidate) => candidate.id === assetId);
+        if (!view || !asset) return;
+        pushHistory(s);
+        if (view.layers.length === 0) view.layers.push({ id: `layer_${Math.random().toString(36).slice(2, 10)}`, name: "Layer 1", visible: true, locked: false, opacity: 1, areas: [] });
+        const layer = (s.selectedLayerId && view.layers.find((candidate) => candidate.id === s.selectedLayerId)) || view.layers[0];
+        const maxWidth = Math.min(view.canvas.width * 0.5, asset.width || 240);
+        const ratio = asset.width > 0 ? asset.height / asset.width : 1;
+        const width = Math.max(24, maxWidth);
+        const height = Math.max(24, width * ratio);
+        const id = `image_${Math.random().toString(36).slice(2, 10)}`;
+        layer.areas.push({
+          id,
+          name: asset.name,
+          geometry: { type: "rect", x: (view.canvas.width - width) / 2, y: (view.canvas.height - height) / 2, width, height },
+          style: {
+            default: { fill: "transparent", stroke: "transparent", strokeWidth: 0 },
+            hover: { fill: "transparent", stroke: "transparent", strokeWidth: 0 },
+            active: { fill: "transparent", stroke: "transparent", strokeWidth: 0 },
+          },
+          action: { type: "none" },
+          image: { assetId, fit: "contain", opacity: 1, rotation: 0, decorative: true, visible: true },
+        });
+        s.selectedAreaId = id;
+        s.selectedLayerId = null;
+        s.activeTool = "select";
       });
     },
 
@@ -710,6 +743,19 @@ export const useStore = create<AppState>()(
         );
         s.selectedAreaId = duped.id;
         s.selectedLayerId = null;
+      });
+    },
+
+    reorderArea(areaId: string, direction: -1 | 1) {
+      set((s) => {
+        const loc = findAreaLocation(s.project.views as unknown as View[], areaId);
+        if (!loc) return;
+        const areas = s.project.views[loc.viewIdx].layers[loc.layerIdx].areas;
+        const next = loc.areaIdx + direction;
+        if (next < 0 || next >= areas.length) return;
+        pushHistory(s);
+        const [area] = areas.splice(loc.areaIdx, 1);
+        areas.splice(next, 0, area);
       });
     },
 

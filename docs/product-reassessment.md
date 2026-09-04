@@ -1,6 +1,6 @@
 # Product reassessment
 
-Status date: 2026-09-03. This document describes the product that exists, the
+Status date: 2026-09-04. This document describes the product that exists, the
 important mismatches discovered after the nominal MVP completion, and the next
 product direction. `ASSIGNMENT.md` remains the original brief; this file is the
 bridge between that brief and implementation work.
@@ -18,7 +18,7 @@ design choices are not otherwise sacred.
 
 ## What exists now
 
-The editor can import a raster image or SVG as the background of each view, draw
+The editor can import a raster image or SVG as the background or reusable foreground content of each view, draw
 rectangle/circle/polygon areas, organize layers and views, configure actions and
 content, preview through the real renderer, validate references, save editable
 JSON, and export a portable ZIP. The renderer supports navigation, labels,
@@ -66,11 +66,10 @@ made compatibility necessary.
 The active view's canvas defines the coordinate space used by areas, labels,
 popovers, padding, and camera state.
 
-### A background should be a convenient role, not the only image role
+### A background is a convenient role, not the only image role
 
-The next scene model should allow ordered elements within layers:
+The scene model allows ordered image content and interaction regions within layers. Foreground images reuse assets, rectangle transforms, actions, and layer paint order, with fit, rotation, opacity, visibility, locking, and decorative semantics. The longer-term model can still expand to:
 
-- image elements referencing reusable assets;
 - vector interaction regions;
 - text/labels;
 - later, groups and simple decorations.

@@ -222,6 +222,8 @@ export function validateProject(project: ClickMapDefinition): ValidationResult[]
           const asset = assetsById.get(area.image.assetId);
           if (!asset) err("MISSING_AREA_ASSET", `Area "${area.name}" references a missing image asset.`, { ...ref, assetId: area.image.assetId });
           if (area.geometry.type !== "rect") err("INVALID_IMAGE_REGION", `Area "${area.name}" must be rectangular to display an image.`, ref);
+          if (area.image.opacity !== undefined && (area.image.opacity < 0 || area.image.opacity > 1)) err("INVALID_IMAGE_OPACITY", `Image "${area.name}" opacity must be between 0 and 1.`, ref);
+          if (area.action.type !== "none" && area.image.decorative && !area.accessibility?.ariaLabel?.trim()) err("MISSING_IMAGE_ACCESSIBLE_NAME", `Interactive image "${area.name}" needs an accessible name when marked decorative.`, ref);
           const mask = area.image.hitMask;
           if (mask && (mask.assetId !== area.image.assetId || mask.width < 1 || mask.height < 1 || mask.width > 128 || mask.height > 128 || mask.threshold < 0 || mask.threshold > 1 || !/^[A-Za-z0-9+/]*={0,2}$/.test(mask.data))) {
             err("INVALID_ALPHA_MASK", `Area "${area.name}" has an invalid alpha hit mask.`, ref);

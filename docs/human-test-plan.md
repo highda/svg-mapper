@@ -34,9 +34,11 @@ Pass/Fail verdict. Use one row per browser, viewport, and input combination.
 | `external-and-broken.json` | External landscape and portrait assets, mixed aspect ratios, a broken asset URL, and a missing asset reference |
 | Gallery container controls | Wide, narrow, and tall hosts; manual free resize; light DOM and Shadow DOM |
 
-First-class image elements are not in the schema yet. When they land, add a
-canonical image-element fixture instead of treating a background as equivalent
-coverage.
+For first-class image elements, import PNG, JPEG, WebP, and SVG artwork as
+foreground content. Verify placement, resizing, fit, opacity, rotation,
+visibility, locking, duplication, deletion, paint ordering, actions, Preview,
+save/open, and both export asset modes. PNG/WebP additionally cover alpha-mask
+generation; JPEG/SVG retain a clearly described rectangular hit area.
 
 ## Authoring and gallery path
 
