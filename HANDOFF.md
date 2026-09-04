@@ -4,8 +4,20 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #87 — support image-shaped interactive regions with progressive alpha hit testing
+Branch:       feat/87-alpha-hit-testing
+Started:      2026-09-04
+Last commit:  19c55a2  chore: hand off #85 — done
+
+### What's done
+- Claimed the host-selected task and established its implementation branch.
+
+### What's next
+- Inspect the current image/area model, editor preview, renderer hit testing, and export path.
+- Implement and verify the highest-value coherent slice of alpha-mask interaction.
+
+### Notes / gotchas
+- Alpha preprocessing must be deterministic at export time and degrade to rectangular hit testing when pixels are unavailable.
 
 ---
 
