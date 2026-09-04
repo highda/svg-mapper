@@ -5,13 +5,14 @@ import { Toolbar } from "../components/ui/Toolbar";
 import { importFileAsAsset, isAllowedAssetType } from "../lib/asset";
 
 export function DesignScreen() {
-  const { activeViewId, importAsset, setViewBackground, setViewBackgroundFit, openError, clearOpenError, canvasSizeSuggestion, dismissCanvasSizeSuggestion, setCanvasSize } = useStore();
+  const { activeViewId, importAsset, setViewBackground, setViewBackgroundFit, addImageElement, openError, clearOpenError, canvasSizeSuggestion, dismissCanvasSizeSuggestion, setCanvasSize } = useStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
-  async function handleFiles(files: FileList | null) {
+  async function handleFiles(files: FileList | null, placement: "background" | "element" = "background") {
     if (!files || files.length === 0) return;
     const file = files[0];
     if (!isAllowedAssetType(file.type)) {
@@ -23,7 +24,8 @@ export function DesignScreen() {
     try {
       const asset = await importFileAsAsset(file);
       importAsset(asset);
-      setViewBackground(activeViewId, asset.id);
+      if (placement === "background") setViewBackground(activeViewId, asset.id);
+      else addImageElement(asset.id);
     } catch (err) {
       setImportError(err instanceof Error ? err.message : "Import failed.");
     } finally {
@@ -33,6 +35,11 @@ export function DesignScreen() {
 
   function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     handleFiles(e.target.files);
+    e.target.value = "";
+  }
+
+  function onImageFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    handleFiles(e.target.files, "element");
     e.target.value = "";
   }
 
@@ -130,6 +137,13 @@ export function DesignScreen() {
           >
             {importing ? "Importing…" : "Import background"}
           </button>
+          <button
+            disabled={importing}
+            onClick={() => imageInputRef.current?.click()}
+            className="rounded bg-blue-700 px-2 py-1 text-xs text-white hover:bg-blue-600 disabled:opacity-50"
+          >
+            Add image
+          </button>
         </div>
 
         <Canvas />
@@ -142,6 +156,7 @@ export function DesignScreen() {
         className="hidden"
         onChange={onFileChange}
       />
+      <input ref={imageInputRef} type="file" accept=".png,.jpg,.jpeg,.webp,.svg,image/png,image/jpeg,image/webp,image/svg+xml" className="hidden" onChange={onImageFileChange} />
     </div>
   );
 }

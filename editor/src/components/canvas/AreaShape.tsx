@@ -53,11 +53,14 @@ export function AreaShape({
   const hw = 1 / zoom; // handle stroke width
   const imageAsset = area.image ? assets.find((asset) => asset.id === area.image?.assetId) : undefined;
   const rect = area.geometry.type === "rect" ? area.geometry : null;
+  const imageFit = area.image?.fit ?? "fill";
+  const imageAspect = imageFit === "contain" ? "xMidYMid meet" : imageFit === "cover" ? "xMidYMid slice" : "none";
+  const imageRotation = area.image?.rotation ?? 0;
 
   return (
     <g style={{ opacity: isDisabled ? 0.6 : 1 }}>
-      {imageAsset && rect && (
-        <image href={imageAsset.src} x={rect.x} y={rect.y} width={rect.width} height={rect.height} preserveAspectRatio="none" style={{ pointerEvents: "none" }} />
+      {imageAsset && rect && area.image?.visible !== false && (
+        <image href={imageAsset.src} x={rect.x} y={rect.y} width={rect.width} height={rect.height} opacity={area.image?.opacity ?? 1} transform={imageRotation ? `rotate(${imageRotation} ${rect.x + rect.width / 2} ${rect.y + rect.height / 2})` : undefined} preserveAspectRatio={imageAspect} style={{ pointerEvents: "none" }} />
       )}
       {/* Main area shape */}
       <path
@@ -67,7 +70,7 @@ export function AreaShape({
         strokeWidth={activeStyle.strokeWidth}
         style={{ cursor: isDisabled ? "not-allowed" : "move" }}
         onPointerDown={(e) => {
-          if (isDisabled) return;
+          if (isDisabled || area.image?.locked) return;
           e.stopPropagation();
           onPointerDown(e, area.id);
         }}

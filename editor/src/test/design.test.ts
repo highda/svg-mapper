@@ -211,6 +211,22 @@ describe("store: canvas size suggestion", () => {
   });
 });
 
+describe("store: image elements", () => {
+  beforeEach(resetStore);
+
+  it("places a reusable asset in layer paint order and supports reordering", () => {
+    useStore.getState().importAsset({ id: "logo", name: "Logo", type: "image/png", src: "data:image/png;base64,AA==", width: 400, height: 200, inline: true });
+    useStore.getState().addImageElement("logo");
+    const first = useStore.getState().project.views[0].layers[0].areas[0];
+    expect(first.image).toMatchObject({ assetId: "logo", fit: "contain", decorative: true });
+    expect(first.geometry).toMatchObject({ type: "rect", width: 400, height: 200 });
+    useStore.getState().addImageElement("logo");
+    const secondId = useStore.getState().selectedAreaId!;
+    useStore.getState().reorderArea(secondId, -1);
+    expect(useStore.getState().project.views[0].layers[0].areas[0].id).toBe(secondId);
+  });
+});
+
 describe("store: deleteArea", () => {
   beforeEach(resetStore);
 

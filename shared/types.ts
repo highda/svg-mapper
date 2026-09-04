@@ -198,6 +198,14 @@ export interface AlphaHitMask {
 
 export interface AreaImage {
   assetId: string;
+  /** How the asset is fitted inside its rectangular bounds. */
+  fit?: "fill" | "contain" | "cover";
+  opacity?: number;
+  rotation?: number;
+  /** Decorative images are omitted from keyboard navigation when action is none. */
+  decorative?: boolean;
+  locked?: boolean;
+  visible?: boolean;
   /** Omit for the portable rectangular fallback. */
   hitMask?: AlphaHitMask;
 }
@@ -219,7 +227,7 @@ export interface Area {
   disabled?: boolean;
   /** Per-area label override (see Settings.areaLabels). */
   label?: AreaLabel;
-  /** Optional visual fitted to a rectangular area. */
+  /** Optional reusable image element fitted to a rectangular area. */
   image?: AreaImage;
 }
 

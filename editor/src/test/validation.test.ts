@@ -79,6 +79,16 @@ describe("validateProject — errors", () => {
     expect(codes(def)).toContain("MISSING_ASSET");
   });
 
+  it("validates image opacity and interactive decorative naming", () => {
+    const def = baseDef();
+    def.assets.push({ id: "logo", name: "Logo", type: "image/png", src: "logo.png", width: 10, height: 10, inline: false });
+    const area = createRectArea(0, 0, 50, 50);
+    area.image = { assetId: "logo", opacity: 2, decorative: true };
+    area.action = { type: "url", href: "https://example.com", target: "_self" };
+    addAreaToFirstLayer(def, area);
+    expect(codes(def)).toEqual(expect.arrayContaining(["INVALID_IMAGE_OPACITY", "MISSING_IMAGE_ACCESSIBLE_NAME"]));
+  });
+
   it("flags a project with no Views", () => {
     const def = baseDef();
     def.views = [];

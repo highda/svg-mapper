@@ -7,16 +7,18 @@
 Issue:        #86 — feature: add image elements as first-class scene content
 Branch:       feat/86-image-elements
 Started:      2026-09-04
-Last commit:  pending  task claimed
+Last commit:  pending  image-element implementation checkpoint
 
 ### What's done
-- Claimed the task and confirmed the existing image-region foundation can be extended into ordered scene content.
+- Added reusable foreground image placement with fit, opacity, rotation, visibility, locking, decorative semantics, duplication/deletion, and paint-order controls.
+- Added renderer output, validation, and automated coverage; typecheck, 164 tests, and lint pass.
 
 ### What's next
-- Add the image-element model/editor controls, renderer semantics, validation, tests, and browser coverage.
+- Exercise import, placement, editing, ordering, duplication, export, and keyboard behavior in a browser; document the model and finish the PR.
 
 ### Notes / gotchas
 - `.codex/runtime/task-brief.md` referenced already-closed #87; the live lock was empty and #86 was the current highest-priority ready task.
+- The project Playwright MCP was not exposed in this session, so browser validation remains for the next iteration.
 
 ---
 
