@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #97 — fix: make Tree navigation an intentional editor workspace
+Branch:       fix/97-tree-workspace
+Started:      2026-09-04
+Last commit:  8994cf5  chore: hand off #86 — done
+
+### What's done
+- Completion review reproduced the reachable Tree placeholder and confirmed the existing Views & Layers hierarchy is already functional in the left panel.
+
+### What's next
+- Route Tree to an intentional hierarchy-focused workspace, add regression coverage, and exercise desktop/mobile browser flows.
+
+### Notes / gotchas
+- Preserve the existing hierarchy operations rather than building a second competing tree UI.
 
 ---
 
