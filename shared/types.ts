@@ -253,6 +253,8 @@ export interface View {
   id: string;
   name: string;
   slug: string;
+  /** Canonical coordinate space for this view. */
+  canvas: { width: number; height: number };
   background?: ViewBackground;
   viewport: Viewport;
   ui: ViewUI;
@@ -327,7 +329,6 @@ export type ContainerSizingMode = "fixed" | "fluid-width" | "fill-container";
 
 export interface Settings {
   initialViewId: string;
-  canvasSize: { width: number; height: number };
   responsive: boolean;
   maintainAspectRatio: boolean;
   /** Explicit host-container sizing contract. Legacy files infer this from responsive flags. */

@@ -340,7 +340,7 @@ export const useStore = create<AppState>()(
         // Suggest canvas resize if image dimensions differ (issue #28 I4)
         const asset = s.project.assets.find((a) => a.id === assetId);
         if (asset && asset.width > 0 && asset.height > 0) {
-          const { width, height } = s.project.settings.canvasSize;
+          const { width, height } = view.canvas;
           if (asset.width !== width || asset.height !== height) {
             s.canvasSizeSuggestion = { width: asset.width, height: asset.height };
           }
@@ -376,7 +376,8 @@ export const useStore = create<AppState>()(
     addView() {
       set((s) => {
         pushHistory(s);
-        const view = createDefaultView();
+        const activeCanvas = s.project.views.find((candidate) => candidate.id === s.activeViewId)?.canvas;
+        const view = createDefaultView(activeCanvas);
         view.name = `View ${s.project.views.length + 1}`;
         view.slug = view.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
         s.project.views.push(view);
@@ -397,6 +398,7 @@ export const useStore = create<AppState>()(
           id: `view_${Math.random().toString(36).slice(2, 10)}`,
           name: original.name + " copy",
           slug: (original.slug + "-copy").replace(/-+/g, "-"),
+          canvas: { ...original.canvas },
           layers: original.layers.map((l) => ({
             ...l,
             id: `layer_${Math.random().toString(36).slice(2, 10)}`,
@@ -441,8 +443,10 @@ export const useStore = create<AppState>()(
 
     setCanvasSize(width: number, height: number) {
       set((s) => {
+        const view = s.project.views.find((candidate) => candidate.id === s.activeViewId);
+        if (!view) return;
         pushHistory(s);
-        s.project.settings.canvasSize = { width, height };
+        view.canvas = { width, height };
       });
     },
 

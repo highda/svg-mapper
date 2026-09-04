@@ -2,7 +2,7 @@
   "schemaVersion": "1.0.0",
   "project": { "id": "qa-fit-actions", "name": "QA: fit, geometry, and actions", "createdAt": "2026-09-04T00:00:00.000Z", "updatedAt": "2026-09-04T00:00:00.000Z" },
   "settings": {
-    "initialViewId": "contain", "canvasSize": { "width": 800, "height": 500 },
+    "initialViewId": "contain",
     "responsive": true, "maintainAspectRatio": true, "theme": "default",
     "enableHistory": true, "enableKeyboardNavigation": true,
     "areaLabels": { "enabled": true }, "sceneSwitcher": { "enabled": true, "position": "top-right", "style": "dropdown" },
@@ -14,7 +14,7 @@
   ],
   "views": [
     {
-      "id": "contain", "name": "Contain / all interactions", "slug": "contain", "background": { "assetId": "inline-wide", "fit": "contain" },
+      "id": "contain", "name": "Contain / all interactions", "slug": "contain", "canvas": { "width": 800, "height": 500 }, "background": { "assetId": "inline-wide", "fit": "contain" },
       "viewport": { "minZoom": 1, "maxZoom": 4, "initialZoom": 1, "panEnabled": true, "zoomEnabled": true },
       "ui": { "showBackButton": false, "showBreadcrumbs": false, "showTitle": true },
       "layers": [{ "id": "features", "name": "Every geometry and action", "visible": true, "locked": false, "opacity": 1, "areas": [
@@ -26,9 +26,9 @@
         { "id": "toggle", "name": "Toggle secondary layer", "geometry": { "type": "rect", "x": 250, "y": 300, "width": 210, "height": 70 }, "style": { "default": { "fill": "rgba(8,145,178,.2)", "stroke": "#0e7490", "strokeWidth": 3 }, "hover": { "fill": "rgba(8,145,178,.45)", "stroke": "#155e75", "strokeWidth": 4 }, "active": { "fill": "rgba(8,145,178,.6)", "stroke": "#164e63", "strokeWidth": 4 } }, "action": { "type": "toggleLayer", "targetLayerId": "secondary" }, "accessibility": { "ariaLabel": "Toggle secondary layer", "tabIndex": 0 } }
       ]}, { "id": "secondary", "name": "Toggle target", "visible": true, "locked": false, "opacity": 0.8, "areas": [{ "id": "secondary-none", "name": "Secondary layer", "geometry": { "type": "circle", "cx": 630, "cy": 340, "r": 78 }, "style": { "default": { "fill": "rgba(250,204,21,.35)", "stroke": "#a16207", "strokeWidth": 3 }, "hover": { "fill": "rgba(250,204,21,.55)", "stroke": "#854d0e", "strokeWidth": 4 }, "active": { "fill": "rgba(250,204,21,.7)", "stroke": "#713f12", "strokeWidth": 4 } }, "action": { "type": "none" } }] }]
     },
-    { "id": "cover", "name": "Cover / tall artwork", "slug": "cover", "background": { "assetId": "inline-tall", "fit": "cover" }, "viewport": { "minZoom": 1, "maxZoom": 4, "initialZoom": 1, "panEnabled": true, "zoomEnabled": true }, "ui": { "showBackButton": true, "showBreadcrumbs": true, "showTitle": true }, "layers": [] },
-    { "id": "fill", "name": "Fill / distorted artwork", "slug": "fill", "background": { "assetId": "inline-wide", "fit": "fill" }, "viewport": { "minZoom": 1, "maxZoom": 4, "initialZoom": 1, "panEnabled": true, "zoomEnabled": true }, "ui": { "showBackButton": true, "showBreadcrumbs": true, "showTitle": true }, "layers": [] },
-    { "id": "none", "name": "None / intrinsic artwork", "slug": "none", "background": { "assetId": "inline-tall", "fit": "none" }, "viewport": { "minZoom": 1, "maxZoom": 4, "initialZoom": 1, "panEnabled": true, "zoomEnabled": true }, "ui": { "showBackButton": true, "showBreadcrumbs": true, "showTitle": true }, "layers": [] }
+    { "id": "cover", "name": "Cover / tall artwork", "slug": "cover", "canvas": { "width": 500, "height": 800 }, "background": { "assetId": "inline-tall", "fit": "cover" }, "viewport": { "minZoom": 1, "maxZoom": 4, "initialZoom": 1, "panEnabled": true, "zoomEnabled": true }, "ui": { "showBackButton": true, "showBreadcrumbs": true, "showTitle": true }, "layers": [] },
+    { "id": "fill", "name": "Fill / distorted artwork", "slug": "fill", "canvas": { "width": 800, "height": 500 }, "background": { "assetId": "inline-wide", "fit": "fill" }, "viewport": { "minZoom": 1, "maxZoom": 4, "initialZoom": 1, "panEnabled": true, "zoomEnabled": true }, "ui": { "showBackButton": true, "showBreadcrumbs": true, "showTitle": true }, "layers": [] },
+    { "id": "none", "name": "None / intrinsic artwork", "slug": "none", "canvas": { "width": 500, "height": 800 }, "background": { "assetId": "inline-tall", "fit": "none" }, "viewport": { "minZoom": 1, "maxZoom": 4, "initialZoom": 1, "panEnabled": true, "zoomEnabled": true }, "ui": { "showBackButton": true, "showBreadcrumbs": true, "showTitle": true }, "layers": [] }
   ],
   "popups": [], "sharedStyles": {}, "customEvents": ["qa:polygon"]
 }

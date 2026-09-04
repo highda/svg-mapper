@@ -15,7 +15,7 @@ The editor validates only a small structural minimum when opening JSON (`schemaV
 | --- | --- | --- |
 | `schemaVersion` | `"1.0.0"` | Schema compatibility marker |
 | `project` | `ProjectMeta` | Stable ID, display name, and ISO timestamps |
-| `settings` | `Settings` | Initial view, canvas, navigation, labels, controls, and layout |
+| `settings` | `Settings` | Initial view, navigation, labels, controls, and layout |
 | `assets` | `Asset[]` | Background images or SVG markup |
 | `views` | `View[]` | Scenes containing ordered layers and areas |
 | `popups` | `Popup[]` | Legacy popup records; new popup content belongs on an area's action |
@@ -24,7 +24,7 @@ The editor validates only a small structural minimum when opening JSON (`schemaV
 
 ## Settings
 
-Required settings are `initialViewId`, `canvasSize: {width,height}`, `responsive`, `maintainAspectRatio`, `theme`, `enableHistory`, and `enableKeyboardNavigation`. New files also write `sizingMode`; the legacy booleans remain readable for schema 1.0 compatibility.
+Required settings are `initialViewId`, `responsive`, `maintainAspectRatio`, `theme`, `enableHistory`, and `enableKeyboardNavigation`. New files also write `sizingMode`; the legacy booleans remain readable for schema 1.0 compatibility.
 
 Optional settings include `contentTemplate` (sanitized HTML with `{{name}}`, `{{id}}`, `{{viewName}}`, or `{{metadata.key}}`), `areaLabels`, `sceneSwitcher`, `zoomControls`, and canvas-unit `padding`.
 
@@ -34,7 +34,7 @@ Container sizing and scene coordinates are separate. `sizingMode` controls only 
 
 | Mode | Renderer width | Renderer height | Required host CSS |
 | --- | --- | --- | --- |
-| `fixed` | `canvasSize.width` CSS px | `canvasSize.height` CSS px | Make that space available or deliberately allow overflow. |
+| `fixed` | active view `canvas.width` CSS px | active view `canvas.height` CSS px | Make that space available or deliberately allow overflow. |
 | `fluid-width` | 100% of host | Derived from the canvas aspect ratio | Give the host a nonzero width. Height is owned by the renderer. |
 | `fill-container` | 100% of host | 100% of host | Give the host an explicit, nonzero height (and width). |
 
@@ -46,7 +46,7 @@ Backgrounds and areas are world-attached: they share a viewBox and pan/zoom toge
 
 An `Asset` has `id`, MIME `type`, `name`, `src`, intrinsic `width` and `height`, and `inline`. Supported types are PNG, JPEG, WebP, and SVG. Editor storage uses a data URI or inline SVG markup. External-asset export rewrites `src` to a relative `assets/...` path.
 
-A `View` has `id`, `name`, URL-friendly `slug`, optional `background: {assetId, fit, position?}`, `viewport`, `ui`, and `layers`. Background fit is `contain`, `cover`, `fill`, or `none`. `position` is a normalized `{x,y}` alignment/focal point: `{0,0}` is top-left, `{0.5,0.5}` is the default center, and `{1,1}` is bottom-right. It aligns contained or intrinsic artwork and selects the focal region retained by `cover`; values are clamped to 0–1. Viewport holds minimum, maximum, and initial zoom plus pan/zoom flags. UI flags control the title, breadcrumbs, and back button.
+A `View` has `id`, `name`, URL-friendly `slug`, its own required `canvas: {width,height}`, optional `background: {assetId, fit, position?}`, `viewport`, `ui`, and `layers`. Background fit is `contain`, `cover`, `fill`, or `none`. `position` is a normalized `{x,y}` alignment/focal point: `{0,0}` is top-left, `{0.5,0.5}` is the default center, and `{1,1}` is bottom-right. It aligns contained or intrinsic artwork and selects the focal region retained by `cover`; values are clamped to 0–1. Viewport holds minimum, maximum, and initial zoom plus pan/zoom flags. UI flags control the title, breadcrumbs, and back button.
 
 A `Layer` has `id`, `name`, `visible`, `locked`, `opacity`, and ordered `areas`. Layer order is paint order.
 
@@ -72,9 +72,9 @@ Actions are `none`; `url` with `href` and target; `goToView` with a target ID an
 {
   "schemaVersion": "1.0.0",
   "project": { "id": "project_demo", "name": "Demo", "createdAt": "2026-01-01T00:00:00.000Z", "updatedAt": "2026-01-01T00:00:00.000Z" },
-  "settings": { "initialViewId": "view_main", "canvasSize": { "width": 800, "height": 450 }, "responsive": true, "maintainAspectRatio": true, "theme": "default", "enableHistory": true, "enableKeyboardNavigation": true },
+  "settings": { "initialViewId": "view_main", "responsive": true, "maintainAspectRatio": true, "theme": "default", "enableHistory": true, "enableKeyboardNavigation": true },
   "assets": [],
-  "views": [{ "id": "view_main", "name": "Main", "slug": "main", "viewport": { "minZoom": 1, "maxZoom": 4, "initialZoom": 1, "panEnabled": true, "zoomEnabled": true }, "ui": { "showBackButton": false, "showBreadcrumbs": true, "showTitle": true }, "layers": [] }],
+  "views": [{ "id": "view_main", "name": "Main", "slug": "main", "canvas": { "width": 800, "height": 450 }, "viewport": { "minZoom": 1, "maxZoom": 4, "initialZoom": 1, "panEnabled": true, "zoomEnabled": true }, "ui": { "showBackButton": false, "showBreadcrumbs": true, "showTitle": true }, "layers": [] }],
   "popups": [], "sharedStyles": {}, "customEvents": []
 }
 ```

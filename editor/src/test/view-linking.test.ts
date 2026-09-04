@@ -78,6 +78,8 @@ describe("store: duplicateView", () => {
     const copy = project.views[1];
     expect(copy.id).not.toBe(original.id);
     expect(copy.name).toBe(original.name + " copy");
+    expect(copy.canvas).toEqual(original.canvas);
+    expect(copy.canvas).not.toBe(original.canvas);
     expect(copy.layers).toHaveLength(original.layers.length);
     expect(copy.layers[0].id).not.toBe(original.layers[0].id);
     expect(copy.layers[0].areas).toHaveLength(1);

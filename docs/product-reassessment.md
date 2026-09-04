@@ -54,18 +54,17 @@ steps, but should be schema fields rather than host-page CSS accidents.
 
 ### One canvas size per project is the wrong abstraction
 
-Each view may reference a different image, but all views currently share
-`settings.canvasSize`. That works for same-size building floors and fails for a
-campus overview leading to portrait floor plans, details, or panoramas. A view
-should own its width and height, and the global size should be removed.
+Each view owns a required `canvas: {width,height}` coordinate space. This lets a
+campus overview lead to portrait floor plans, details, or panoramas without a
+project-global size constraining every scene.
 
 The product has not been released, so the current JSON is development data, not
 a compatibility promise. Prefer the clean model and update examples/tests in one
 change; do not add a migration or dual-field fallback unless a real release has
 made compatibility necessary.
 
-This change must land before advanced image placement. It defines the coordinate
-space used by areas, labels, popovers, padding, and camera state.
+The active view's canvas defines the coordinate space used by areas, labels,
+popovers, padding, and camera state.
 
 ### A background should be a convenient role, not the only image role
 
