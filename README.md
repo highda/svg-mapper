@@ -17,6 +17,7 @@ renderer archives as GitHub Releases.
 - [Product specification](ASSIGNMENT.md) and [agent workflow](AGENTS.md)
 - [Product reassessment](docs/product-reassessment.md) — actual capabilities, gaps, and image-first roadmap
 - [Human test plan](docs/human-test-plan.md) — repeatable browser and usability checks
+- [Canonical QA gallery](examples/qa-gallery/README.md) — durable fixtures for browser passes
 
 ## Local development
 

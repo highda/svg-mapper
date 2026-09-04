@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0.0",
+  "project": { "id": "qa-assets", "name": "QA: external and broken assets", "createdAt": "2026-09-04T00:00:00.000Z", "updatedAt": "2026-09-04T00:00:00.000Z" },
+  "settings": { "initialViewId": "landscape", "canvasSize": { "width": 800, "height": 500 }, "responsive": true, "maintainAspectRatio": true, "theme": "default", "enableHistory": true, "enableKeyboardNavigation": true, "sceneSwitcher": { "enabled": true, "position": "top-right", "style": "buttons" } },
+  "assets": [
+    { "id": "landscape", "type": "image/svg+xml", "name": "landscape.svg", "src": "assets/landscape.svg", "width": 800, "height": 450, "inline": false },
+    { "id": "portrait", "type": "image/svg+xml", "name": "portrait.svg", "src": "assets/portrait.svg", "width": 360, "height": 640, "inline": false },
+    { "id": "missing", "type": "image/png", "name": "intentionally-missing.png", "src": "assets/intentionally-missing.png", "width": 640, "height": 480, "inline": false }
+  ],
+  "views": [
+    { "id": "landscape", "name": "External landscape", "slug": "external-landscape", "background": { "assetId": "landscape", "fit": "contain" }, "viewport": { "minZoom": 1, "maxZoom": 4, "initialZoom": 1, "panEnabled": true, "zoomEnabled": true }, "ui": { "showBackButton": false, "showBreadcrumbs": false, "showTitle": true }, "layers": [] },
+    { "id": "portrait", "name": "External portrait (mixed aspect)", "slug": "external-portrait", "background": { "assetId": "portrait", "fit": "contain" }, "viewport": { "minZoom": 1, "maxZoom": 4, "initialZoom": 1, "panEnabled": true, "zoomEnabled": true }, "ui": { "showBackButton": false, "showBreadcrumbs": false, "showTitle": true }, "layers": [] },
+    { "id": "missing", "name": "Expected broken asset", "slug": "missing-asset", "background": { "assetId": "missing", "fit": "contain" }, "viewport": { "minZoom": 1, "maxZoom": 4, "initialZoom": 1, "panEnabled": true, "zoomEnabled": true }, "ui": { "showBackButton": false, "showBreadcrumbs": false, "showTitle": true }, "layers": [] },
+    { "id": "unknown", "name": "Expected missing asset reference", "slug": "unknown-asset", "background": { "assetId": "does-not-exist", "fit": "cover" }, "viewport": { "minZoom": 1, "maxZoom": 4, "initialZoom": 1, "panEnabled": true, "zoomEnabled": true }, "ui": { "showBackButton": false, "showBreadcrumbs": false, "showTitle": true }, "layers": [] }
+  ],
+  "popups": [], "sharedStyles": {}, "customEvents": []
+}

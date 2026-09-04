@@ -1,53 +1,83 @@
 # Human test plan
 
-Automated tests do not replace this pass. Run it against the hosted editor and
-against a downloaded export. Record results in an issue using the table below;
-screenshots are evidence attachments, not repository files.
+Automated tests do not replace this pass. Run the canonical definitions from
+the [QA gallery](../examples/qa-gallery/README.md), the hosted editor, and a
+downloaded export. Copy the record and result tables into the tracking issue.
+Screenshots belong in `.codex/runtime/` during agent runs or as issue
+attachments; they are never repository files.
 
 ## Test record
 
-| Field               | Value                    |
-| ------------------- | ------------------------ |
-| Commit              |                          |
-| Browser and version |                          |
-| Operating system    |                          |
-| Viewport / device   |                          |
-| Input               | mouse / touch / keyboard |
-| Tester              |                          |
-| Console errors      | none / details           |
+| Field | Value |
+| --- | --- |
+| Commit | |
+| Browser and version | |
+| Operating system | |
+| Viewport / device | |
+| Input | mouse / touch / keyboard |
+| Tester | |
+| Reduced motion | on / off |
+| Hosting | localhost / Pages / file |
 
-For each check record Pass, Fail, or Blocked plus a short observation.
+Each executed row must preserve the expected and actual result, not only a
+Pass/Fail verdict. Use one row per browser, viewport, and input combination.
 
-## Authoring path
+| Check ID | Browser | Viewport | Input method | Expected result | Actual result | Console output | Screenshot reference | Result |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| example | Chrome | 390×844 | touch | Controls are at least 44 px and operable without hover. | | | `.codex/runtime/…` or issue attachment | Pass / Fail / Blocked |
 
-1. Create a project and rename it.
-2. Import one PNG and one SVG into different views.
-3. Exercise `contain`, `cover`, `fill`, and `none`; confirm the editor matches Preview.
-4. Resize the browser from wide desktop through 768 px and 390 px widths.
-5. Draw, select, move, resize, duplicate, undo, and redo rectangle/circle/polygon areas.
-6. Use grid snapping and zoom-to-fit; pan at a zoom above 1.
-7. Confirm the background and areas remain registered during every camera change.
-8. Create view navigation, URL, popup, and custom-event actions.
-9. Complete the same navigation using only Tab, Enter/Space, Escape, and the back control.
-10. Save JSON, reload it, and confirm no authoring state or content was lost.
+## Canonical fixture coverage
+
+| Fixture | Durable coverage |
+| --- | --- |
+| `fit-and-actions.json` | `contain`, `cover`, `fill`, `none`; wide and tall inline SVGs; rect, circle, polygon, path, and marker geometry; none, URL, go-to-view, popup, toggle-layer, and custom-event actions |
+| `external-and-broken.json` | External landscape and portrait assets, mixed aspect ratios, a broken asset URL, and a missing asset reference |
+| Gallery container controls | Wide, narrow, and tall hosts; manual free resize; light DOM and Shadow DOM |
+
+First-class image elements are not in the schema yet. When they land, add a
+canonical image-element fixture instead of treating a background as equivalent
+coverage.
+
+## Authoring and gallery path
+
+1. Open the QA gallery; exercise both fixtures in wide, narrow, and tall hosts.
+2. For every fit view, confirm crop/letterbox/distortion/intrinsic sizing and pointer alignment match the fixture.
+3. Exercise every geometry and action; verify the event log and console, including intentional broken/missing assets.
+4. Create a project and rename it.
+5. Import one PNG and one SVG into different views.
+6. Exercise every fit mode; confirm the editor matches Preview.
+7. Resize the browser from wide desktop through 768 px and 390 px widths.
+8. Draw, select, move, resize, duplicate, undo, and redo rectangle/circle/polygon areas.
+9. Use grid snapping and zoom-to-fit; pan at a zoom above 1.
+10. Confirm the background and areas remain registered during every camera change.
+11. Create view navigation, URL, popup, and custom-event actions.
+12. Complete navigation using only Tab, Enter/Space, Escape, and the back control.
+13. Save JSON, reload it, and confirm no authoring state or content was lost.
+
+## Access and device matrix
+
+1. Keyboard only: reach every interactive area and chrome control, see focus, activate with Enter/Space, close popovers with Escape, and navigate back.
+2. Touch emulation or a touch device at 390×844: confirm controls have a usable touch target, no task depends on hover, and horizontal overflow does not hide actions.
+3. Enable `prefers-reduced-motion: reduce`: confirm navigation and overlays remain understandable without required animation.
+4. Repeat the gallery path with Shadow DOM enabled and an opinionated host stylesheet.
 
 ## Publication path
 
 1. Resolve errors and consciously acknowledge warnings on Export.
 2. Export once with inline assets and once with external assets.
-3. Open each generated `index.html` over HTTP; also test the documented local-file path.
+3. Open each generated `index.html` over HTTP, then directly as a `file://` URL; record separate result rows.
 4. Confirm assets load, interaction matches Preview, and the console is clean.
 5. Embed in a host page with deliberately opinionated global CSS.
 6. Repeat with Shadow DOM enabled.
 7. Test reduced motion and 200% browser zoom.
-8. Visit `https://highda.github.io/svg-mapper/` in a private window and complete a small export.
+8. Visit `https://highda.github.io/svg-mapper/` in a private window, record the deployed commit when available, and complete a small export.
 
 ## Background matrix
 
-For a 1600×900 view, test a 1600×900 image, a 900×1600 image, and a 400×300
-image under every fit mode. Verify visible bounds, expected crop/letterbox,
-pointer alignment at all four corners, zoom/reset, and view switching. Repeat in
-a very wide container and a tall container with an explicit height.
+For an 800×500 coordinate box, test wide and tall artwork under every fit mode.
+Verify visible bounds, expected crop/letterbox, pointer alignment at all four
+corners, zoom/reset, and view switching. Repeat in the gallery's wide, narrow,
+and tall containers, then manually resize both width and height.
 
 ## Exploratory prompts
 
@@ -57,3 +87,10 @@ a very wide container and a tall container with an explicit height.
 - Does touch reveal every action that hover reveals?
 - Do missing assets and invalid links explain both the problem and the repair?
 - Does an export feel like the primary product, rather than an afterthought?
+
+## Exit rule
+
+A pass is recorded only when every required matrix row has Expected, Actual,
+Console output, Screenshot reference, and Result filled in. File defects as
+issues and link their numbers from Actual result; do not rewrite a fixture to
+hide a product defect.

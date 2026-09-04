@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SVG Mapper QA Gallery</title>
+  <link rel="stylesheet" href="../../renderer/clickmap-renderer.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; padding: 20px; color: #172033; background: #eef2f7; font: 15px/1.45 system-ui, sans-serif; }
+    header, main { width: min(1200px, 100%); margin: 0 auto; }
+    h1 { margin: 0; font-size: clamp(1.4rem, 4vw, 2rem); }
+    header p { margin: 4px 0 16px; color: #526078; }
+    .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; padding: 14px; background: white; border: 1px solid #cbd5e1; border-radius: 10px; }
+    label { display: grid; gap: 4px; font-weight: 650; }
+    label.check { display: flex; align-items: center; min-height: 44px; }
+    select, button { min-height: 44px; padding: 8px 12px; border: 1px solid #94a3b8; border-radius: 6px; background: white; color: inherit; font: inherit; }
+    button { cursor: pointer; font-weight: 700; }
+    #frame { margin-top: 16px; background: white; border: 2px dashed #64748b; overflow: auto; resize: both; }
+    #frame.wide { width: 100%; height: 420px; }
+    #frame.narrow { width: min(360px, 100%); height: 640px; }
+    #frame.tall { width: min(480px, 100%); height: 780px; }
+    #map { width: 100%; height: 100%; min-height: 1px; }
+    #status { margin: 12px 0 0; padding: 10px 12px; border-radius: 6px; background: #172033; color: #e2e8f0; white-space: pre-wrap; font: 12px/1.5 ui-monospace, monospace; }
+    @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Canonical QA gallery</h1>
+    <p>Loads committed map definitions directly. Resize the dashed frame; do not recreate fixtures in the editor.</p>
+  </header>
+  <main>
+    <div class="controls">
+      <label>Fixture
+        <select id="fixture">
+          <option value="fixtures/fit-and-actions.json">Fit, geometry, and actions</option>
+          <option value="fixtures/external-and-broken.json">External and broken assets</option>
+        </select>
+      </label>
+      <label>Container
+        <select id="shape">
+          <option value="wide">Wide 100% × 420</option>
+          <option value="narrow">Narrow 360 × 640</option>
+          <option value="tall">Tall 480 × 780</option>
+        </select>
+      </label>
+      <label class="check"><input id="shadow" type="checkbox"> Shadow DOM</label>
+      <button id="reload" type="button">Reload fixture</button>
+    </div>
+    <div id="frame" class="wide"><div id="map"></div></div>
+    <pre id="status" role="status" aria-live="polite">Loading…</pre>
+  </main>
+  <script src="../../renderer/dist/clickmap-renderer.js"></script>
+  <script>
+    var instance;
+    var fixture = document.querySelector('#fixture');
+    var shape = document.querySelector('#shape');
+    var shadow = document.querySelector('#shadow');
+    var frame = document.querySelector('#frame');
+    var statusEl = document.querySelector('#status');
+
+    function log(message) {
+      statusEl.textContent = new Date().toISOString().slice(11, 19) + '  ' + message + '\n' + statusEl.textContent;
+    }
+    async function loadFixture() {
+      if (instance) instance.destroy();
+      document.querySelector('#map').replaceChildren();
+      statusEl.textContent = 'Loading ' + fixture.value + '…';
+      try {
+        var response = await fetch(fixture.value);
+        if (!response.ok) throw new Error(response.status + ' ' + response.statusText);
+        var definition = await response.json();
+        instance = ClickMapRenderer.create({ container: '#map', definition: definition, shadowDom: shadow.checked });
+        ['ready', 'view:change', 'area:hover', 'area:click', 'popup:open', 'popup:close', 'error'].forEach(function (name) {
+          instance.on(name, function (event) { log(name + ' ' + JSON.stringify(event)); });
+        });
+        log('created "' + definition.project.name + '"; shadowDom=' + shadow.checked);
+      } catch (error) {
+        statusEl.textContent = 'LOAD FAILURE: ' + error.message + '\nServe the repository over HTTP and build renderer/dist first.';
+        console.error(error);
+      }
+    }
+    shape.addEventListener('change', function () { frame.className = shape.value; log('container=' + shape.value); });
+    fixture.addEventListener('change', loadFixture);
+    shadow.addEventListener('change', loadFixture);
+    document.querySelector('#reload').addEventListener('click', loadFixture);
+    window.addEventListener('error', function (event) { log('window error: ' + event.message); });
+    window.addEventListener('unhandledrejection', function (event) { log('unhandled rejection: ' + event.reason); });
+    loadFixture();
+  </script>
+</body>
+</html>
