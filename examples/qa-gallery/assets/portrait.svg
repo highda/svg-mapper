@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="640" viewBox="0 0 360 640">
+  <rect width="360" height="640" fill="#dcfce7"/>
+  <path d="M0 520 90 350l72 90 75-250 123 330v120H0Z" fill="#4ade80"/>
+  <circle cx="90" cy="115" r="45" fill="#facc15"/>
+  <text x="20" y="48" font-family="sans-serif" font-size="20" fill="#14532d">360 × 640 portrait</text>
+</svg>

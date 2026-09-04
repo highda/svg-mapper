@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #89 — test: build a human QA gallery and canonical textual fixtures
+Branch:       feat/89-qa-gallery
+Started:      2026-09-04
+Last commit:  e8dcf0e  feat: publish editor and define image-first roadmap
+
+### What's done
+- Claimed the host-selected QA gallery task.
+
+### What's next
+- Add canonical fixtures, a gallery page, and the durable human test matrix.
+
+### Notes / gotchas
+- Screenshots and browser artifacts must remain under ignored `.codex/runtime/`.
 
 ---
 
