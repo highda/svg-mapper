@@ -43,7 +43,7 @@ export function App() {
       <TopBar />
       <ErrorBanner />
       <div className="flex min-h-0 flex-1">
-        {showChrome && <LeftPanel />}
+        {showChrome && screen !== "tree" && <LeftPanel />}
         <Workspace />
         {showChrome && <RightSidebar />}
       </div>

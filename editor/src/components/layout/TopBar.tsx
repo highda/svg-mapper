@@ -77,6 +77,7 @@ export function TopBar() {
           <button
             key={s.id}
             onClick={() => setScreen(s.id)}
+            aria-current={screen === s.id ? "page" : undefined}
             className={`rounded px-2.5 py-0.5 text-xs font-medium transition-colors ${
               screen === s.id
                 ? "bg-blue-600 text-white"
