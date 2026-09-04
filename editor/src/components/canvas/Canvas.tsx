@@ -128,6 +128,19 @@ export function Canvas() {
     ? project.assets.find((a) => a.id === view.background!.assetId)
     : undefined;
   const backgroundFit = view?.background?.fit ?? "contain";
+  const backgroundPosition = view?.background?.position ?? { x: 0.5, y: 0.5 };
+  let backgroundWidth = canvasSize.width;
+  let backgroundHeight = canvasSize.height;
+  if (backgroundAsset && backgroundFit === "none") {
+    backgroundWidth = backgroundAsset.width;
+    backgroundHeight = backgroundAsset.height;
+  } else if (backgroundAsset && backgroundFit !== "fill" && backgroundAsset.width > 0 && backgroundAsset.height > 0) {
+    const scale = backgroundFit === "cover"
+      ? Math.max(canvasSize.width / backgroundAsset.width, canvasSize.height / backgroundAsset.height)
+      : Math.min(canvasSize.width / backgroundAsset.width, canvasSize.height / backgroundAsset.height);
+    backgroundWidth = backgroundAsset.width * scale;
+    backgroundHeight = backgroundAsset.height * scale;
+  }
 
   // ── Non-passive wheel listener (fixes passive event listener console error) ──
 
@@ -656,15 +669,13 @@ export function Canvas() {
           {/* Background image */}
           {backgroundAsset && (
             <image
-              x={backgroundFit === "none" ? (canvasSize.width - backgroundAsset.width) / 2 : 0}
-              y={backgroundFit === "none" ? (canvasSize.height - backgroundAsset.height) / 2 : 0}
-              width={backgroundFit === "none" ? backgroundAsset.width : canvasSize.width}
-              height={backgroundFit === "none" ? backgroundAsset.height : canvasSize.height}
+              x={(canvasSize.width - backgroundWidth) * backgroundPosition.x}
+              y={(canvasSize.height - backgroundHeight) * backgroundPosition.y}
+              width={backgroundWidth}
+              height={backgroundHeight}
               href={backgroundAsset.src}
               preserveAspectRatio={
-                backgroundFit === "cover" ? "xMidYMid slice" :
-                backgroundFit === "fill" ? "none" :
-                "xMidYMid meet"
+                "none"
               }
               pointerEvents="none"
             />

@@ -7,16 +7,17 @@
 Issue:        #88 — design: specify responsive sizing, fit, positioning, and attachment semantics
 Branch:       feat/88-responsive-semantics
 Started:      2026-09-04
-Last commit:  fb48e18  feat: define renderer container sizing modes
+Last commit:  (pending)  feat: add aligned background focal points
 
 ### What's done
 - Added an explicit fixed/fluid-width/fill-container renderer sizing contract with legacy flag inference.
 - Documented host CSS requirements and world-versus-viewport attachment semantics.
 - Added automated coverage for each sizing mode and legacy behavior; all package checks pass.
+- Added normalized background alignment/focal points with editor controls and matching editor/runtime geometry.
+- Covered zero-size, wide, tall, mobile, touch, and reduced-motion behavior; browser golden path passes without console errors.
 
 ### What's next
-- Exercise and automate ResizeObserver behavior across zero-size, wide, tall, and mobile hosts.
-- Decide and implement background alignment/focal-point data after checking editor/runtime parity.
+- Open, verify, and merge the PR; then clear the active handoff.
 
 ### Notes / gotchas
 - Host-selected task #89 was already completed by PR #92; continued with the highest-priority ready task.

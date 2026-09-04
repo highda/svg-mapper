@@ -357,6 +357,7 @@ class Renderer implements ClickMapInstance {
 
     this.renderBackground(view);
     this.renderAreas(view);
+    this.svgEl.style.touchAction = view.viewport.panEnabled ? "none" : "auto";
     this.renderBackButton(view);
     this.renderSceneSwitcher();
     this.renderZoomControls();
@@ -387,22 +388,26 @@ class Renderer implements ClickMapInstance {
       : asset.src;
     image.setAttribute("href", src);
 
+    const position = view.background.position ?? { x: 0.5, y: 0.5 };
+    const positionX = Math.max(0, Math.min(1, position.x));
+    const positionY = Math.max(0, Math.min(1, position.y));
+    let imageWidth = width;
+    let imageHeight = height;
     if (fit === "none") {
-      image.setAttribute("x", String((width - asset.width) / 2));
-      image.setAttribute("y", String((height - asset.height) / 2));
-      image.setAttribute("width", String(asset.width));
-      image.setAttribute("height", String(asset.height));
-      image.setAttribute("preserveAspectRatio", "xMidYMid meet");
-    } else {
-      image.setAttribute("x", "0");
-      image.setAttribute("y", "0");
-      image.setAttribute("width", String(width));
-      image.setAttribute("height", String(height));
-      image.setAttribute(
-        "preserveAspectRatio",
-        fit === "cover" ? "xMidYMid slice" : fit === "fill" ? "none" : "xMidYMid meet"
-      );
+      imageWidth = asset.width;
+      imageHeight = asset.height;
+    } else if (fit !== "fill" && asset.width > 0 && asset.height > 0) {
+      const scale = fit === "cover"
+        ? Math.max(width / asset.width, height / asset.height)
+        : Math.min(width / asset.width, height / asset.height);
+      imageWidth = asset.width * scale;
+      imageHeight = asset.height * scale;
     }
+    image.setAttribute("x", String((width - imageWidth) * positionX));
+    image.setAttribute("y", String((height - imageHeight) * positionY));
+    image.setAttribute("width", String(imageWidth));
+    image.setAttribute("height", String(imageHeight));
+    image.setAttribute("preserveAspectRatio", "none");
 
     backgroundSvg.appendChild(image);
     this.bgEl.appendChild(backgroundSvg);

@@ -222,9 +222,17 @@ export interface Layer {
 
 export type BackgroundFit = "contain" | "cover" | "fill" | "none";
 
+/** Normalized object-position. 0 is left/top and 1 is right/bottom. */
+export interface BackgroundPosition {
+  x: number;
+  y: number;
+}
+
 export interface ViewBackground {
   assetId: string;
   fit: BackgroundFit;
+  /** Alignment/focal point used by contain, cover, and intrinsic-size backgrounds. */
+  position?: BackgroundPosition;
 }
 
 export interface Viewport {
