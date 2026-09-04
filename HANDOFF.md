@@ -4,8 +4,20 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #88 — design: specify responsive sizing, fit, positioning, and attachment semantics
+Branch:       feat/88-responsive-semantics
+Started:      2026-09-04
+Last commit:  (claim pending)
+
+### What's done
+- Claimed the task and recovered the acceptance criteria.
+
+### What's next
+- Audit current sizing, fit, positioning, and attachment behavior; define the normative contract.
+- Implement the highest-value contract gaps and add resize/alignment coverage.
+
+### Notes / gotchas
+- Host-selected task #89 was already completed by PR #92; continued with the highest-priority ready task.
 
 ---
 
