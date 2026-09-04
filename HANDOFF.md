@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #105 — editor: duplicate layers with remapped unique IDs
+Branch:       feat/105-duplicate-layers
+Started:      2026-09-04
+Last commit:  (claim pending)
+
+### What's done
+- Claimed the issue and began implementation discovery.
+
+### What's next
+- Add duplicate-layer state behavior, responsive UI, tests, and browser verification.
+
+### Notes / gotchas
+- Duplication must remain one history operation and preserve internal versus project-level references correctly.
 
 ---
 
