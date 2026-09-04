@@ -229,8 +229,9 @@ class Renderer implements ClickMapInstance {
     this.container = container;
 
     this.currentViewId = def.settings.initialViewId;
-    this.viewW = def.settings.canvasSize.width;
-    this.viewH = def.settings.canvasSize.height;
+    const initialView = def.views.find((view) => view.id === this.currentViewId) ?? def.views[0];
+    this.viewW = initialView?.canvas.width ?? 1;
+    this.viewH = initialView?.canvas.height ?? 1;
 
     // Choropleth initial data
     if (options.choropleth) {
@@ -354,6 +355,8 @@ class Renderer implements ClickMapInstance {
     this.hoveredId = null;
     this.hideTooltip();
     this.closePopover();
+    this.viewW = view.canvas.width;
+    this.viewH = view.canvas.height;
 
     this.renderBackground(view);
     this.renderAreas(view);
@@ -376,7 +379,7 @@ class Renderer implements ClickMapInstance {
     if (!asset) return;
 
     const fit = view.background.fit ?? "contain";
-    const { width, height } = this.def.settings.canvasSize;
+    const { width, height } = view.canvas;
     const backgroundSvg = svgEl<SVGSVGElement>("svg");
     backgroundSvg.setAttribute("class", "clickmap-bg-svg");
     backgroundSvg.setAttribute("aria-hidden", "true");
@@ -417,7 +420,7 @@ class Renderer implements ClickMapInstance {
   private renderAreas(view: View) {
     this.svgEl.innerHTML = "";
 
-    const { width, height } = this.def.settings.canvasSize;
+    const { width, height } = view.canvas;
     const pad = this.def.settings.padding;
     if (pad) {
       this.svgEl.setAttribute(
@@ -662,7 +665,9 @@ class Renderer implements ClickMapInstance {
   }
 
   private resetZoom() {
-    const { width, height } = this.def.settings.canvasSize;
+    const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
+    if (!view) return;
+    const { width, height } = view.canvas;
     const pad = this.def.settings.padding;
     this.currentViewBox = pad
       ? { x: -pad.left, y: -pad.top, w: width + pad.left + pad.right, h: height + pad.top + pad.bottom }
@@ -733,7 +738,9 @@ class Renderer implements ClickMapInstance {
 
   private isZoomedIn() {
     if (!this.currentViewBox) return false;
-    const { width, height } = this.def.settings.canvasSize;
+    const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
+    if (!view) return false;
+    const { width, height } = view.canvas;
     const pad = this.def.settings.padding;
     const initialWidth = width + (pad?.left ?? 0) + (pad?.right ?? 0);
     const initialHeight = height + (pad?.top ?? 0) + (pad?.bottom ?? 0);

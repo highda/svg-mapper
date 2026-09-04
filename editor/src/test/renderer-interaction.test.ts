@@ -113,6 +113,27 @@ describe("renderer interaction model", () => {
     expect(document.querySelector<HTMLElement>(".clickmap-view")?.style.opacity).toBe("");
   });
 
+  it("switches sizing and map coordinates with each view", async () => {
+    const project = createNewProject();
+    project.settings.sizingMode = "fixed";
+    project.views.push({
+      ...project.views[0],
+      id: "view_portrait",
+      name: "Portrait",
+      slug: "portrait",
+      canvas: { width: 400, height: 900 },
+      layers: [],
+    });
+    const instance = create({ container: "#map", definition: toDefinition(project) });
+
+    expect(document.querySelector<HTMLElement>(".clickmap-root")?.style.width).toBe("1600px");
+    instance.goToView("view_portrait");
+    await new Promise((resolve) => setTimeout(resolve, 160));
+    expect(document.querySelector<HTMLElement>(".clickmap-root")?.style.width).toBe("400px");
+    expect(document.querySelector<HTMLElement>(".clickmap-root")?.style.height).toBe("900px");
+    expect(document.querySelector<SVGSVGElement>(".clickmap-areas")?.getAttribute("viewBox")).toBe("0 0 400 900");
+  });
+
   it("isolates renderer DOM and styles in an optional shadow root", () => {
     const project = createNewProject();
     const host = document.querySelector<HTMLElement>("#map")!;
@@ -231,7 +252,7 @@ describe("renderer interaction model", () => {
 
   it("uses background position as contain alignment and cover focal point", () => {
     const project = createNewProject();
-    project.settings.canvasSize = { width: 1000, height: 500 };
+    project.views[0]!.canvas = { width: 1000, height: 500 };
     project.assets = [{ id: "asset_1", name: "Portrait", type: "image/png", src: "portrait.png", inline: false, width: 500, height: 1000 }];
     project.views[0].background = { assetId: "asset_1", fit: "cover", position: { x: 0, y: 1 } };
     create({ container: "#map", definition: toDefinition(project) });

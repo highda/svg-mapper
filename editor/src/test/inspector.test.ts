@@ -32,6 +32,15 @@ describe("store: addView", () => {
     useStore.getState().addView();
     expect(useStore.getState().past).toHaveLength(1);
   });
+
+  it("starts with the active view dimensions but remains independent", () => {
+    useStore.getState().setCanvasSize(1200, 700);
+    useStore.getState().addView();
+    useStore.getState().setCanvasSize(400, 900);
+    const [first, second] = useStore.getState().project.views;
+    expect(first.canvas).toEqual({ width: 1200, height: 700 });
+    expect(second.canvas).toEqual({ width: 400, height: 900 });
+  });
 });
 
 describe("store: renameView", () => {
@@ -83,9 +92,9 @@ describe("store: deleteView", () => {
 describe("store: setCanvasSize", () => {
   beforeEach(resetStore);
 
-  it("updates the shared canvas size for all views", () => {
+  it("updates only the active view canvas size", () => {
     useStore.getState().setCanvasSize(1280, 720);
-    const { canvasSize } = useStore.getState().project.settings;
+    const canvasSize = useStore.getState().project.views[0]!.canvas;
     expect(canvasSize.width).toBe(1280);
     expect(canvasSize.height).toBe(720);
   });

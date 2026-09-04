@@ -43,8 +43,7 @@
         "assetId": "asset_main_campus_svg",
         "fit": "contain"
       },
-      "width": 800,
-      "height": 500,
+      "canvas": { "width": 800, "height": 500 },
       "viewport": {
         "minZoom": 1,
         "maxZoom": 4,
@@ -204,8 +203,7 @@
         "assetId": "asset_building_a_floor1_svg",
         "fit": "contain"
       },
-      "width": 800,
-      "height": 500,
+      "canvas": { "width": 800, "height": 500 },
       "viewport": {
         "minZoom": 1,
         "maxZoom": 4,

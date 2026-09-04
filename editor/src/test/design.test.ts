@@ -187,7 +187,7 @@ describe("store: canvas size suggestion", () => {
 
     useStore.getState().setCanvasSize(1200, 800);
     useStore.getState().dismissCanvasSizeSuggestion();
-    expect(useStore.getState().project.settings.canvasSize).toEqual({ width: 1200, height: 800 });
+    expect(useStore.getState().project.views[0]!.canvas).toEqual({ width: 1200, height: 800 });
     expect(useStore.getState().canvasSizeSuggestion).toBeNull();
   });
 

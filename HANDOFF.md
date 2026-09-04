@@ -4,8 +4,21 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #85 — product: replace the global canvas with per-view coordinate spaces
+Branch:       feat/85-per-view-coordinate-spaces
+Started:      2026-09-04
+Last commit:  8138599  chore: hand off #88 — done
+
+### What's done
+- Claimed the issue and created the working branch.
+
+### What's next
+- Move the canonical canvas dimensions from project settings onto each view.
+- Update editor, renderer, fixtures, tests, export, and documentation together.
+- Exercise the full editor/renderer flow in a browser.
+
+### Notes / gotchas
+- Existing JSON is development data; issue #85 explicitly forbids migration or a dual-field fallback.
 
 ---
 

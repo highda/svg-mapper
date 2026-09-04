@@ -85,6 +85,13 @@ describe("validateProject — errors", () => {
     const results = validateProject(def);
     expect(results.some((r) => r.code === "NO_VIEWS")).toBe(true);
   });
+
+  it("flags invalid canvas dimensions on the affected view", () => {
+    const def = baseDef();
+    def.views[0].canvas.width = 0;
+    const result = validateProject(def).find((entry) => entry.code === "INVALID_CANVAS_SIZE");
+    expect(result?.ref?.viewId).toBe(def.views[0].id);
+  });
 });
 
 describe("validateProject — warnings", () => {

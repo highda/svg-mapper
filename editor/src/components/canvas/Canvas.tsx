@@ -122,8 +122,10 @@ export function Canvas() {
 
   const spaceHeld = useRef(false);
 
-  const canvasSize = project.settings.canvasSize;
   const view = project.views.find((v) => v.id === activeViewId);
+  const canvasWidth = Number(view?.canvas.width ?? 1);
+  const canvasHeight = Number(view?.canvas.height ?? 1);
+  const canvasSize = { width: canvasWidth, height: canvasHeight };
   const backgroundAsset = view?.background
     ? project.assets.find((a) => a.id === view.background!.assetId)
     : undefined;
@@ -194,7 +196,7 @@ export function Canvas() {
         if (!svg) return;
         const { width: svgW, height: svgH } = svg.getBoundingClientRect();
         const { selectedAreaId: saId, project: proj } = useStore.getState();
-        const cv = proj.settings.canvasSize;
+        const cv = proj.views.find((candidate) => candidate.id === useStore.getState().activeViewId)?.canvas ?? { width: 1, height: 1 };
         let bounds = { x: 0, y: 0, width: cv.width, height: cv.height };
         if (saId) {
           const selectedArea = proj.views
@@ -297,7 +299,8 @@ export function Canvas() {
     setEditorState,
     panX,
     panY,
-    canvasSize,
+    canvasWidth,
+    canvasHeight,
   ]);
 
   // ── Pointer events ────────────────────────────────────────────────────────
@@ -306,17 +309,14 @@ export function Canvas() {
     x: number; y: number; width: number; height: number;
   } | null>(null);
 
-  const toContent = useCallback(
-    (svgPt: { x: number; y: number }) => {
-      const svg = svgRef.current;
-      if (!svg) return { x: 0, y: 0 };
-      const pt = contentPoint(svgPt, svg, panX, panY, zoom);
-      // Shift from centered-canvas space to view-local space (0,0 = view top-left).
-      // The renderer's SVG viewBox uses top-left origin; areas must match.
-      return { x: pt.x + canvasSize.width / 2, y: pt.y + canvasSize.height / 2 };
-    },
-    [panX, panY, zoom, canvasSize.width, canvasSize.height],
-  );
+  function toContent(svgPt: { x: number; y: number }) {
+    const svg = svgRef.current;
+    if (!svg) return { x: 0, y: 0 };
+    const pt = contentPoint(svgPt, svg, panX, panY, zoom);
+    // Shift from centered-canvas space to view-local space (0,0 = view top-left).
+    // The renderer's SVG viewBox uses top-left origin; areas must match.
+    return { x: pt.x + canvasWidth / 2, y: pt.y + canvasHeight / 2 };
+  }
 
   function onSvgPointerDown(e: React.PointerEvent<SVGSVGElement>) {
     // Give the SVG keyboard focus so shortcuts work even after clicking inspector inputs.

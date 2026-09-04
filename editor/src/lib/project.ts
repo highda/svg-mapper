@@ -8,11 +8,12 @@ function makeId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export function createDefaultView(): View {
+export function createDefaultView(canvas = { width: 1600, height: 900 }): View {
   return {
     id: makeId("view"),
     name: "Main View",
     slug: "main-view",
+    canvas: { ...canvas },
     viewport: {
       minZoom: 1,
       maxZoom: 4,
@@ -34,7 +35,6 @@ export function createNewProject(name = "Untitled Map"): ProjectFile {
   const defaultView = createDefaultView();
   const settings: Settings = {
     initialViewId: defaultView.id,
-    canvasSize: { width: 1600, height: 900 },
     responsive: true,
     maintainAspectRatio: true,
     sizingMode: "fluid-width",

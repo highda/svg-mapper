@@ -179,7 +179,7 @@ function StyleStateEditor({
 
 function ViewInspector({ view }: { view: View }) {
   const { renameView, setCanvasSize, project, setViewBackground, setViewBackgroundFit, setViewBackgroundPosition, updateSettings, setEditorState } = useStore();
-  const canvasSize = project.settings.canvasSize;
+  const canvasSize = view.canvas;
   const grid = project.editor?.grid ?? { enabled: false, size: 10 };
 
   function handleAssetChange(e: React.ChangeEvent<HTMLSelectElement>) {
@@ -242,7 +242,7 @@ function ViewInspector({ view }: { view: View }) {
       </Row>
 
       <SectionHeader title="Canvas Size" />
-      <p className="text-[10px] text-neutral-600 -mt-1">Shared across all views.</p>
+      <p className="text-[10px] text-neutral-600 -mt-1">Independent for this view.</p>
       <Row label="Width">
         <NumberField
           defaultValue={canvasSize.width}
