@@ -37,6 +37,7 @@ export function createNewProject(name = "Untitled Map"): ProjectFile {
     canvasSize: { width: 1600, height: 900 },
     responsive: true,
     maintainAspectRatio: true,
+    sizingMode: "fluid-width",
     theme: "default",
     enableHistory: true,
     enableKeyboardNavigation: true,

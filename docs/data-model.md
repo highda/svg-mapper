@@ -24,9 +24,23 @@ The editor validates only a small structural minimum when opening JSON (`schemaV
 
 ## Settings
 
-Required settings are `initialViewId`, `canvasSize: {width,height}`, `responsive`, `maintainAspectRatio`, `theme`, `enableHistory`, and `enableKeyboardNavigation`.
+Required settings are `initialViewId`, `canvasSize: {width,height}`, `responsive`, `maintainAspectRatio`, `theme`, `enableHistory`, and `enableKeyboardNavigation`. New files also write `sizingMode`; the legacy booleans remain readable for schema 1.0 compatibility.
 
 Optional settings include `contentTemplate` (sanitized HTML with `{{name}}`, `{{id}}`, `{{viewName}}`, or `{{metadata.key}}`), `areaLabels`, `sceneSwitcher`, `zoomControls`, and canvas-unit `padding`.
+
+### Container sizing
+
+Container sizing and scene coordinates are separate. `sizingMode` controls only the renderer's CSS box; the SVG viewBox, background, areas, and pan/zoom remain in canvas coordinates.
+
+| Mode | Renderer width | Renderer height | Required host CSS |
+| --- | --- | --- | --- |
+| `fixed` | `canvasSize.width` CSS px | `canvasSize.height` CSS px | Make that space available or deliberately allow overflow. |
+| `fluid-width` | 100% of host | Derived from the canvas aspect ratio | Give the host a nonzero width. Height is owned by the renderer. |
+| `fill-container` | 100% of host | 100% of host | Give the host an explicit, nonzero height (and width). |
+
+When `sizingMode` is absent, `responsive: false` means `fixed`; `responsive: true` with `maintainAspectRatio: true` means `fluid-width`; and responsive without maintained aspect ratio means `fill-container`. A zero-size host is valid during initialization: the `ResizeObserver` leaves the scene mounted and it becomes usable when the host gains size.
+
+Backgrounds and areas are world-attached: they share a viewBox and pan/zoom together. Renderer controls, popovers, and tooltips are viewport-attached HTML overlays: they stay fixed to the renderer box and are not map coordinates. Future scene elements must declare the same world-versus-viewport distinction rather than borrowing CSS `background-attachment` semantics.
 
 ## Assets, views, and layers
 

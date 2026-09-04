@@ -18,7 +18,7 @@ The export supplies a dependency-free browser script. Loading it creates the glo
 
 `create(options)` returns an instance immediately. Supply exactly one of `definition` (an already parsed object) or `definitionUrl` (fetched asynchronously). With a URL, operations and subscriptions made before loading completes are queued; `getDefinition()` throws and `getCurrentView()` returns an empty string until then. Listen for `ready` before reading state. Fetches follow normal browser CORS rules.
 
-`container` accepts a CSS selector or `HTMLElement`. Give it a useful width; renderer layout derives its height from the project canvas ratio.
+`container` accepts a CSS selector or `HTMLElement`. Its CSS requirement depends on `settings.sizingMode`: `fixed` needs enough room for the canvas pixel size, `fluid-width` needs a nonzero width and derives height from the canvas ratio, and `fill-container` needs explicit nonzero width and height. See the data-model sizing truth table. Initialization in a zero-size container is supported; the renderer remains mounted until a later resize.
 
 ## Options
 
@@ -70,4 +70,3 @@ map.on("area:click", selected);
 A `customEvent` area action additionally dispatches a native `CustomEvent` on `window`; its configured payload is `event.detail`.
 
 Interactive areas support pointer input and Enter/Space keyboard activation unless disabled. Tooltip and popup HTML is sanitized. Users can zoom and, where enabled, hold Space and drag to pan.
-

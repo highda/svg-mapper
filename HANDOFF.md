@@ -7,17 +7,20 @@
 Issue:        #88 — design: specify responsive sizing, fit, positioning, and attachment semantics
 Branch:       feat/88-responsive-semantics
 Started:      2026-09-04
-Last commit:  (claim pending)
+Last commit:  37ca9ed  chore: claim #88 — responsive-semantics
 
 ### What's done
-- Claimed the task and recovered the acceptance criteria.
+- Added an explicit fixed/fluid-width/fill-container renderer sizing contract with legacy flag inference.
+- Documented host CSS requirements and world-versus-viewport attachment semantics.
+- Added automated coverage for each sizing mode and legacy behavior; all package checks pass.
 
 ### What's next
-- Audit current sizing, fit, positioning, and attachment behavior; define the normative contract.
-- Implement the highest-value contract gaps and add resize/alignment coverage.
+- Exercise and automate ResizeObserver behavior across zero-size, wide, tall, and mobile hosts.
+- Decide and implement background alignment/focal-point data after checking editor/runtime parity.
 
 ### Notes / gotchas
 - Host-selected task #89 was already completed by PR #92; continued with the highest-priority ready task.
+- Viewport-attached scene elements depend on first-class scene content (#86); existing controls, tooltips, and popovers already provide viewport-attached behavior.
 
 ---
 

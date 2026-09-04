@@ -1297,14 +1297,18 @@ class Renderer implements ClickMapInstance {
   // -------------------------------------------------------------------------
 
   private updateScale() {
-    if (
-      !this.def.settings.maintainAspectRatio ||
-      this.viewW === 0 ||
-      this.viewH === 0
-    ) {
-      this.viewEl.style.removeProperty("aspect-ratio");
-    } else {
+    const { settings } = this.def;
+    const mode = settings.sizingMode ??
+      (settings.responsive ? (settings.maintainAspectRatio ? "fluid-width" : "fill-container") : "fixed");
+    this.root.dataset.sizing = mode;
+    this.root.style.width = mode === "fixed" ? `${this.viewW}px` : "100%";
+    this.root.style.height = mode === "fixed" ? `${this.viewH}px` : mode === "fill-container" ? "100%" : "auto";
+    this.viewEl.style.width = "100%";
+    this.viewEl.style.height = mode === "fill-container" ? "100%" : "auto";
+    if (mode === "fluid-width" && this.viewW > 0 && this.viewH > 0) {
       this.viewEl.style.aspectRatio = `${this.viewW} / ${this.viewH}`;
+    } else {
+      this.viewEl.style.removeProperty("aspect-ratio");
     }
     if (this.def.settings.areaLabels?.enabled && this.def.settings.areaLabels.hideWhenSmaller !== false) {
       this.updateLabelVisibility();

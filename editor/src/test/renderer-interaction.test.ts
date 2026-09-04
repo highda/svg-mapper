@@ -40,6 +40,31 @@ function areaElement(id: string): SVGElement {
 }
 
 describe("renderer interaction model", () => {
+  it.each([
+    ["fixed", "1600px", "900px", ""],
+    ["fluid-width", "100%", "auto", "1600 / 900"],
+    ["fill-container", "100%", "100%", ""],
+  ] as const)("applies the %s container sizing contract", (mode, width, height, ratio) => {
+    const project = createNewProject();
+    project.settings.sizingMode = mode;
+    create({ container: "#map", definition: toDefinition(project) });
+
+    const root = document.querySelector<HTMLElement>(".clickmap-root")!;
+    const view = document.querySelector<HTMLElement>(".clickmap-view")!;
+    expect(root.dataset.sizing).toBe(mode);
+    expect(root.style.width).toBe(width);
+    expect(root.style.height).toBe(height);
+    expect(view.style.aspectRatio).toBe(ratio);
+  });
+
+  it("maps legacy responsive flags to the explicit sizing modes", () => {
+    const project = createNewProject();
+    delete project.settings.sizingMode;
+    project.settings.responsive = false;
+    create({ container: "#map", definition: toDefinition(project) });
+    expect(document.querySelector<HTMLElement>(".clickmap-root")!.dataset.sizing).toBe("fixed");
+  });
+
   it("isolates renderer DOM and styles in an optional shadow root", () => {
     const project = createNewProject();
     const host = document.querySelector<HTMLElement>("#map")!;

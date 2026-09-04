@@ -315,12 +315,15 @@ export interface ZoomControlsSettings {
 // ---------------------------------------------------------------------------
 
 export type ThemeName = "default" | string;
+export type ContainerSizingMode = "fixed" | "fluid-width" | "fill-container";
 
 export interface Settings {
   initialViewId: string;
   canvasSize: { width: number; height: number };
   responsive: boolean;
   maintainAspectRatio: boolean;
+  /** Explicit host-container sizing contract. Legacy files infer this from responsive flags. */
+  sizingMode?: ContainerSizingMode;
   theme: ThemeName;
   enableHistory: boolean;
   enableKeyboardNavigation: boolean;
@@ -494,4 +497,3 @@ export interface ClickMapInstance {
     callback: (event: Extract<ClickMapEvent, { type: T }>) => void
   ): void;
 }
-
