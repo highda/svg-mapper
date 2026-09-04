@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #103 — Fix mobile Export workspace overflow
+Branch:       feat/103-mobile-export-layout
+Started:      2026-09-04
+Last commit:  8878516  chore: hand off #99 — done
+
+### What's done
+- Completion review reproduced and documented the mobile Export overflow.
+
+### What's next
+- Hide the nonessential Inspector on narrow Export layouts, harden Export content wrapping, and add regression coverage.
+
+### Notes / gotchas
+- At 390x844, the Inspector leaves too little width for warnings, actions, and code.
 
 ---
 

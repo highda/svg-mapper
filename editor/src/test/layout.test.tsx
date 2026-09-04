@@ -64,4 +64,13 @@ describe("primary editor navigation", () => {
     expect(option).toBeDisabled();
     expect(screen.getByLabelText(`${target.name}, locked`)).toBeInTheDocument();
   });
+
+  it("gives Export the full narrow viewport while retaining the desktop inspector", () => {
+    useStore.getState().setScreen("export");
+    render(<App />);
+
+    expect(screen.getByRole("complementary", { name: "Inspector" })).toHaveClass("hidden", "md:flex");
+    expect(screen.getByTestId("export-screen").firstElementChild).toHaveClass("min-w-0", "p-4", "sm:p-6");
+    expect(screen.getByRole("button", { name: "Download ZIP" }).parentElement?.parentElement).toHaveClass("flex-wrap");
+  });
 });
