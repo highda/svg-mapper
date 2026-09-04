@@ -1,9 +1,9 @@
 # Product reassessment
 
 Status date: 2026-09-04. This document describes the product that exists, the
-important mismatches discovered after the nominal MVP completion, and the next
-product direction. `ASSIGNMENT.md` remains the original brief; this file is the
-bridge between that brief and implementation work.
+important mismatches discovered after the nominal MVP completion, and the
+image-first direction delivered by roadmap #90. `ASSIGNMENT.md` remains the
+original brief; this file records the decisions that guided the implementation.
 
 ## Product thesis
 
@@ -25,9 +25,12 @@ JSON, and export a portable ZIP. The renderer supports navigation, labels,
 tooltips/popovers, events, choropleths, zoom controls, keyboard interaction,
 deep links, and optional Shadow DOM isolation.
 
-Automated baseline on this date: 137 tests pass; shared, renderer, and editor
-typechecks pass; lint and production builds pass. This is evidence of internal
-consistency, not evidence of usability. No recorded human test pass exists.
+Integrated baseline on this date: 187 tests pass; shared, renderer, and editor
+typechecks pass; lint and production builds pass. The documented desktop and
+390×844 browser smoke paths for Design, Tree, Preview, and Export complete
+without console errors or horizontal overflow. The repeatable fixture matrix in
+`examples/qa-gallery/` and `docs/human-test-plan.md` remains the standard for
+deeper human visual review.
 
 ## Findings that change the roadmap
 
@@ -110,7 +113,7 @@ Scene fit and scene attachment are independent of container sizing. Responsive
 tests must resize both width and height, include zero-size initialization, and
 exercise mouse, touch, and keyboard paths.
 
-## Sequenced roadmap
+## Delivered roadmap
 
 1. Establish coordinate correctness and editor/runtime fit parity (#84).
 2. Specify responsive sizing and world/viewport attachment (#88).
@@ -119,11 +122,11 @@ exercise mouse, touch, and keyboard paths.
 5. Add progressive image-shaped hit testing (#87).
 6. Maintain a fixture gallery and recorded human QA pass (#89).
 
-The umbrella direction is #90. New work should update this document when it
-changes a product decision, and update `docs/data-model.md` when it changes the
-wire format.
+All six workstreams were delivered under umbrella #90. New work should update
+this document when it changes a product decision, and update
+`docs/data-model.md` when it changes the wire format.
 
-## Deliberate non-goals for the next slice
+## Deliberate non-goals
 
 - A hosted database, accounts, or proprietary publication service.
 - Runtime image analysis on every pointer event.
