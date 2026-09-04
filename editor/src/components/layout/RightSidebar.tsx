@@ -18,6 +18,7 @@ import type {
 import { useState } from "react";
 import { useStore } from "../../store";
 import { validateActionUrl } from "../../lib/url-validate";
+import { createAlphaHitMask, MAX_ALPHA_MASK_DIMENSION } from "../../lib/alpha-mask";
 
 // ---------------------------------------------------------------------------
 // Shared primitives
@@ -890,6 +891,40 @@ function InteractionEditor({ areaId, area }: { areaId: string; area: { trigger?:
   );
 }
 
+function ImageRegionEditor({ area }: { area: import("@svg-mapper/shared").Area }) {
+  const { project, updateAreaImage } = useStore();
+  const [threshold, setThreshold] = useState(area.image?.hitMask?.threshold ?? 0.2);
+  const [error, setError] = useState("");
+  if (area.geometry.type !== "rect") return <p className="text-[10px] text-neutral-500">Image regions require rectangle geometry.</p>;
+  const asset = area.image ? project.assets.find((candidate) => candidate.id === area.image?.assetId) : undefined;
+  async function generate() {
+    if (!asset) return;
+    try {
+      setError("");
+      const hitMask = await createAlphaHitMask(asset, threshold);
+      updateAreaImage(area.id, { assetId: asset.id, hitMask });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not read image pixels; using rectangular fallback.");
+      updateAreaImage(area.id, { assetId: asset.id });
+    }
+  }
+  return <div className="space-y-1.5">
+    <Row label="Visual">
+      <select aria-label="Area image" value={area.image?.assetId ?? ""} onChange={(event) => updateAreaImage(area.id, event.target.value ? { assetId: event.target.value } : undefined)} className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200">
+        <option value="">— none —</option>
+        {project.assets.filter((candidate) => candidate.type !== "image/svg+xml" && candidate.type !== "image/jpeg").map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}
+      </select>
+    </Row>
+    {asset && <>
+      <Row label="Threshold"><input aria-label="Alpha threshold" type="range" min="0" max="1" step="0.05" value={threshold} onChange={(event) => setThreshold(Number(event.target.value))} className="w-full" /></Row>
+      <button type="button" onClick={generate} className="w-full rounded bg-blue-700 px-2 py-1 text-xs text-white hover:bg-blue-600">Generate alpha mask</button>
+      <p className="text-[10px] text-neutral-500">{area.image?.hitMask ? `${area.image.hitMask.width}×${area.image.hitMask.height} cached mask` : `Rectangle fallback · max ${MAX_ALPHA_MASK_DIMENSION}px`}</p>
+      {area.image?.hitMask && <CheckToggle checked={area.image.hitMask.debug ?? false} onChange={(debug) => updateAreaImage(area.id, { ...area.image!, hitMask: { ...area.image!.hitMask!, debug } })} label="Show mask overlay" />}
+      {error && <p role="alert" className="text-[10px] text-amber-400">{error}</p>}
+    </>}
+  </div>;
+}
+
 function MetadataEditor({ areaId, metadata }: { areaId: string; metadata: Record<string, unknown> | undefined }) {
   const { updateAreaMetadata } = useStore();
   const [newKey, setNewKey] = useState("");
@@ -1072,6 +1107,9 @@ function AreaInspector() {
 
       <SectionHeader title="Interaction" />
       <InteractionEditor areaId={a.id} area={a} />
+
+      <SectionHeader title="Image region" />
+      <ImageRegionEditor area={a} />
 
       <SectionHeader title="Label" />
       <LabelEditor areaId={a.id} label={a.label} />

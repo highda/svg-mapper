@@ -105,6 +105,7 @@ export interface AppState {
   updateAreaMetadata: (areaId: string, metadata: Record<string, unknown>) => void;
   updateAreaInteraction: (areaId: string, patch: { trigger?: AreaTrigger; alwaysHighlight?: boolean; disabled?: boolean }) => void;
   updateAreaLabel: (areaId: string, label: AreaLabel | undefined) => void;
+  updateAreaImage: (areaId: string, image: Area["image"]) => void;
   deleteArea: (areaId: string) => void;
   duplicateArea: (areaId: string) => void;
 
@@ -661,6 +662,15 @@ export const useStore = create<AppState>()(
         pushHistory(s);
         (s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx] as Area).label =
           label as typeof s.project.views[0]["layers"][0]["areas"][0]["label"];
+      });
+    },
+
+    updateAreaImage(areaId: string, image: Area["image"]) {
+      set((s) => {
+        const loc = findAreaLocation(s.project.views as unknown as View[], areaId);
+        if (!loc) return;
+        pushHistory(s);
+        (s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx] as Area).image = image;
       });
     },
 

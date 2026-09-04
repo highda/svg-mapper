@@ -157,6 +157,7 @@ class Renderer implements ClickMapInstance {
   private viewW = 1;
   private viewH = 1;
   private hoveredId: string | null = null;
+  private alphaMaskBytes = new Map<string, string>();
 
   // Choropleth
   private choroplethData: Map<string, number> = new Map();
@@ -445,6 +446,8 @@ class Renderer implements ClickMapInstance {
       g.setAttribute("data-layer-id", layer.id);
 
       for (const area of layer.areas) {
+        const visual = this.makeAreaImageEl(area);
+        if (visual) g.appendChild(visual);
         const el = this.makeAreaEl(area);
         if (el) g.appendChild(el);
       }
@@ -822,6 +825,21 @@ class Renderer implements ClickMapInstance {
     return shape;
   }
 
+  private makeAreaImageEl(area: Area): SVGImageElement | null {
+    if (!area.image || area.geometry.type !== "rect") return null;
+    const asset = this.def.assets.find((candidate) => candidate.id === area.image!.assetId);
+    if (!asset) return null;
+    const image = svgEl<SVGImageElement>("image");
+    image.setAttribute("href", asset.src);
+    image.setAttribute("x", String(area.geometry.x));
+    image.setAttribute("y", String(area.geometry.y));
+    image.setAttribute("width", String(area.geometry.width));
+    image.setAttribute("height", String(area.geometry.height));
+    image.setAttribute("preserveAspectRatio", "none");
+    image.setAttribute("pointer-events", "none");
+    return image;
+  }
+
   private makeDisabledStyle(base: AreaStyleState): AreaStyleState {
     return { ...base, fill: "#9ca3af", stroke: "#6b7280", strokeWidth: base.strokeWidth };
   }
@@ -952,7 +970,33 @@ class Renderer implements ClickMapInstance {
     const area = this.findAreaInCurrentView(id);
     if (!area) return null;
     if (area.disabled) return null;
+    if (e instanceof MouseEvent && !this.alphaMaskContains(area, e.clientX, e.clientY)) return null;
     return { area, el };
+  }
+
+  private alphaMaskContains(area: Area, clientX: number, clientY: number): boolean {
+    const mask = area.image?.hitMask;
+    if (!mask || area.geometry.type !== "rect") return true;
+    const point = this.svgEl.createSVGPoint();
+    point.x = clientX;
+    point.y = clientY;
+    const matrix = this.svgEl.getScreenCTM();
+    if (!matrix) return true;
+    const local = point.matrixTransform(matrix.inverse());
+    const col = Math.floor(((local.x - area.geometry.x) / area.geometry.width) * mask.width);
+    const row = Math.floor(((local.y - area.geometry.y) / area.geometry.height) * mask.height);
+    if (col < 0 || row < 0 || col >= mask.width || row >= mask.height) return false;
+    try {
+      let binary = this.alphaMaskBytes.get(mask.data);
+      if (binary === undefined) {
+        binary = atob(mask.data);
+        this.alphaMaskBytes.set(mask.data, binary);
+      }
+      const index = row * mask.width + col;
+      return ((binary.charCodeAt(index >> 3) >> (index & 7)) & 1) !== 0;
+    } catch {
+      return true;
+    }
   }
 
   private findAreaInCurrentView(areaId: string): Area | null {
