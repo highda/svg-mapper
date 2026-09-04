@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #105 — editor: duplicate layers with remapped unique IDs
-Branch:       feat/105-duplicate-layers
-Started:      2026-09-04
-Last commit:  (claim pending)
-
-### What's done
-- Claimed the issue and began implementation discovery.
-
-### What's next
-- Add duplicate-layer state behavior, responsive UI, tests, and browser verification.
-
-### Notes / gotchas
-- Duplication must remain one history operation and preserve internal versus project-level references correctly.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-04 — closed #105 — added adjacent deep layer duplication with collision-safe IDs, internal reference remapping, history, persistence, and responsive UI coverage; PR #106.
 - 2026-09-04 — closed #103 — made Export fit and complete downloads cleanly at 390x844 while retaining the desktop Inspector; PR #104.
 - 2026-09-04 — closed #99 — added accessible exact CSS color, picker, opacity, validation, and responsive controls for every area style state; PR #102.
 - 2026-09-04 — closed #100 — added exact-index area drag/drop and keyboard movement across layers and views with locked-state, history, and persistence coverage; PR #101.
