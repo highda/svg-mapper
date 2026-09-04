@@ -4,24 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #87 — support image-shaped interactive regions with progressive alpha hit testing
-Branch:       feat/87-alpha-hit-testing
-Started:      2026-09-04
-Last commit:  19c55a2  chore: hand off #85 — done
-
-### What's done
-- Claimed the host-selected task and established its implementation branch.
-
-### What's next
-- Inspect the current image/area model, editor preview, renderer hit testing, and export path.
-- Implement and verify the highest-value coherent slice of alpha-mask interaction.
-
-### Notes / gotchas
-- Alpha preprocessing must be deterministic at export time and degrade to rectangular hit testing when pixels are unavailable.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-04 — closed #87 — added deterministic bounded alpha-mask image regions with editor previews, safe fallbacks, accessible runtime interaction, and fixture coverage; PR #95.
 - 2026-09-04 — closed #85 — replaced the global canvas with independent per-view coordinate spaces across editor, renderer, fixtures, validation, and docs; PR #94.
 - 2026-09-04 — closed #88 — defined responsive sizing and attachment semantics, added background focal positioning, and covered resize, touch, and reduced-motion behavior; PR #93.
 - 2026-09-04 — closed #89 — added canonical QA fixtures, a resizable browser gallery, automated coverage, and an evidence-ready human test matrix; PR #92.
