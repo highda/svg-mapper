@@ -1195,7 +1195,7 @@ function AreaInspector() {
 // ---------------------------------------------------------------------------
 
 export function RightSidebar() {
-  const { selectedAreaId, selectedLayerId, project, activeViewId, historyVersion } = useStore();
+  const { selectedAreaId, selectedLayerId, project, activeViewId, historyVersion, screen } = useStore();
 
   const activeView = project.views.find((v) => v.id === activeViewId);
 
@@ -1218,7 +1218,10 @@ export function RightSidebar() {
   }
 
   return (
-    <aside aria-label="Inspector" className="flex w-56 shrink-0 flex-col border-l border-neutral-700 bg-neutral-900 sm:w-64">
+    <aside
+      aria-label="Inspector"
+      className={`${screen === "export" ? "hidden md:flex" : "flex"} w-56 shrink-0 flex-col border-l border-neutral-700 bg-neutral-900 sm:w-64`}
+    >
       <div className="border-b border-neutral-700 px-3 py-1.5">
         <span className="text-xs font-semibold text-neutral-300">Inspector</span>
       </div>

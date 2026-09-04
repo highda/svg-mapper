@@ -107,11 +107,11 @@ export function ExportScreen() {
 
   return (
     <main className="relative flex min-w-0 flex-1 flex-col bg-neutral-800" data-testid="export-screen">
-      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 overflow-y-auto p-6">
+      <div className="mx-auto flex min-w-0 w-full max-w-2xl flex-1 flex-col gap-4 overflow-y-auto p-4 sm:p-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-neutral-200">Export</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {errors.length > 0 && (
               <span
                 className="rounded bg-red-700 px-1.5 py-0.5 text-[10px] font-semibold text-red-50"
@@ -205,7 +205,7 @@ export function ExportScreen() {
             <CopyButton text={mapJsonPreview} label="Copy map.json" />
           </div>
 
-          <pre className="mt-3 overflow-x-auto rounded bg-neutral-900 p-2 text-[10px] leading-relaxed text-neutral-400">
+          <pre className="mt-3 max-w-full overflow-x-auto rounded bg-neutral-900 p-2 text-[10px] leading-relaxed text-neutral-400">
             {embedSnippet}
           </pre>
         </section>
@@ -214,7 +214,7 @@ export function ExportScreen() {
       {/* Warnings confirmation dialog */}
       {confirmingWarnings && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50">
-          <div className="w-80 rounded-lg border border-neutral-700 bg-neutral-900 p-4 shadow-xl">
+          <div className="mx-4 w-full max-w-80 rounded-lg border border-neutral-700 bg-neutral-900 p-4 shadow-xl">
             <h3 className="text-sm font-semibold text-neutral-100">Export with warnings?</h3>
             <p className="mt-1.5 text-xs text-neutral-400">
               This project has {warnings.length} warning{warnings.length === 1 ? "" : "s"}.
