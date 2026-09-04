@@ -4,8 +4,21 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #100 — editor: support moving areas between layers by drag and drop
+Branch:       feat/100-move-areas-between-layers
+Started:      2026-09-04
+Last commit:  2e57675  chore: claim #100 — move areas between layers
+
+### What's done
+- Added exact-index same-layer and cross-view area moves with undo/redo and selection preservation.
+- Added area drag/drop targets, keyboard destination controls, locked-state feedback, and live announcements.
+- Covered reorder, cross-view movement, locking, history, persistence, and accessible UI behavior.
+
+### What's next
+- Commit the implementation, open and merge the PR, then clear the handoff.
+
+### Notes / gotchas
+- Browser-verified mouse and keyboard movement at 1280×720 and 390×844; console clean.
 
 ---
 

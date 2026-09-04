@@ -287,6 +287,75 @@ describe("store: reorderLayer", () => {
   });
 });
 
+describe("store: moveAreaToLayer", () => {
+  beforeEach(resetStore);
+
+  it("reorders within a layer at an exact paint index", () => {
+    const first = createRectArea(0, 0, 10, 10);
+    const second = createRectArea(20, 0, 10, 10);
+    useStore.getState().addArea(first);
+    useStore.getState().addArea(second);
+    const layer = useStore.getState().project.views[0].layers[0];
+
+    expect(useStore.getState().moveAreaToLayer(second.id, layer.id, 0)).toBe("moved");
+    expect(useStore.getState().project.views[0].layers[0].areas.map((area) => area.id)).toEqual([second.id, first.id]);
+  });
+
+  it("moves intact data across views and preserves selection", () => {
+    const area = createRectArea(4, 5, 30, 40);
+    area.name = "Portable";
+    useStore.getState().addArea(area);
+    useStore.getState().addView();
+    const newViewId = useStore.getState().project.views[1].id;
+    useStore.getState().addLayer(newViewId);
+    const targetView = useStore.getState().project.views[1];
+    const targetLayer = targetView.layers[0];
+
+    expect(useStore.getState().moveAreaToLayer(area.id, targetLayer.id)).toBe("moved");
+    const state = useStore.getState();
+    expect(state.project.views[0].layers[0].areas).toHaveLength(0);
+    expect(state.project.views[1].layers[0].areas[0]).toEqual(area);
+    expect(state.selectedAreaId).toBe(area.id);
+    expect(state.activeViewId).toBe(targetView.id);
+  });
+
+  it("rejects locked source and destination layers without history", () => {
+    const area = createRectArea(0, 0, 10, 10);
+    useStore.getState().addArea(area);
+    const viewId = useStore.getState().project.views[0].id;
+    useStore.getState().addLayer(viewId);
+    const [source, target] = useStore.getState().project.views[0].layers;
+    useStore.getState().toggleLayerLock(target.id);
+    const historyBefore = useStore.getState().past.length;
+
+    expect(useStore.getState().moveAreaToLayer(area.id, target.id)).toBe("locked");
+    expect(useStore.getState().past).toHaveLength(historyBefore);
+    expect(useStore.getState().project.views[0].layers[0].areas[0].id).toBe(area.id);
+
+    useStore.getState().toggleLayerLock(target.id);
+    useStore.getState().toggleLayerLock(source.id);
+    expect(useStore.getState().moveAreaToLayer(area.id, target.id)).toBe("locked");
+  });
+
+  it("supports undo, redo, and JSON persistence", () => {
+    const area = createRectArea(0, 0, 10, 10);
+    useStore.getState().addArea(area);
+    const viewId = useStore.getState().project.views[0].id;
+    useStore.getState().addLayer(viewId);
+    const targetId = useStore.getState().project.views[0].layers[1].id;
+    useStore.getState().moveAreaToLayer(area.id, targetId);
+
+    useStore.getState().undo();
+    expect(useStore.getState().project.views[0].layers[0].areas[0].id).toBe(area.id);
+    useStore.getState().redo();
+    expect(useStore.getState().project.views[0].layers[1].areas[0].id).toBe(area.id);
+
+    const saved = JSON.stringify(useStore.getState().project);
+    useStore.getState().loadProject(saved);
+    expect(useStore.getState().project.views[0].layers[1].areas[0]).toEqual(area);
+  });
+});
+
 // ── Area property updates ──────────────────────────────────────────────────
 
 describe("store: renameArea", () => {
