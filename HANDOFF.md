@@ -4,24 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #99 — editor: add accessible RGBA color controls and style previews
-Branch:       feat/99-rgba-color-controls
-Started:      2026-09-04
-Last commit:  pending — claim
-
-### What's done
-- Claimed the issue and reviewed its acceptance criteria.
-
-### What's next
-- Inspect the current style inspector and shared style representation.
-- Implement, test, and browser-verify accessible color and opacity controls.
-
-### Notes / gotchas
-- Preserve arbitrary supported CSS color strings without data loss.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-04 — closed #99 — added accessible exact CSS color, picker, opacity, validation, and responsive controls for every area style state; PR #102.
 - 2026-09-04 — closed #100 — added exact-index area drag/drop and keyboard movement across layers and views with locked-state, history, and persistence coverage; PR #101.
 - 2026-09-04 — closed #97 — replaced the reachable Tree placeholder with the responsive Views & Layers workspace and added navigation coverage; PR #98.
 - 2026-09-04 — closed #86 — added reusable foreground image elements with ordered composition, authoring controls, renderer support, validation, documentation, and browser coverage; PR #96.
