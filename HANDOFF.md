@@ -4,25 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #86 — feature: add image elements as first-class scene content
-Branch:       feat/86-image-elements
-Started:      2026-09-04
-Last commit:  626bfc1  fix: render image element presentation settings
-
-### What's done
-- Added reusable foreground image placement with fit, opacity, rotation, visibility, locking, decorative semantics, duplication/deletion, and paint-order controls.
-- Added renderer output, validation, and automated coverage; typecheck, 164 tests, and lint pass.
-
-### What's next
-- Exercise import, placement, editing, ordering, duplication, export, and keyboard behavior in a browser; document the model and finish the PR.
-
-### Notes / gotchas
-- `.codex/runtime/task-brief.md` referenced already-closed #87; the live lock was empty and #86 was the current highest-priority ready task.
-- The project Playwright MCP was not exposed in this session, so browser validation remains for the next iteration.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-04 — closed #86 — added reusable foreground image elements with ordered composition, authoring controls, renderer support, validation, documentation, and browser coverage; PR #96.
 - 2026-09-04 — closed #87 — added deterministic bounded alpha-mask image regions with editor previews, safe fallbacks, accessible runtime interaction, and fixture coverage; PR #95.
 - 2026-09-04 — closed #85 — replaced the global canvas with independent per-view coordinate spaces across editor, renderer, fixtures, validation, and docs; PR #94.
 - 2026-09-04 — closed #88 — defined responsive sizing and attachment semantics, added background focal positioning, and covered resize, touch, and reduced-motion behavior; PR #93.
