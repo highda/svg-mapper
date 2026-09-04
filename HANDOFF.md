@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #108 — Add marker area authoring to the editor
+Branch:       feat/108-marker-authoring
+Started:      2026-09-04
+Last commit:  51039f2  chore: hand off #90 — done
+
+### What's done
+- Claimed the marker-authoring gap identified by the independent completion review.
+
+### What's next
+- Add marker creation, inspector editing, automated coverage, and browser validation.
+
+### Notes / gotchas
+- Marker geometry already works in the shared model and renderer; editor authoring is the missing link.
 
 ---
 

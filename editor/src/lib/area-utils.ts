@@ -1,4 +1,4 @@
-import type { Area, AreaStyle, Geometry, RectGeometry } from "@svg-mapper/shared";
+import type { Area, AreaStyle, Geometry, MarkerAnchor, RectGeometry } from "@svg-mapper/shared";
 
 export const DEFAULT_AREA_STYLE: AreaStyle = {
   default: { fill: "rgba(59,130,246,0.08)", stroke: "rgba(59,130,246,0.6)", strokeWidth: 2 },
@@ -38,6 +38,25 @@ export function createCircleArea(cx: number, cy: number, r: number): Area {
     style: DEFAULT_AREA_STYLE,
     action: { type: "none" },
   };
+}
+
+export function createMarkerArea(x: number, y: number, anchor: MarkerAnchor = "bottom-center"): Area {
+  return {
+    id: makeAreaId(),
+    name: "Marker",
+    geometry: { type: "marker", x, y, anchor },
+    style: DEFAULT_AREA_STYLE,
+    action: { type: "none" },
+  };
+}
+
+const MARKER_WIDTH = 24;
+const MARKER_HEIGHT = 32;
+
+function markerTopLeft(x: number, y: number, anchor: MarkerAnchor): { x: number; y: number } {
+  const horizontal = anchor.endsWith("left") ? 0 : anchor.endsWith("right") ? MARKER_WIDTH : MARKER_WIDTH / 2;
+  const vertical = anchor.startsWith("top") ? 0 : anchor.startsWith("middle") || anchor === "center" ? MARKER_HEIGHT / 2 : MARKER_HEIGHT;
+  return { x: x - horizontal, y: y - vertical };
 }
 
 export function moveGeometry(geo: Geometry, dx: number, dy: number): Geometry {
@@ -124,7 +143,9 @@ export function geometryToSvgPath(geo: Geometry): string {
     case "path":
       return geo.d;
     case "marker":
-      return `M${geo.x - 6},${geo.y - 12} l6,12 l6,-12 Z`;
+      { const topLeft = markerTopLeft(geo.x, geo.y, geo.anchor);
+        return `M${topLeft.x + 12},${topLeft.y + 32} C${topLeft.x + 10},${topLeft.y + 27} ${topLeft.x + 2},${topLeft.y + 20} ${topLeft.x + 2},${topLeft.y + 12} A10,10 0 1,1 ${topLeft.x + 22},${topLeft.y + 12} C${topLeft.x + 22},${topLeft.y + 20} ${topLeft.x + 14},${topLeft.y + 27} ${topLeft.x + 12},${topLeft.y + 32} Z`;
+      }
   }
 }
 
@@ -142,6 +163,10 @@ export function getGeometryBbox(geo: Geometry): { x: number; y: number; width: n
     }
     case "circle":
       return { x: geo.cx - geo.r, y: geo.cy - geo.r, width: geo.r * 2, height: geo.r * 2 };
+    case "marker": {
+      const topLeft = markerTopLeft(geo.x, geo.y, geo.anchor);
+      return { ...topLeft, width: MARKER_WIDTH, height: MARKER_HEIGHT };
+    }
     default:
       return null;
   }

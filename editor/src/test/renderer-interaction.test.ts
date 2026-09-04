@@ -60,6 +60,20 @@ describe("renderer interaction model", () => {
     expect(areaElement(area.id)).toHaveAttribute("aria-label", area.name);
   });
 
+  it("renders marker geometry as an accessible interactive pin", () => {
+    const project = createNewProject();
+    const area = createRectArea(0, 0, 1, 1);
+    area.name = "Reception";
+    area.geometry = { type: "marker", x: 100, y: 120, anchor: "bottom-center" };
+    project.views[0].layers = [{ id: "layer", name: "Layer", visible: true, locked: false, opacity: 1, areas: [area] }];
+    create({ container: "#map", definition: toDefinition(project) });
+
+    const marker = areaElement(area.id);
+    expect(marker.tagName.toLowerCase()).toBe("path");
+    expect(marker.getAttribute("d")).toContain("M100,120");
+    expect(marker).toHaveAttribute("aria-label", "Reception");
+  });
+
   it("renders fitted, rotated image elements and removes decorative images from tab order", () => {
     const project = createNewProject();
     project.assets.push({ id: "logo", name: "Logo", type: "image/png", src: "logo.png", width: 100, height: 50, inline: false });

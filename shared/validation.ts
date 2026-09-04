@@ -90,6 +90,8 @@ function geometryError(geometry: Geometry): string | null {
     case "marker":
       if (!isFiniteNumber(geometry.x) || !isFiniteNumber(geometry.y))
         return "marker has non-numeric position";
+      if (!["bottom-center", "center", "top-left", "top-center", "top-right", "bottom-left", "bottom-right", "middle-left", "middle-right"].includes(geometry.anchor))
+        return "marker has an invalid anchor";
       return null;
     default:
       return "unknown geometry type";

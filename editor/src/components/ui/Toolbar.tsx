@@ -12,6 +12,7 @@ const TOOLS: ToolButton[] = [
   { id: "rect", label: "▭", shortcut: "R", title: "Rectangle (R)" },
   { id: "polygon", label: "⬡", shortcut: "P", title: "Polygon (P)" },
   { id: "circle", label: "○", shortcut: "C", title: "Circle (C)" },
+  { id: "marker", label: "◉", shortcut: "M", title: "Marker (M)" },
 ];
 
 export function Toolbar() {
@@ -23,6 +24,7 @@ export function Toolbar() {
         <button
           key={t.id}
           title={t.title}
+          aria-label={t.title}
           onClick={() => setActiveTool(t.id)}
           className={`flex h-8 w-8 items-center justify-center rounded text-sm font-medium transition-colors ${
             activeTool === t.id

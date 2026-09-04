@@ -33,7 +33,7 @@ import { findAreaLocation, moveGeometry } from "../lib/area-utils";
 // ---------------------------------------------------------------------------
 
 export type Screen = "design" | "tree" | "flow" | "preview" | "export";
-export type Tool = "select" | "rect" | "polygon" | "circle";
+export type Tool = "select" | "rect" | "polygon" | "circle" | "marker";
 
 interface HistorySnapshot {
   views: View[];

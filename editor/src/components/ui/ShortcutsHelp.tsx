@@ -8,6 +8,7 @@ const SHORTCUTS = [
   { keys: "G", description: "Toggle snap to grid" },
   { keys: "F", description: "Zoom to fit selection / canvas" },
   { keys: "Enter", description: "Confirm polygon" },
+  { keys: "M", description: "Marker tool" },
   { keys: "Esc", description: "Cancel drawing / deselect" },
   { keys: "Space", description: "Pan (hold)" },
   { keys: "Delete / Backspace", description: "Delete selected area" },

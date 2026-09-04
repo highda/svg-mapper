@@ -789,6 +789,18 @@ class Renderer implements ClickMapInstance {
         shape = p;
         break;
       }
+      case "marker": {
+        const width = 24;
+        const height = 32;
+        const horizontal = g.anchor.endsWith("left") ? 0 : g.anchor.endsWith("right") ? width : width / 2;
+        const vertical = g.anchor.startsWith("top") ? 0 : g.anchor.startsWith("middle") || g.anchor === "center" ? height / 2 : height;
+        const x = g.x - horizontal;
+        const y = g.y - vertical;
+        const p = svgEl<SVGPathElement>("path");
+        p.setAttribute("d", `M${x + 12},${y + 32} C${x + 10},${y + 27} ${x + 2},${y + 20} ${x + 2},${y + 12} A10,10 0 1,1 ${x + 22},${y + 12} C${x + 22},${y + 20} ${x + 14},${y + 27} ${x + 12},${y + 32} Z`);
+        shape = p;
+        break;
+      }
       default:
         return null;
     }

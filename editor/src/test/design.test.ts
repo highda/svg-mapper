@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useStore } from "../store";
 import { createNewProject } from "../lib/project";
-import { calculateZoomToFit, createCircleArea, createRectArea, createPolygonArea, getGeometryBbox, moveGeometry, snapGeometryToGrid, snapValue } from "../lib/area-utils";
+import { calculateZoomToFit, createCircleArea, createMarkerArea, createRectArea, createPolygonArea, geometryToSvgPath, getGeometryBbox, moveGeometry, snapGeometryToGrid, snapValue } from "../lib/area-utils";
 import { sanitizeSvg } from "../lib/svg-sanitize";
 
 function resetStore() {
@@ -87,6 +87,21 @@ describe("circle authoring", () => {
     const area = createCircleArea(60, 40, 20);
     expect(area.geometry).toEqual({ type: "circle", cx: 60, cy: 40, r: 20 });
     expect(getGeometryBbox(area.geometry)).toEqual({ x: 40, y: 20, width: 40, height: 40 });
+  });
+});
+
+describe("marker authoring", () => {
+  it("creates a bottom-anchored marker with complete bounds and a visible pin path", () => {
+    const area = createMarkerArea(60, 80);
+    expect(area.geometry).toEqual({ type: "marker", x: 60, y: 80, anchor: "bottom-center" });
+    expect(getGeometryBbox(area.geometry)).toEqual({ x: 48, y: 48, width: 24, height: 32 });
+    expect(geometryToSvgPath(area.geometry)).toContain("M60,80");
+  });
+
+  it("moves and snaps marker coordinates without changing its anchor", () => {
+    const moved = moveGeometry({ type: "marker", x: 13, y: 17, anchor: "top-left" }, 4, 8);
+    expect(moved).toEqual({ type: "marker", x: 17, y: 25, anchor: "top-left" });
+    expect(snapGeometryToGrid(moved, 10)).toEqual({ type: "marker", x: 20, y: 30, anchor: "top-left" });
   });
 });
 

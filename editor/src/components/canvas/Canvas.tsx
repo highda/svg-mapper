@@ -6,6 +6,7 @@ import {
   createRectArea,
   createPolygonArea,
   createCircleArea,
+  createMarkerArea,
   polygonPointsToString,
   resizeRect,
   moveGeometry,
@@ -56,6 +57,9 @@ function areaCenter(area: Area): { x: number; y: number; width: number } | null 
     const minX = Math.min(...xs), maxX = Math.max(...xs);
     const minY = Math.min(...ys), maxY = Math.max(...ys);
     return { x: (minX + maxX) / 2, y: (minY + maxY) / 2, width: maxX - minX };
+  }
+  if (geometry.type === "marker") {
+    return { x: geometry.x, y: geometry.y, width: 24 };
   }
   return null;
 }
@@ -185,6 +189,7 @@ export function Canvas() {
       if (e.key === "r" || e.key === "R") { setActiveTool("rect"); return; }
       if (e.key === "p" || e.key === "P") { setActiveTool("polygon"); return; }
       if (e.key === "c" || e.key === "C") { setActiveTool("circle"); return; }
+      if (e.key === "m" || e.key === "M") { setActiveTool("marker"); return; }
       if (e.key === "g" || e.key === "G") {
         const grid = useStore.getState().project.editor?.grid;
         setEditorState({ grid: { enabled: !(grid?.enabled ?? false), size: grid?.size ?? 10 } });
@@ -357,6 +362,10 @@ export function Canvas() {
         grid.enabled ? snapValue(cp.x, grid.size) : cp.x,
         grid.enabled ? snapValue(cp.y, grid.size) : cp.y,
       ]]);
+    } else if (activeTool === "marker") {
+      const x = grid.enabled ? snapValue(cp.x, grid.size) : cp.x;
+      const y = grid.enabled ? snapValue(cp.y, grid.size) : cp.y;
+      addArea(createMarkerArea(x, y));
     }
   }
 
@@ -609,6 +618,7 @@ export function Canvas() {
     activeTool === "rect" ? "cursor-crosshair" :
     activeTool === "polygon" ? "cursor-crosshair" :
     activeTool === "circle" ? "cursor-crosshair" :
+    activeTool === "marker" ? "cursor-crosshair" :
     "cursor-default";
 
   // Find hovered area's tooltip for overlay
