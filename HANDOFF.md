@@ -4,8 +4,20 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #99 — editor: add accessible RGBA color controls and style previews
+Branch:       feat/99-rgba-color-controls
+Started:      2026-09-04
+Last commit:  pending — claim
+
+### What's done
+- Claimed the issue and reviewed its acceptance criteria.
+
+### What's next
+- Inspect the current style inspector and shared style representation.
+- Implement, test, and browser-verify accessible color and opacity controls.
+
+### Notes / gotchas
+- Preserve arbitrary supported CSS color strings without data loss.
 
 ---
 

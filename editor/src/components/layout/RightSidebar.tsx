@@ -15,10 +15,11 @@ import type {
   Viewport,
   View,
 } from "@svg-mapper/shared";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useStore } from "../../store";
 import { validateActionUrl } from "../../lib/url-validate";
 import { createAlphaHitMask, MAX_ALPHA_MASK_DIMENSION } from "../../lib/alpha-mask";
+import { colorToHex, isValidCssColor, parseCssColor, withHexColor, withOpacity } from "../../lib/css-color";
 
 // ---------------------------------------------------------------------------
 // Shared primitives
@@ -135,6 +136,62 @@ function CheckToggle({
 // Style picker for one state (default / hover / active)
 // ---------------------------------------------------------------------------
 
+function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  const id = useId();
+  const [draft, setDraft] = useState(value);
+  const valid = isValidCssColor(draft);
+  const parsed = parseCssColor(value);
+
+  function commit() {
+    const trimmed = draft.trim();
+    if (isValidCssColor(trimmed)) onChange(trimmed);
+  }
+
+  return (
+    <fieldset className="grid min-w-0 grid-cols-[2.25rem_minmax(0,1fr)] gap-1" aria-describedby={!valid ? `${id}-error` : undefined}>
+      <legend className="sr-only">{label} color</legend>
+      <input
+        type="color"
+        aria-label={`${label} color picker`}
+        value={parsed ? colorToHex(parsed) : "#000000"}
+        disabled={!parsed}
+        onChange={(event) => onChange(withHexColor(value, event.target.value))}
+        className="h-7 w-9 cursor-pointer rounded border border-neutral-700 bg-neutral-800 p-0.5 disabled:cursor-not-allowed disabled:opacity-40"
+      />
+      <input
+        id={id}
+        type="text"
+        aria-label={`${label} CSS color`}
+        aria-invalid={!valid}
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") { event.preventDefault(); commit(); event.currentTarget.blur(); }
+          if (event.key === "Escape") { setDraft(value); event.currentTarget.blur(); }
+        }}
+        className={`min-w-0 rounded border bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500 ${valid ? "border-neutral-700" : "border-red-500"}`}
+      />
+      <label htmlFor={`${id}-opacity`} className="col-span-2 grid grid-cols-[4rem_minmax(0,1fr)_2.5rem] items-center gap-1 text-[10px] text-neutral-500">
+        Opacity
+        <input
+          id={`${id}-opacity`}
+          type="range"
+          aria-label={`${label} opacity`}
+          min={0}
+          max={100}
+          value={Math.round((parsed?.a ?? 1) * 100)}
+          disabled={!parsed}
+          onChange={(event) => onChange(withOpacity(value, Number(event.target.value) / 100))}
+          className="min-w-0 accent-blue-500 disabled:opacity-40"
+        />
+        <span className="text-right text-neutral-300">{Math.round((parsed?.a ?? 1) * 100)}%</span>
+      </label>
+      {!valid && <span id={`${id}-error`} role="alert" className="col-span-2 text-[10px] text-red-400">Enter a valid CSS color. The saved value is unchanged.</span>}
+    </fieldset>
+  );
+}
+
 function StyleStateEditor({
   label,
   styleState,
@@ -148,18 +205,10 @@ function StyleStateEditor({
     <div className="space-y-1">
       <div className="text-[10px] font-medium text-neutral-400">{label}</div>
       <Row label="Fill">
-        <TextField
-          defaultValue={styleState.fill}
-          onCommit={(v) => onChange({ ...styleState, fill: v })}
-          placeholder="rgba(0,0,0,0)"
-        />
+        <ColorField label={`${label} fill`} value={styleState.fill} onChange={(fill) => onChange({ ...styleState, fill })} />
       </Row>
       <Row label="Stroke">
-        <TextField
-          defaultValue={styleState.stroke}
-          onCommit={(v) => onChange({ ...styleState, stroke: v })}
-          placeholder="rgba(0,0,0,0)"
-        />
+        <ColorField label={`${label} stroke`} value={styleState.stroke} onChange={(stroke) => onChange({ ...styleState, stroke })} />
       </Row>
       <Row label="Width">
         <NumberField
@@ -1074,6 +1123,7 @@ function AreaInspector() {
 
   const a = area;
   const style = a.style as AreaStyle;
+  const disabledStyle = style.disabled ?? { ...style.default, fill: "#9ca3af", stroke: "#6b7280" };
   const tooltip = a.tooltip as Tooltip | undefined;
 
   function updateStyleState(stateKey: keyof AreaStyle, styleState: AreaStyleState) {
@@ -1112,6 +1162,11 @@ function AreaInspector() {
         label="Active"
         styleState={style.active}
         onChange={(s) => updateStyleState("active", s)}
+      />
+      <StyleStateEditor
+        label="Disabled"
+        styleState={disabledStyle}
+        onChange={(s) => updateStyleState("disabled", s)}
       />
 
       <SectionHeader title="Interaction" />
@@ -1163,7 +1218,7 @@ export function RightSidebar() {
   }
 
   return (
-    <aside className="hidden w-64 flex-col border-l border-neutral-700 bg-neutral-900 lg:flex">
+    <aside aria-label="Inspector" className="flex w-56 shrink-0 flex-col border-l border-neutral-700 bg-neutral-900 sm:w-64">
       <div className="border-b border-neutral-700 px-3 py-1.5">
         <span className="text-xs font-semibold text-neutral-300">Inspector</span>
       </div>
