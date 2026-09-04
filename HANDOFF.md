@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #100 — editor: support moving areas between layers by drag and drop
+Branch:       feat/100-move-areas-between-layers
+Started:      2026-09-04
+Last commit:  (claim checkpoint pending)
+
+### What's done
+- Claimed the host-selected issue and reconciled the serial lock.
+
+### What's next
+- Implement cross-layer area movement, accessible controls, tests, and browser verification.
+
+### Notes / gotchas
+- Preserve area IDs and selection across views; locked destination layers must reject moves.
 
 ---
 
