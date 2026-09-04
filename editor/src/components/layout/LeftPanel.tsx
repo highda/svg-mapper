@@ -334,7 +334,7 @@ function ViewSection({ view, isActive }: { view: View; isActive: boolean }) {
 // LeftPanel
 // ---------------------------------------------------------------------------
 
-export function LeftPanel() {
+export function LeftPanel({ workspace = false }: { workspace?: boolean }) {
   const { project, activeViewId, addView, setSelectedAreaId, setActiveViewId } = useStore();
   const [searchQuery, setSearchQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -361,7 +361,12 @@ export function LeftPanel() {
   }
 
   return (
-    <aside className="hidden w-56 flex-col border-r border-neutral-700 bg-neutral-900 lg:flex">
+    <aside
+      aria-label="Views and layers"
+      className={workspace
+        ? "flex min-w-0 flex-1 flex-col bg-neutral-900"
+        : "hidden w-56 flex-col border-r border-neutral-700 bg-neutral-900 lg:flex"}
+    >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-neutral-700 px-2 py-1.5">
         <span className="text-xs font-semibold text-neutral-300">Views &amp; Layers</span>

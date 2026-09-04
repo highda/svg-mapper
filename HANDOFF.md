@@ -7,16 +7,18 @@
 Issue:        #97 — fix: make Tree navigation an intentional editor workspace
 Branch:       fix/97-tree-workspace
 Started:      2026-09-04
-Last commit:  8994cf5  chore: hand off #86 — done
+Last commit:  1871019  chore: claim #97 — tree-workspace
 
 ### What's done
-- Completion review reproduced the reachable Tree placeholder and confirmed the existing Views & Layers hierarchy is already functional in the left panel.
+- Tree now opens the existing fully interactive Views & Layers hierarchy as a dedicated, responsive workspace.
+- The normal sidebar is suppressed on that route, the active tab is exposed accessibly, and regression coverage prevents placeholder recurrence.
+- Editor typecheck, 165 tests, lint, production build, and desktop/mobile browser checks pass.
 
 ### What's next
-- Route Tree to an intentional hierarchy-focused workspace, add regression coverage, and exercise desktop/mobile browser flows.
+- Open, verify, and merge the closing PR.
 
 ### Notes / gotchas
-- Preserve the existing hierarchy operations rather than building a second competing tree UI.
+- Browser checks covered 1440×900 and 390×844 with no console errors.
 
 ---
 
