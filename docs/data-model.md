@@ -24,15 +24,29 @@ The editor validates only a small structural minimum when opening JSON (`schemaV
 
 ## Settings
 
-Required settings are `initialViewId`, `canvasSize: {width,height}`, `responsive`, `maintainAspectRatio`, `theme`, `enableHistory`, and `enableKeyboardNavigation`.
+Required settings are `initialViewId`, `canvasSize: {width,height}`, `responsive`, `maintainAspectRatio`, `theme`, `enableHistory`, and `enableKeyboardNavigation`. New files also write `sizingMode`; the legacy booleans remain readable for schema 1.0 compatibility.
 
 Optional settings include `contentTemplate` (sanitized HTML with `{{name}}`, `{{id}}`, `{{viewName}}`, or `{{metadata.key}}`), `areaLabels`, `sceneSwitcher`, `zoomControls`, and canvas-unit `padding`.
+
+### Container sizing
+
+Container sizing and scene coordinates are separate. `sizingMode` controls only the renderer's CSS box; the SVG viewBox, background, areas, and pan/zoom remain in canvas coordinates.
+
+| Mode | Renderer width | Renderer height | Required host CSS |
+| --- | --- | --- | --- |
+| `fixed` | `canvasSize.width` CSS px | `canvasSize.height` CSS px | Make that space available or deliberately allow overflow. |
+| `fluid-width` | 100% of host | Derived from the canvas aspect ratio | Give the host a nonzero width. Height is owned by the renderer. |
+| `fill-container` | 100% of host | 100% of host | Give the host an explicit, nonzero height (and width). |
+
+When `sizingMode` is absent, `responsive: false` means `fixed`; `responsive: true` with `maintainAspectRatio: true` means `fluid-width`; and responsive without maintained aspect ratio means `fill-container`. A zero-size host is valid during initialization: the `ResizeObserver` leaves the scene mounted and it becomes usable when the host gains size.
+
+Backgrounds and areas are world-attached: they share a viewBox and pan/zoom together. Renderer controls, popovers, and tooltips are viewport-attached HTML overlays: they stay fixed to the renderer box and are not map coordinates. Future scene elements must declare the same world-versus-viewport distinction rather than borrowing CSS `background-attachment` semantics.
 
 ## Assets, views, and layers
 
 An `Asset` has `id`, MIME `type`, `name`, `src`, intrinsic `width` and `height`, and `inline`. Supported types are PNG, JPEG, WebP, and SVG. Editor storage uses a data URI or inline SVG markup. External-asset export rewrites `src` to a relative `assets/...` path.
 
-A `View` has `id`, `name`, URL-friendly `slug`, optional `background: {assetId, fit}`, `viewport`, `ui`, and `layers`. Background fit is `contain`, `cover`, `fill`, or `none`. Viewport holds minimum, maximum, and initial zoom plus pan/zoom flags. UI flags control the title, breadcrumbs, and back button.
+A `View` has `id`, `name`, URL-friendly `slug`, optional `background: {assetId, fit, position?}`, `viewport`, `ui`, and `layers`. Background fit is `contain`, `cover`, `fill`, or `none`. `position` is a normalized `{x,y}` alignment/focal point: `{0,0}` is top-left, `{0.5,0.5}` is the default center, and `{1,1}` is bottom-right. It aligns contained or intrinsic artwork and selects the focal region retained by `cover`; values are clamped to 0–1. Viewport holds minimum, maximum, and initial zoom plus pan/zoom flags. UI flags control the title, breadcrumbs, and back button.
 
 A `Layer` has `id`, `name`, `visible`, `locked`, `opacity`, and ordered `areas`. Layer order is paint order.
 

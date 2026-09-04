@@ -178,7 +178,7 @@ function StyleStateEditor({
 // ---------------------------------------------------------------------------
 
 function ViewInspector({ view }: { view: View }) {
-  const { renameView, setCanvasSize, project, setViewBackground, setViewBackgroundFit, updateSettings, setEditorState } = useStore();
+  const { renameView, setCanvasSize, project, setViewBackground, setViewBackgroundFit, setViewBackgroundPosition, updateSettings, setEditorState } = useStore();
   const canvasSize = project.settings.canvasSize;
   const grid = project.editor?.grid ?? { enabled: false, size: 10 };
 
@@ -197,6 +197,7 @@ function ViewInspector({ view }: { view: View }) {
         />
       </Row>
       {view.background && (
+        <>
         <Row label="Fit">
           <select
             aria-label="Background Fit"
@@ -209,6 +210,22 @@ function ViewInspector({ view }: { view: View }) {
             ))}
           </select>
         </Row>
+        <Row label="Position">
+          <select
+            aria-label="Background Position"
+            value={`${view.background.position?.x ?? 0.5},${view.background.position?.y ?? 0.5}`}
+            onChange={(e) => {
+              const [x, y] = e.target.value.split(",").map(Number);
+              setViewBackgroundPosition(view.id, { x, y });
+            }}
+            className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+          >
+            <option value="0,0">Top left</option><option value="0.5,0">Top</option><option value="1,0">Top right</option>
+            <option value="0,0.5">Left</option><option value="0.5,0.5">Center</option><option value="1,0.5">Right</option>
+            <option value="0,1">Bottom left</option><option value="0.5,1">Bottom</option><option value="1,1">Bottom right</option>
+          </select>
+        </Row>
+        </>
       )}
 
       <Row label="Background">

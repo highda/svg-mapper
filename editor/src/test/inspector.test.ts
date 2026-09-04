@@ -127,6 +127,28 @@ describe("store: setViewBackgroundFit", () => {
   });
 });
 
+describe("store: setViewBackgroundPosition", () => {
+  beforeEach(resetStore);
+
+  it("clamps a focal point and is undoable", () => {
+    const { project } = useStore.getState();
+    const viewId = project.views[0].id;
+    useStore.setState((state) => ({
+      project: {
+        ...state.project,
+        views: state.project.views.map((view) => view.id === viewId
+          ? { ...view, background: { assetId: "asset_1", fit: "cover" as const } }
+          : view),
+      },
+    }));
+
+    useStore.getState().setViewBackgroundPosition(viewId, { x: 2, y: -1 });
+    expect(useStore.getState().project.views[0].background?.position).toEqual({ x: 1, y: 0 });
+    useStore.getState().undo();
+    expect(useStore.getState().project.views[0].background?.position).toBeUndefined();
+  });
+});
+
 // ── Layer CRUD ─────────────────────────────────────────────────────────────
 
 describe("store: addLayer", () => {

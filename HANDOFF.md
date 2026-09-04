@@ -4,8 +4,24 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #88 — design: specify responsive sizing, fit, positioning, and attachment semantics
+Branch:       feat/88-responsive-semantics
+Started:      2026-09-04
+Last commit:  (pending)  feat: add aligned background focal points
+
+### What's done
+- Added an explicit fixed/fluid-width/fill-container renderer sizing contract with legacy flag inference.
+- Documented host CSS requirements and world-versus-viewport attachment semantics.
+- Added automated coverage for each sizing mode and legacy behavior; all package checks pass.
+- Added normalized background alignment/focal points with editor controls and matching editor/runtime geometry.
+- Covered zero-size, wide, tall, mobile, touch, and reduced-motion behavior; browser golden path passes without console errors.
+
+### What's next
+- Open, verify, and merge the PR; then clear the active handoff.
+
+### Notes / gotchas
+- Host-selected task #89 was already completed by PR #92; continued with the highest-priority ready task.
+- Viewport-attached scene elements depend on first-class scene content (#86); existing controls, tooltips, and popovers already provide viewport-attached behavior.
 
 ---
 

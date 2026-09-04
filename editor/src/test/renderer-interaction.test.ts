@@ -4,8 +4,13 @@ import { createRectArea } from "../lib/area-utils";
 import { createNewProject, toDefinition } from "../lib/project";
 
 class ResizeObserverStub {
+  static callback: ResizeObserverCallback | undefined;
+  constructor(callback: ResizeObserverCallback) { ResizeObserverStub.callback = callback; }
   observe() {}
   disconnect() {}
+  static resize(target: Element, width: number, height: number) {
+    this.callback?.([{ target, contentRect: { width, height } } as ResizeObserverEntry], {} as ResizeObserver);
+  }
 }
 
 beforeEach(() => {
@@ -40,6 +45,74 @@ function areaElement(id: string): SVGElement {
 }
 
 describe("renderer interaction model", () => {
+  it.each([
+    ["fixed", "1600px", "900px", ""],
+    ["fluid-width", "100%", "auto", "1600 / 900"],
+    ["fill-container", "100%", "100%", ""],
+  ] as const)("applies the %s container sizing contract", (mode, width, height, ratio) => {
+    const project = createNewProject();
+    project.settings.sizingMode = mode;
+    create({ container: "#map", definition: toDefinition(project) });
+
+    const root = document.querySelector<HTMLElement>(".clickmap-root")!;
+    const view = document.querySelector<HTMLElement>(".clickmap-view")!;
+    expect(root.dataset.sizing).toBe(mode);
+    expect(root.style.width).toBe(width);
+    expect(root.style.height).toBe(height);
+    expect(view.style.aspectRatio).toBe(ratio);
+  });
+
+  it.each([
+    [0, 0, "zero-size"],
+    [1440, 560, "wide"],
+    [560, 1440, "tall"],
+    [375, 667, "mobile"],
+  ])("remains mounted after a %s x %s (%s) ResizeObserver update", async (width, height) => {
+    const project = createNewProject();
+    project.settings.sizingMode = "fill-container";
+    const host = document.querySelector<HTMLElement>("#map")!;
+    create({ container: host, definition: toDefinition(project) });
+
+    ResizeObserverStub.resize(host, width, height);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(host.querySelector(".clickmap-root")).not.toBeNull();
+    expect(host.querySelector<HTMLElement>(".clickmap-root")?.style.height).toBe("100%");
+    expect(host.querySelector(".clickmap-areas")).not.toBeNull();
+  });
+
+  it("maps legacy responsive flags to the explicit sizing modes", () => {
+    const project = createNewProject();
+    delete project.settings.sizingMode;
+    project.settings.responsive = false;
+    create({ container: "#map", definition: toDefinition(project) });
+    expect(document.querySelector<HTMLElement>(".clickmap-root")!.dataset.sizing).toBe("fixed");
+  });
+
+  it("reserves touch gestures only when map panning is enabled", () => {
+    const project = createNewProject();
+    project.views[0].viewport.panEnabled = true;
+    create({ container: "#map", definition: toDefinition(project) });
+    expect(document.querySelector<SVGSVGElement>(".clickmap-areas")?.style.touchAction).toBe("none");
+
+    document.body.innerHTML = '<div id="map"></div>';
+    project.views[0].viewport.panEnabled = false;
+    create({ container: "#map", definition: toDefinition(project) });
+    expect(document.querySelector<SVGSVGElement>(".clickmap-areas")?.style.touchAction).toBe("auto");
+  });
+
+  it("switches views without a fade when reduced motion is requested", () => {
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true })));
+    const project = createNewProject();
+    project.views.push({ ...project.views[0], id: "view_second", name: "Second", slug: "second" });
+    const instance = create({ container: "#map", definition: toDefinition(project) });
+
+    instance.goToView("view_second");
+
+    expect(instance.getCurrentView()).toBe("view_second");
+    expect(document.querySelector<HTMLElement>(".clickmap-view")?.style.opacity).toBe("");
+  });
+
   it("isolates renderer DOM and styles in an optional shadow root", () => {
     const project = createNewProject();
     const host = document.querySelector<HTMLElement>("#map")!;
@@ -105,7 +178,7 @@ describe("renderer interaction model", () => {
     create({ container: "#map", definition: toDefinition(project) });
 
     const background = document.querySelector<SVGImageElement>(".clickmap-bg-img");
-    expect(background?.getAttribute("preserveAspectRatio")).toBe("xMidYMid slice");
+    expect(background?.getAttribute("preserveAspectRatio")).toBe("none");
     expect(background).toHaveAttribute("width", "1600");
   });
 
@@ -126,7 +199,7 @@ describe("renderer interaction model", () => {
     const background = document.querySelector<SVGImageElement>(".clickmap-bg-img");
     expect(background?.tagName.toLowerCase()).toBe("image");
     expect(background?.getAttribute("href")).toContain("data:image/svg+xml");
-    expect(background?.getAttribute("preserveAspectRatio")).toBe("xMidYMid slice");
+    expect(background?.getAttribute("preserveAspectRatio")).toBe("none");
   });
 
   it("keeps the background and areas on the same viewBox while zooming", () => {
@@ -154,6 +227,20 @@ describe("renderer interaction model", () => {
     expect(background).toHaveAttribute("y", "300");
     expect(background).toHaveAttribute("width", "400");
     expect(background).toHaveAttribute("height", "300");
+  });
+
+  it("uses background position as contain alignment and cover focal point", () => {
+    const project = createNewProject();
+    project.settings.canvasSize = { width: 1000, height: 500 };
+    project.assets = [{ id: "asset_1", name: "Portrait", type: "image/png", src: "portrait.png", inline: false, width: 500, height: 1000 }];
+    project.views[0].background = { assetId: "asset_1", fit: "cover", position: { x: 0, y: 1 } };
+    create({ container: "#map", definition: toDefinition(project) });
+
+    const background = document.querySelector<SVGImageElement>(".clickmap-bg-img")!;
+    expect(background).toHaveAttribute("x", "0");
+    expect(background).toHaveAttribute("y", "-1500");
+    expect(background).toHaveAttribute("width", "1000");
+    expect(background).toHaveAttribute("height", "2000");
   });
 
   it("renders centered, styled area labels with per-area overrides", () => {

@@ -9,6 +9,7 @@ import type {
   AreaTrigger,
   Asset,
   BackgroundFit,
+  BackgroundPosition,
   EditorState,
   Layer,
   ProjectFile,
@@ -74,6 +75,7 @@ export interface AppState {
   importAsset: (asset: Asset) => void;
   setViewBackground: (viewId: string, assetId: string) => void;
   setViewBackgroundFit: (viewId: string, fit: BackgroundFit) => void;
+  setViewBackgroundPosition: (viewId: string, position: BackgroundPosition) => void;
 
   // ── View CRUD ────────────────────────────────────────────────────────────
   addView: () => void;
@@ -352,6 +354,20 @@ export const useStore = create<AppState>()(
         if (!view?.background || view.background.fit === fit) return;
         pushHistory(s);
         view.background.fit = fit;
+      });
+    },
+
+    setViewBackgroundPosition(viewId: string, position: BackgroundPosition) {
+      set((s) => {
+        const view = s.project.views.find((v) => v.id === viewId);
+        if (!view?.background) return;
+        const next = {
+          x: Math.max(0, Math.min(1, position.x)),
+          y: Math.max(0, Math.min(1, position.y)),
+        };
+        if (view.background.position?.x === next.x && view.background.position?.y === next.y) return;
+        pushHistory(s);
+        view.background.position = next;
       });
     },
 
