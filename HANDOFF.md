@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #103 — Fix mobile Export workspace overflow
-Branch:       feat/103-mobile-export-layout
-Started:      2026-09-04
-Last commit:  8878516  chore: hand off #99 — done
-
-### What's done
-- Completion review reproduced and documented the mobile Export overflow.
-
-### What's next
-- Hide the nonessential Inspector on narrow Export layouts, harden Export content wrapping, and add regression coverage.
-
-### Notes / gotchas
-- At 390x844, the Inspector leaves too little width for warnings, actions, and code.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-04 — closed #103 — made Export fit and complete downloads cleanly at 390x844 while retaining the desktop Inspector; PR #104.
 - 2026-09-04 — closed #99 — added accessible exact CSS color, picker, opacity, validation, and responsive controls for every area style state; PR #102.
 - 2026-09-04 — closed #100 — added exact-index area drag/drop and keyboard movement across layers and views with locked-state, history, and persistence coverage; PR #101.
 - 2026-09-04 — closed #97 — replaced the reachable Tree placeholder with the responsive Views & Layers workspace and added navigation coverage; PR #98.
