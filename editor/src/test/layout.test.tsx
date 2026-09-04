@@ -65,6 +65,24 @@ describe("primary editor navigation", () => {
     expect(screen.getByLabelText(`${target.name}, locked`)).toBeInTheDocument();
   });
 
+  it("duplicates locked layers from the responsive hierarchy action", () => {
+    const viewId = useStore.getState().project.views[0].id;
+    useStore.getState().addLayer(viewId);
+    const source = useStore.getState().project.views[0].layers[0];
+    useStore.getState().renameLayer(source.id, "Floor details");
+    useStore.getState().toggleLayerLock(source.id);
+    useStore.getState().setScreen("tree");
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Duplicate layer Floor details" }));
+
+    const state = useStore.getState();
+    expect(state.project.views[0].layers.map((layer) => layer.name)).toEqual(["Floor details", "Floor details copy"]);
+    expect(state.project.views[0].layers[1].locked).toBe(true);
+    expect(state.selectedLayerId).toBe(state.project.views[0].layers[1].id);
+    expect(screen.getByRole("status")).toHaveTextContent("Floor details duplicated.");
+  });
+
   it("gives Export the full narrow viewport while retaining the desktop inspector", () => {
     useStore.getState().setScreen("export");
     render(<App />);

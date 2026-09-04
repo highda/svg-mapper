@@ -88,6 +88,7 @@ export interface AppState {
 
   // ── Layer CRUD ───────────────────────────────────────────────────────────
   addLayer: (viewId: string) => void;
+  duplicateLayer: (layerId: string) => void;
   renameLayer: (layerId: string, name: string) => void;
   deleteLayer: (layerId: string) => void;
   toggleLayerVisibility: (layerId: string) => void;
@@ -179,6 +180,27 @@ function findLayerInViews(
     if (li !== -1) return { viewIdx: vi, layerIdx: li };
   }
   return null;
+}
+
+function projectIds(project: ProjectFile): Set<string> {
+  const used = new Set<string>();
+  for (const view of project.views) {
+    used.add(view.id);
+    for (const layer of view.layers) {
+      used.add(layer.id);
+      for (const area of layer.areas) used.add(area.id);
+    }
+  }
+
+  return used;
+}
+
+function uniqueProjectId(used: Set<string>, prefix: "layer" | "area"): string {
+  let id: string;
+  do id = `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
+  while (used.has(id));
+  used.add(id);
+  return id;
 }
 
 // ---------------------------------------------------------------------------
@@ -511,6 +533,30 @@ export const useStore = create<AppState>()(
         };
         view.layers.push(layer);
         s.selectedLayerId = layer.id;
+        s.selectedAreaId = null;
+      });
+    },
+
+    duplicateLayer(layerId: string) {
+      set((s) => {
+        const loc = findLayerInViews(s.project.views as unknown as View[], layerId);
+        if (!loc) return;
+        pushHistory(s);
+        const original = current(s.project.views[loc.viewIdx].layers[loc.layerIdx]) as Layer;
+        const copy = structuredClone(original);
+        const usedIds = projectIds(current(s.project) as ProjectFile);
+        copy.id = uniqueProjectId(usedIds, "layer");
+        copy.name = `${original.name} copy`;
+        copy.areas = copy.areas.map((area) => ({
+          ...area,
+          id: uniqueProjectId(usedIds, "area"),
+          action: area.action.type === "toggleLayer" && area.action.targetLayerId === original.id
+            ? { ...area.action, targetLayerId: copy.id }
+            : area.action,
+        }));
+        s.project.views[loc.viewIdx].layers.splice(loc.layerIdx + 1, 0, copy as typeof s.project.views[0]["layers"][0]);
+        s.activeViewId = s.project.views[loc.viewIdx].id;
+        s.selectedLayerId = copy.id;
         s.selectedAreaId = null;
       });
     },

@@ -185,6 +185,77 @@ describe("store: addLayer", () => {
   });
 });
 
+describe("store: duplicateLayer", () => {
+  beforeEach(resetStore);
+
+  it("inserts a selected deep copy beside the source with unique ids and preserved order", () => {
+    const viewId = useStore.getState().project.views[0].id;
+    useStore.getState().addLayer(viewId);
+    const first = createRectArea(0, 0, 10, 10);
+    const second = createRectArea(20, 0, 10, 10);
+    useStore.getState().addArea(first);
+    useStore.getState().addArea(second);
+    const source = useStore.getState().project.views[0].layers[0];
+    useStore.getState().setLayerOpacity(source.id, 0.4);
+    useStore.getState().toggleLayerVisibility(source.id);
+    useStore.getState().toggleLayerLock(source.id);
+
+    useStore.getState().duplicateLayer(source.id);
+
+    const state = useStore.getState();
+    const copy = state.project.views[0].layers[1];
+    expect(state.project.views[0].layers).toHaveLength(2);
+    expect(copy.id).not.toBe(source.id);
+    expect(copy.name).toBe(`${source.name} copy`);
+    expect({ visible: copy.visible, locked: copy.locked, opacity: copy.opacity }).toEqual({ visible: false, locked: true, opacity: 0.4 });
+    expect(copy.areas.map((area) => area.name)).toEqual(source.areas.map((area) => area.name));
+    expect(copy.areas.map((area) => area.id)).not.toEqual(source.areas.map((area) => area.id));
+    expect(new Set(copy.areas.map((area) => area.id)).size).toBe(copy.areas.length);
+    expect(copy.areas[0].geometry).toEqual(source.areas[0].geometry);
+    expect(copy.areas[0].geometry).not.toBe(source.areas[0].geometry);
+    expect(state.selectedLayerId).toBe(copy.id);
+    expect(state.selectedAreaId).toBeNull();
+  });
+
+  it("remaps self-targeting layer actions but preserves external references", () => {
+    const viewId = useStore.getState().project.views[0].id;
+    useStore.getState().addLayer(viewId);
+    useStore.getState().addLayer(viewId);
+    const [source, external] = useStore.getState().project.views[0].layers;
+    const selfArea = createRectArea(0, 0, 10, 10);
+    selfArea.action = { type: "toggleLayer", targetLayerId: source.id };
+    const externalArea = createRectArea(20, 0, 10, 10);
+    externalArea.action = { type: "toggleLayer", targetLayerId: external.id };
+    useStore.getState().setSelectedLayerId(source.id);
+    useStore.getState().addArea(selfArea);
+    useStore.getState().setSelectedLayerId(source.id);
+    useStore.getState().addArea(externalArea);
+
+    useStore.getState().duplicateLayer(source.id);
+
+    const copy = useStore.getState().project.views[0].layers[1];
+    expect(copy.areas[0].action).toEqual({ type: "toggleLayer", targetLayerId: copy.id });
+    expect(copy.areas[1].action).toEqual({ type: "toggleLayer", targetLayerId: external.id });
+  });
+
+  it("is one undoable and redoable operation and survives JSON persistence", () => {
+    const viewId = useStore.getState().project.views[0].id;
+    useStore.getState().addLayer(viewId);
+    const sourceId = useStore.getState().project.views[0].layers[0].id;
+    const historyBefore = useStore.getState().past.length;
+    useStore.getState().duplicateLayer(sourceId);
+    const copied = structuredClone(useStore.getState().project.views[0].layers[1]);
+    expect(useStore.getState().past).toHaveLength(historyBefore + 1);
+    useStore.getState().undo();
+    expect(useStore.getState().project.views[0].layers).toHaveLength(1);
+    useStore.getState().redo();
+    expect(useStore.getState().project.views[0].layers[1]).toEqual(copied);
+
+    useStore.getState().loadProject(JSON.stringify(useStore.getState().project));
+    expect(useStore.getState().project.views[0].layers[1]).toEqual(copied);
+  });
+});
+
 describe("store: renameLayer", () => {
   beforeEach(resetStore);
 
