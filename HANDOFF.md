@@ -4,25 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #85 — product: replace the global canvas with per-view coordinate spaces
-Branch:       feat/85-per-view-coordinate-spaces
-Started:      2026-09-04
-Last commit:  8138599  chore: hand off #88 — done
-
-### What's done
-- Claimed the issue and created the working branch.
-
-### What's next
-- Move the canonical canvas dimensions from project settings onto each view.
-- Update editor, renderer, fixtures, tests, export, and documentation together.
-- Exercise the full editor/renderer flow in a browser.
-
-### Notes / gotchas
-- Existing JSON is development data; issue #85 explicitly forbids migration or a dual-field fallback.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-04 — closed #85 — replaced the global canvas with independent per-view coordinate spaces across editor, renderer, fixtures, validation, and docs; PR #94.
 - 2026-09-04 — closed #88 — defined responsive sizing and attachment semantics, added background focal positioning, and covered resize, touch, and reduced-motion behavior; PR #93.
 - 2026-09-04 — closed #89 — added canonical QA fixtures, a resizable browser gallery, automated coverage, and an evidence-ready human test matrix; PR #92.
 - 2026-09-03 — reassessed the product as an image-first scene composer; opened roadmap #84–#90, documented human QA, corrected background coordinate behavior, and added Pages/release automation (#91).
