@@ -22,6 +22,12 @@ Actions can open a URL, navigate to another view, show a rich popup, or dispatch
 
 Helpful shortcuts include `G` for grid snapping, `F` to fit the selection/canvas, Space-drag to pan, `+`/`-` to zoom, `0` to reset zoom, and Cmd/Ctrl+C, V, or D for area copy/paste/duplicate. Cmd/Ctrl+Z and Cmd/Ctrl+Shift+Z undo and redo. Press `?` for the complete list.
 
+### Image-shaped regions
+
+Select a rectangular area and choose an imported PNG or WebP under **Image region**. The image becomes the area's visual; its rectangle remains the predictable default hit box. For transparent cutouts, set an alpha threshold and choose **Generate alpha mask**. The editor samples once into a deterministic, one-bit mask capped at 128×128 pixels, and the exported renderer uses that cached mask without reading pixels or making network requests. **Show mask overlay** previews the clickable pixels in pink.
+
+Transparent holes remain non-clickable, while keyboard focus retains the visible rectangular outline. Static PNG and WebP are supported. JPEG, SVG, animated images, decode failures, and cross-origin images whose pixels cannot be read deliberately fall back to the rectangle; the editor reports that fallback and export never retries preprocessing.
+
 ## 4. Check structure and interaction
 
 **Tree** gives a hierarchical project overview. **Flow** shows `goToView` connections and calls out orphan views. Use both to catch organization and navigation mistakes.

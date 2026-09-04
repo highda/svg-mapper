@@ -218,6 +218,15 @@ export function validateProject(project: ClickMapDefinition): ValidationResult[]
         if (geoErr) {
           err("INVALID_GEOMETRY", `Area "${area.name}" has invalid geometry: ${geoErr}.`, ref);
         }
+        if (area.image) {
+          const asset = assetsById.get(area.image.assetId);
+          if (!asset) err("MISSING_AREA_ASSET", `Area "${area.name}" references a missing image asset.`, { ...ref, assetId: area.image.assetId });
+          if (area.geometry.type !== "rect") err("INVALID_IMAGE_REGION", `Area "${area.name}" must be rectangular to display an image.`, ref);
+          const mask = area.image.hitMask;
+          if (mask && (mask.assetId !== area.image.assetId || mask.width < 1 || mask.height < 1 || mask.width > 128 || mask.height > 128 || mask.threshold < 0 || mask.threshold > 1 || !/^[A-Za-z0-9+/]*={0,2}$/.test(mask.data))) {
+            err("INVALID_ALPHA_MASK", `Area "${area.name}" has an invalid alpha hit mask.`, ref);
+          }
+        }
 
         switch (area.action.type) {
           case "goToView":

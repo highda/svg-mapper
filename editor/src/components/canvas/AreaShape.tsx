@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { Area, CircleGeometry } from "@svg-mapper/shared";
 import { geometryToSvgPath, getRectHandles, type RectHandle } from "../../lib/area-utils";
+import { alphaMaskToSvgPath } from "../../lib/alpha-mask";
+import { useStore } from "../../store";
 
 interface Props {
   area: Area;
@@ -25,6 +27,7 @@ export function AreaShape({
   onHoverChange,
 }: Props) {
   const [hovered, setHovered] = useState(false);
+  const assets = useStore((state) => state.project.assets);
 
   const d = geometryToSvgPath(area.geometry);
   if (!d) return null;
@@ -48,9 +51,14 @@ export function AreaShape({
   }
 
   const hw = 1 / zoom; // handle stroke width
+  const imageAsset = area.image ? assets.find((asset) => asset.id === area.image?.assetId) : undefined;
+  const rect = area.geometry.type === "rect" ? area.geometry : null;
 
   return (
     <g style={{ opacity: isDisabled ? 0.6 : 1 }}>
+      {imageAsset && rect && (
+        <image href={imageAsset.src} x={rect.x} y={rect.y} width={rect.width} height={rect.height} preserveAspectRatio="none" style={{ pointerEvents: "none" }} />
+      )}
       {/* Main area shape */}
       <path
         d={d}
@@ -66,6 +74,15 @@ export function AreaShape({
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
       />
+
+      {area.image?.hitMask?.debug && rect && (
+        <path
+          d={alphaMaskToSvgPath(area.image.hitMask, rect.x, rect.y, rect.width, rect.height)}
+          fill="rgba(236,72,153,0.38)"
+          stroke="none"
+          style={{ pointerEvents: "none" }}
+        />
+      )}
 
       {/* alwaysHighlight indicator — dashed outline in editor */}
       {alwaysHL && !selected && (

@@ -45,6 +45,21 @@ function areaElement(id: string): SVGElement {
 }
 
 describe("renderer interaction model", () => {
+  it("renders an image region with its portable keyboard focus target", () => {
+    const project = createNewProject();
+    project.assets.push({ id: "cutout", name: "cutout.png", type: "image/png", src: "data:image/png;base64,AA==", width: 2, height: 2, inline: true });
+    const area = createRectArea(10, 20, 30, 40);
+    area.image = { assetId: "cutout", hitMask: { mode: "alpha", assetId: "cutout", threshold: 0.5, width: 2, height: 2, data: "DQ==" } };
+    project.views[0].layers = [{ id: "layer", name: "Layer", visible: true, locked: false, opacity: 1, areas: [area] }];
+    create({ container: "#map", definition: toDefinition(project) });
+
+    const visual = document.querySelector<SVGImageElement>('image[href="data:image/png;base64,AA=="]');
+    expect(visual).not.toBeNull();
+    expect(visual?.getAttribute("pointer-events")).toBe("none");
+    expect(areaElement(area.id)).toHaveAttribute("tabindex", "0");
+    expect(areaElement(area.id)).toHaveAttribute("aria-label", area.name);
+  });
+
   it.each([
     ["fixed", "1600px", "900px", ""],
     ["fluid-width", "100%", "auto", "1600 / 900"],

@@ -184,6 +184,24 @@ export interface AreaLabel {
   visible?: boolean;
 }
 
+/** Bounded, export-time alpha bitmap. One bit per pixel, row-major, base64 encoded. */
+export interface AlphaHitMask {
+  mode: "alpha";
+  assetId: string;
+  threshold: number;
+  width: number;
+  height: number;
+  data: string;
+  /** Editor-only preview aid; the renderer ignores it. */
+  debug?: boolean;
+}
+
+export interface AreaImage {
+  assetId: string;
+  /** Omit for the portable rectangular fallback. */
+  hitMask?: AlphaHitMask;
+}
+
 export interface Area {
   id: string;
   name: string;
@@ -201,6 +219,8 @@ export interface Area {
   disabled?: boolean;
   /** Per-area label override (see Settings.areaLabels). */
   label?: AreaLabel;
+  /** Optional visual fitted to a rectangular area. */
+  image?: AreaImage;
 }
 
 // ---------------------------------------------------------------------------
