@@ -811,7 +811,7 @@ class Renderer implements ClickMapInstance {
       shape.style.cursor = "not-allowed";
       shape.setAttribute("tabindex", "-1");
     } else {
-      shape.setAttribute("tabindex", String(area.accessibility?.tabIndex ?? 0));
+      shape.setAttribute("tabindex", String(area.image?.decorative && area.action.type === "none" ? -1 : (area.accessibility?.tabIndex ?? 0)));
       shape.setAttribute("role", "button");
       shape.setAttribute(
         "aria-label",
@@ -830,12 +830,17 @@ class Renderer implements ClickMapInstance {
     const asset = this.def.assets.find((candidate) => candidate.id === area.image!.assetId);
     if (!asset) return null;
     const image = svgEl<SVGImageElement>("image");
+    if (area.image.visible === false) return null;
     image.setAttribute("href", asset.src);
     image.setAttribute("x", String(area.geometry.x));
     image.setAttribute("y", String(area.geometry.y));
     image.setAttribute("width", String(area.geometry.width));
     image.setAttribute("height", String(area.geometry.height));
-    image.setAttribute("preserveAspectRatio", "none");
+    const fit = area.image.fit ?? "fill";
+    image.setAttribute("preserveAspectRatio", fit === "contain" ? "xMidYMid meet" : fit === "cover" ? "xMidYMid slice" : "none");
+    image.setAttribute("opacity", String(area.image.opacity ?? 1));
+    const rotation = area.image.rotation ?? 0;
+    if (rotation) image.setAttribute("transform", `rotate(${rotation} ${area.geometry.x + area.geometry.width / 2} ${area.geometry.y + area.geometry.height / 2})`);
     image.setAttribute("pointer-events", "none");
     return image;
   }

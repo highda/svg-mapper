@@ -7,7 +7,7 @@
 Issue:        #86 — feature: add image elements as first-class scene content
 Branch:       feat/86-image-elements
 Started:      2026-09-04
-Last commit:  pending  image-element implementation checkpoint
+Last commit:  ebbbc0e  feat: add first-class image elements
 
 ### What's done
 - Added reusable foreground image placement with fit, opacity, rotation, visibility, locking, decorative semantics, duplication/deletion, and paint-order controls.
