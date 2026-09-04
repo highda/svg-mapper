@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #90 — product: image-first scene graph roadmap
+Branch:       feat/90-image-first-roadmap
+Started:      2026-09-04
+Last commit:  pending  claim checkpoint
+
+### What's done
+- Claimed the roadmap after all six foundational workstreams closed.
+
+### What's next
+- Verify the integrated product and close the roadmap if its vision is satisfied.
+
+### Notes / gotchas
+- Issue #90 is an umbrella roadmap; its implementation work lives in #84–#89.
 
 ---
 
