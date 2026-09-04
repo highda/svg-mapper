@@ -7,7 +7,7 @@
 Issue:        #88 — design: specify responsive sizing, fit, positioning, and attachment semantics
 Branch:       feat/88-responsive-semantics
 Started:      2026-09-04
-Last commit:  37ca9ed  chore: claim #88 — responsive-semantics
+Last commit:  fb48e18  feat: define renderer container sizing modes
 
 ### What's done
 - Added an explicit fixed/fluid-width/fill-container renderer sizing contract with legacy flag inference.
