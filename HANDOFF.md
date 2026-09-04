@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #89 — test: build a human QA gallery and canonical textual fixtures
-Branch:       feat/89-qa-gallery
-Started:      2026-09-04
-Last commit:  e8dcf0e  feat: publish editor and define image-first roadmap
-
-### What's done
-- Claimed the host-selected QA gallery task.
-
-### What's next
-- Add canonical fixtures, a gallery page, and the durable human test matrix.
-
-### Notes / gotchas
-- Screenshots and browser artifacts must remain under ignored `.codex/runtime/`.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-04 — closed #89 — added canonical QA fixtures, a resizable browser gallery, automated coverage, and an evidence-ready human test matrix; PR #92.
 - 2026-09-03 — reassessed the product as an image-first scene composer; opened roadmap #84–#90, documented human QA, corrected background coordinate behavior, and added Pages/release automation (#91).
 - 2026-09-03 — closed #82 — removed placeholder export behavior and restored a usable mobile Export flow; PR #83.
 - 2026-09-03 — closed #80 — completed product, editor, schema, renderer API, and static deployment documentation; PR #81.
