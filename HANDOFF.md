@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #90 — product: image-first scene graph roadmap
-Branch:       feat/90-image-first-roadmap
-Started:      2026-09-04
-Last commit:  pending  claim checkpoint
-
-### What's done
-- Claimed the roadmap after all six foundational workstreams closed.
-
-### What's next
-- Verify the integrated product and close the roadmap if its vision is satisfied.
-
-### Notes / gotchas
-- Issue #90 is an umbrella roadmap; its implementation work lives in #84–#89.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-04 — closed #90 — verified and closed the six-workstream image-first scene graph roadmap; PR #107.
 - 2026-09-04 — closed #105 — added adjacent deep layer duplication with collision-safe IDs, internal reference remapping, history, persistence, and responsive UI coverage; PR #106.
 - 2026-09-04 — closed #103 — made Export fit and complete downloads cleanly at 390x844 while retaining the desktop Inspector; PR #104.
 - 2026-09-04 — closed #99 — added accessible exact CSS color, picker, opacity, validation, and responsive controls for every area style state; PR #102.
