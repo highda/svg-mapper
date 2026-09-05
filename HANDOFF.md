@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #112 — feat(renderer): deliver configurable zoom with enforced limits and editor controls
+Branch:       feat/112-configurable-zoom
+Started:      2026-09-05
+Last commit:  aeeb4b6  chore: hand off #128 — done
+
+### What's done
+- Claimed the task after reconciling the completed host-selected #128 brief.
+
+### What's next
+- Define the shared camera contract, implement bounded renderer behavior, and expose settings in the editor.
+
+### Notes / gotchas
+- Coordinate camera events with #130; promote #113 and #127 after delivery if otherwise unblocked.
 
 ---
 
