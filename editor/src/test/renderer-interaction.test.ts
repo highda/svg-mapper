@@ -290,6 +290,43 @@ describe("renderer interaction model", () => {
     expect(svg).toHaveAttribute("viewBox", "-40 -10 1660 940");
   });
 
+  it("applies initial zoom relative to the padded camera and enforces zoom limits", () => {
+    const project = createNewProject();
+    project.settings.zoomControls = { enabled: true };
+    project.settings.padding = { top: 10, right: 20, bottom: 30, left: 40 };
+    project.views[0].viewport = {
+      ...project.views[0].viewport,
+      minZoom: 1,
+      initialZoom: 2,
+      maxZoom: 3,
+    };
+    create({ container: "#map", definition: toDefinition(project) });
+
+    const svg = document.querySelector<SVGSVGElement>(".clickmap-areas")!;
+    expect(svg).toHaveAttribute("viewBox", "375 225 830 470");
+    for (let index = 0; index < 20; index += 1) {
+      document.querySelector<HTMLButtonElement>(".clickmap-zoom-in")!.click();
+    }
+    expect(svg).toHaveAttribute("viewBox", "513.3333333333333 303.33333333333337 553.3333333333334 313.3333333333333");
+    for (let index = 0; index < 20; index += 1) {
+      document.querySelector<HTMLButtonElement>(".clickmap-zoom-out")!.click();
+    }
+    expect(svg).toHaveAttribute("viewBox", "-40 -10 1660 940");
+    document.querySelector<HTMLButtonElement>(".clickmap-zoom-reset")!.click();
+    expect(svg).toHaveAttribute("viewBox", "375 225 830 470");
+  });
+
+  it("does not render or apply zoom controls when zoom is disabled", () => {
+    const project = createNewProject();
+    project.settings.zoomControls = { enabled: true };
+    project.views[0].viewport.zoomEnabled = false;
+    project.views[0].viewport.initialZoom = 2;
+    create({ container: "#map", definition: toDefinition(project) });
+
+    expect(document.querySelector(".clickmap-zoom-controls")).toBeNull();
+    expect(document.querySelector(".clickmap-areas")).toHaveAttribute("viewBox", "400 225 800 450");
+  });
+
   it("maps the configured background fit mode to SVG image geometry", () => {
     const project = createNewProject();
     project.assets = [{ id: "asset_1", name: "Plan", type: "image/png", src: "plan.png", inline: false, width: 1600, height: 900 }];

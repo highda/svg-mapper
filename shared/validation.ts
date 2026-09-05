@@ -208,6 +208,19 @@ export function validateProject(project: ClickMapDefinition): ValidationResult[]
     if (!(view.canvas?.width > 0) || !(view.canvas?.height > 0)) {
       err("INVALID_CANVAS_SIZE", `View "${view.name}" must have a positive canvas width and height.`, { viewId: view.id });
     }
+    const viewport = view.viewport;
+    if (
+      !isFiniteNumber(viewport?.minZoom) || viewport.minZoom <= 0 ||
+      !isFiniteNumber(viewport?.initialZoom) ||
+      !isFiniteNumber(viewport?.maxZoom) || viewport.maxZoom <= 0 ||
+      viewport.minZoom > viewport.initialZoom || viewport.initialZoom > viewport.maxZoom
+    ) {
+      err(
+        "INVALID_ZOOM_RANGE",
+        `View "${view.name}" zoom values must be finite and satisfy 0 < minZoom ≤ initialZoom ≤ maxZoom.`,
+        { viewId: view.id },
+      );
+    }
     // Background asset missing.
     if (view.background && !assetsById.has(view.background.assetId)) {
       err(

@@ -459,19 +459,9 @@ class Renderer implements ClickMapInstance {
   private renderAreas(view: View) {
     this.svgEl.innerHTML = "";
 
-    const { width, height } = view.canvas;
-    const pad = this.def.settings.padding;
-    if (pad) {
-      this.svgEl.setAttribute(
-        "viewBox",
-        `${-pad.left} ${-pad.top} ${width + pad.left + pad.right} ${height + pad.top + pad.bottom}`
-      );
-    } else {
-      this.svgEl.setAttribute("viewBox", `0 0 ${width} ${height}`);
-    }
-    this.currentViewBox = pad
-      ? { x: -pad.left, y: -pad.top, w: width + pad.left + pad.right, h: height + pad.top + pad.bottom }
-      : { x: 0, y: 0, w: width, h: height };
+    const base = this.getBaseViewBox(view);
+    const initialZoom = this.getZoomLimits(view).initial;
+    this.currentViewBox = this.zoomedViewBox(base, initialZoom);
     this.applyViewBox();
 
     const labelSettings = this.def.settings.areaLabels;
@@ -667,7 +657,8 @@ class Renderer implements ClickMapInstance {
     this.zoomControlsEl = null;
 
     const zc = this.def.settings.zoomControls;
-    if (!zc?.enabled) return;
+    const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
+    if (!zc?.enabled || !view?.viewport.zoomEnabled) return;
 
     const el = document.createElement("div");
     el.className = `clickmap-zoom-controls clickmap-zoom-controls--${zc.position ?? "top-right"}`;
@@ -692,11 +683,17 @@ class Renderer implements ClickMapInstance {
 
   private adjustZoom(factor: number) {
     if (!this.currentViewBox) return;
+    const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
+    if (!view?.viewport.zoomEnabled || !Number.isFinite(factor) || factor <= 0) return;
+    const base = this.getBaseViewBox(view);
+    const limits = this.getZoomLimits(view);
     const vb = this.currentViewBox;
     const cx = vb.x + vb.w / 2;
     const cy = vb.y + vb.h / 2;
-    const newW = vb.w / factor;
-    const newH = vb.h / factor;
+    const currentZoom = base.w / vb.w;
+    const targetZoom = Math.max(limits.min, Math.min(limits.max, currentZoom * factor));
+    const newW = base.w / targetZoom;
+    const newH = base.h / targetZoom;
     this.currentViewBox = {
       x: cx - newW / 2,
       y: cy - newH / 2,
@@ -709,12 +706,41 @@ class Renderer implements ClickMapInstance {
   private resetZoom() {
     const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
     if (!view) return;
+    const base = this.getBaseViewBox(view);
+    this.currentViewBox = this.zoomedViewBox(base, this.getZoomLimits(view).initial);
+    this.applyViewBox();
+  }
+
+  private getBaseViewBox(view: View) {
     const { width, height } = view.canvas;
     const pad = this.def.settings.padding;
-    this.currentViewBox = pad
+    return pad
       ? { x: -pad.left, y: -pad.top, w: width + pad.left + pad.right, h: height + pad.top + pad.bottom }
       : { x: 0, y: 0, w: width, h: height };
-    this.applyViewBox();
+  }
+
+  private getZoomLimits(view: View) {
+    const min = Number.isFinite(view.viewport.minZoom) && view.viewport.minZoom > 0
+      ? view.viewport.minZoom
+      : 1;
+    const max = Number.isFinite(view.viewport.maxZoom) && view.viewport.maxZoom >= min
+      ? view.viewport.maxZoom
+      : min;
+    const requestedInitial = Number.isFinite(view.viewport.initialZoom)
+      ? view.viewport.initialZoom
+      : min;
+    return { min, max, initial: Math.max(min, Math.min(max, requestedInitial)) };
+  }
+
+  private zoomedViewBox(base: { x: number; y: number; w: number; h: number }, zoom: number) {
+    const w = base.w / zoom;
+    const h = base.h / zoom;
+    return {
+      x: base.x + (base.w - w) / 2,
+      y: base.y + (base.h - h) / 2,
+      w,
+      h,
+    };
   }
 
   private applyViewBox() {
@@ -782,11 +808,8 @@ class Renderer implements ClickMapInstance {
     if (!this.currentViewBox) return false;
     const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
     if (!view) return false;
-    const { width, height } = view.canvas;
-    const pad = this.def.settings.padding;
-    const initialWidth = width + (pad?.left ?? 0) + (pad?.right ?? 0);
-    const initialHeight = height + (pad?.top ?? 0) + (pad?.bottom ?? 0);
-    return this.currentViewBox.w < initialWidth || this.currentViewBox.h < initialHeight;
+    const base = this.getBaseViewBox(view);
+    return this.currentViewBox.w < base.w || this.currentViewBox.h < base.h;
   }
 
   // -------------------------------------------------------------------------

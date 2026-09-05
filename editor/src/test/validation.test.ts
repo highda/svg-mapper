@@ -28,6 +28,15 @@ function codes(def: ClickMapDefinition): string[] {
 }
 
 describe("validateProject — errors", () => {
+  it("rejects non-finite, non-positive, and misordered zoom ranges", () => {
+    const def = baseDef();
+    def.views[0].viewport = { ...def.views[0].viewport, minZoom: 2, initialZoom: 1, maxZoom: 4 };
+    expect(codes(def)).toContain("INVALID_ZOOM_RANGE");
+
+    def.views[0].viewport = { ...def.views[0].viewport, minZoom: 1, initialZoom: 2, maxZoom: Number.NaN };
+    expect(codes(def)).toContain("INVALID_ZOOM_RANGE");
+  });
+
   it("flags a missing initialViewId", () => {
     const def = baseDef();
     def.settings.initialViewId = "view_does_not_exist";

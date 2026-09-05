@@ -528,7 +528,19 @@ function ViewportEditor({ viewport, viewId }: { viewport: Viewport; viewId: stri
           min={0.1}
           max={viewport.maxZoom}
           step={0.1}
-          onCommit={(v) => setViewport({ minZoom: v })}
+          onCommit={(v) => setViewport({
+            minZoom: v,
+            initialZoom: Math.max(v, viewport.initialZoom),
+          })}
+        />
+      </Row>
+      <Row label="Initial zoom">
+        <NumberField
+          defaultValue={viewport.initialZoom}
+          min={viewport.minZoom}
+          max={viewport.maxZoom}
+          step={0.1}
+          onCommit={(v) => setViewport({ initialZoom: v })}
         />
       </Row>
       <Row label="Max zoom">
@@ -537,7 +549,10 @@ function ViewportEditor({ viewport, viewId }: { viewport: Viewport; viewId: stri
           min={viewport.minZoom}
           max={20}
           step={0.5}
-          onCommit={(v) => setViewport({ maxZoom: v })}
+          onCommit={(v) => setViewport({
+            maxZoom: v,
+            initialZoom: Math.min(v, viewport.initialZoom),
+          })}
         />
       </Row>
     </div>

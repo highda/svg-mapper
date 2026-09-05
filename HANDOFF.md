@@ -7,13 +7,16 @@
 Issue:        #112 — feat(renderer): deliver configurable zoom with enforced limits and editor controls
 Branch:       feat/112-configurable-zoom
 Started:      2026-09-05
-Last commit:  aeeb4b6  chore: hand off #128 — done
+Last commit:  b33a5db  chore: claim #112 — configurable zoom
 
 ### What's done
-- Claimed the task after reconciling the completed host-selected #128 brief.
+- Defined initial zoom relative to the padded fitted camera and clamped button zoom to per-view limits.
+- Hid zoom controls for zoom-disabled views, added zoom-range validation, and exposed Initial zoom in the inspector.
+- Added renderer, validation, and inspector coverage; exercised the new field in the local browser with no console errors.
 
 ### What's next
-- Define the shared camera contract, implement bounded renderer behavior, and expose settings in the editor.
+- Add configurable control visibility/position, step/reset, and modifier-gated cursor-centered wheel zoom.
+- Cover view re-entry, aspect ratios, independent instances, and Preview/export parity; update docs.
 
 ### Notes / gotchas
 - Coordinate camera events with #130; promote #113 and #127 after delivery if otherwise unblocked.
