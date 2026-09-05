@@ -485,6 +485,41 @@ function ViewInspector({ view }: { view: View }) {
           ))}
         </select>
       </Row>
+      <Row label="Zoom step">
+        <NumberField
+          defaultValue={project.settings.zoomControls?.step ?? 0.2}
+          min={0.05}
+          max={4}
+          step={0.05}
+          onCommit={(step) => updateSettings({ zoomControls: { ...project.settings.zoomControls, enabled: project.settings.zoomControls?.enabled ?? false, step } })}
+        />
+      </Row>
+      <Row label="Reset to">
+        <select
+          aria-label="Zoom Reset Behavior"
+          value={project.settings.zoomControls?.resetBehavior ?? "initial"}
+          onChange={(e) => updateSettings({ zoomControls: { ...project.settings.zoomControls, enabled: project.settings.zoomControls?.enabled ?? false, resetBehavior: e.target.value as "initial" | "fit" } })}
+          className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+        >
+          <option value="initial">Initial zoom</option>
+          <option value="fit">Fit view</option>
+        </select>
+      </Row>
+      <Row label="Wheel zoom">
+        <select
+          aria-label="Wheel Zoom Mode"
+          value={project.settings.zoomControls?.wheelMode ?? "off"}
+          onChange={(e) => updateSettings({ zoomControls: { ...project.settings.zoomControls, enabled: project.settings.zoomControls?.enabled ?? false, wheelMode: e.target.value as "off" | "ctrl" | "meta" | "alt" | "shift" | "always" } })}
+          className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+        >
+          <option value="off">Off</option>
+          <option value="ctrl">Ctrl / pinch</option>
+          <option value="meta">Command</option>
+          <option value="alt">Alt</option>
+          <option value="shift">Shift</option>
+          <option value="always">Always</option>
+        </select>
+      </Row>
       {(["top", "right", "bottom", "left"] as const).map((side) => (
         <Row key={side} label={`Padding ${side}`}>
           <NumberField
@@ -528,7 +563,19 @@ function ViewportEditor({ viewport, viewId }: { viewport: Viewport; viewId: stri
           min={0.1}
           max={viewport.maxZoom}
           step={0.1}
-          onCommit={(v) => setViewport({ minZoom: v })}
+          onCommit={(v) => setViewport({
+            minZoom: v,
+            initialZoom: Math.max(v, viewport.initialZoom),
+          })}
+        />
+      </Row>
+      <Row label="Initial zoom">
+        <NumberField
+          defaultValue={viewport.initialZoom}
+          min={viewport.minZoom}
+          max={viewport.maxZoom}
+          step={0.1}
+          onCommit={(v) => setViewport({ initialZoom: v })}
         />
       </Row>
       <Row label="Max zoom">
@@ -537,7 +584,10 @@ function ViewportEditor({ viewport, viewId }: { viewport: Viewport; viewId: stri
           min={viewport.minZoom}
           max={20}
           step={0.5}
-          onCommit={(v) => setViewport({ maxZoom: v })}
+          onCommit={(v) => setViewport({
+            maxZoom: v,
+            initialZoom: Math.min(v, viewport.initialZoom),
+          })}
         />
       </Row>
     </div>

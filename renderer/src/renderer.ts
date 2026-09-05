@@ -341,6 +341,7 @@ class Renderer implements ClickMapInstance {
     this.svgEl.addEventListener("pointermove", (e) => this.onPointerMove(e));
     this.svgEl.addEventListener("click", (e) => this.onClick(e));
     this.svgEl.addEventListener("keydown", (e) => this.onKeyDown(e));
+    this.svgEl.addEventListener("wheel", this.onWheel, { passive: false });
 
     // Spacebar pan (issue #27 G3)
     window.addEventListener("keydown", this.onWindowKeyDown);
@@ -459,19 +460,9 @@ class Renderer implements ClickMapInstance {
   private renderAreas(view: View) {
     this.svgEl.innerHTML = "";
 
-    const { width, height } = view.canvas;
-    const pad = this.def.settings.padding;
-    if (pad) {
-      this.svgEl.setAttribute(
-        "viewBox",
-        `${-pad.left} ${-pad.top} ${width + pad.left + pad.right} ${height + pad.top + pad.bottom}`
-      );
-    } else {
-      this.svgEl.setAttribute("viewBox", `0 0 ${width} ${height}`);
-    }
-    this.currentViewBox = pad
-      ? { x: -pad.left, y: -pad.top, w: width + pad.left + pad.right, h: height + pad.top + pad.bottom }
-      : { x: 0, y: 0, w: width, h: height };
+    const base = this.getBaseViewBox(view);
+    const initialZoom = this.getZoomLimits(view).initial;
+    this.currentViewBox = this.zoomedViewBox(base, initialZoom);
     this.applyViewBox();
 
     const labelSettings = this.def.settings.areaLabels;
@@ -667,7 +658,8 @@ class Renderer implements ClickMapInstance {
     this.zoomControlsEl = null;
 
     const zc = this.def.settings.zoomControls;
-    if (!zc?.enabled) return;
+    const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
+    if (!zc?.enabled || !view?.viewport.zoomEnabled) return;
 
     const el = document.createElement("div");
     el.className = `clickmap-zoom-controls clickmap-zoom-controls--${zc.position ?? "top-right"}`;
@@ -682,24 +674,33 @@ class Renderer implements ClickMapInstance {
       return btn;
     };
 
-    el.appendChild(makeBtn("clickmap-zoom-in", "Zoom in", () => this.adjustZoom(1.2)));
-    el.appendChild(makeBtn("clickmap-zoom-out", "Zoom out", () => this.adjustZoom(1 / 1.2)));
+    const factor = 1 + this.getZoomStep();
+    el.appendChild(makeBtn("clickmap-zoom-in", "Zoom in", () => this.adjustZoom(factor)));
+    el.appendChild(makeBtn("clickmap-zoom-out", "Zoom out", () => this.adjustZoom(1 / factor)));
     el.appendChild(makeBtn("clickmap-zoom-reset", "Reset zoom", () => this.resetZoom()));
 
     this.root.appendChild(el);
     this.zoomControlsEl = el;
   }
 
-  private adjustZoom(factor: number) {
+  private adjustZoom(factor: number, anchor?: { x: number; y: number }) {
     if (!this.currentViewBox) return;
+    const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
+    if (!view?.viewport.zoomEnabled || !Number.isFinite(factor) || factor <= 0) return;
+    const base = this.getBaseViewBox(view);
+    const limits = this.getZoomLimits(view);
     const vb = this.currentViewBox;
-    const cx = vb.x + vb.w / 2;
-    const cy = vb.y + vb.h / 2;
-    const newW = vb.w / factor;
-    const newH = vb.h / factor;
+    const cx = anchor?.x ?? vb.x + vb.w / 2;
+    const cy = anchor?.y ?? vb.y + vb.h / 2;
+    const currentZoom = base.w / vb.w;
+    const targetZoom = Math.max(limits.min, Math.min(limits.max, currentZoom * factor));
+    const newW = base.w / targetZoom;
+    const newH = base.h / targetZoom;
+    const x = cx - (cx - vb.x) * (newW / vb.w);
+    const y = cy - (cy - vb.y) * (newH / vb.h);
     this.currentViewBox = {
-      x: cx - newW / 2,
-      y: cy - newH / 2,
+      x: Math.abs(x - base.x) < 1e-10 ? base.x : x,
+      y: Math.abs(y - base.y) < 1e-10 ? base.y : y,
       w: newW,
       h: newH,
     };
@@ -709,12 +710,75 @@ class Renderer implements ClickMapInstance {
   private resetZoom() {
     const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
     if (!view) return;
+    const base = this.getBaseViewBox(view);
+    const zoom = this.def.settings.zoomControls?.resetBehavior === "fit"
+      ? this.getZoomLimits(view).min
+      : this.getZoomLimits(view).initial;
+    this.currentViewBox = this.zoomedViewBox(base, zoom);
+    this.applyViewBox();
+  }
+
+  private getZoomStep() {
+    const step = this.def.settings.zoomControls?.step;
+    return Number.isFinite(step) && step! > 0 ? Math.min(step!, 4) : 0.2;
+  }
+
+  private onWheel = (event: WheelEvent) => {
+    const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
+    const mode = this.def.settings.zoomControls?.wheelMode ?? "off";
+    if (!view?.viewport.zoomEnabled || mode === "off") return;
+    const permitted = mode === "always" ||
+      (mode === "ctrl" && event.ctrlKey) || (mode === "meta" && event.metaKey) ||
+      (mode === "alt" && event.altKey) || (mode === "shift" && event.shiftKey);
+    if (!permitted || !this.currentViewBox || event.deltaY === 0) return;
+
+    event.preventDefault();
+    const rect = this.svgEl.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const vb = this.currentViewBox;
+    const renderedScale = Math.min(rect.width / vb.w, rect.height / vb.h);
+    const renderedW = vb.w * renderedScale;
+    const renderedH = vb.h * renderedScale;
+    const offsetX = (rect.width - renderedW) / 2;
+    const offsetY = (rect.height - renderedH) / 2;
+    const anchor = {
+      x: vb.x + (event.clientX - rect.left - offsetX) / renderedScale,
+      y: vb.y + (event.clientY - rect.top - offsetY) / renderedScale,
+    };
+    const factor = 1 + this.getZoomStep();
+    this.adjustZoom(event.deltaY < 0 ? factor : 1 / factor, anchor);
+  };
+
+  private getBaseViewBox(view: View) {
     const { width, height } = view.canvas;
     const pad = this.def.settings.padding;
-    this.currentViewBox = pad
+    return pad
       ? { x: -pad.left, y: -pad.top, w: width + pad.left + pad.right, h: height + pad.top + pad.bottom }
       : { x: 0, y: 0, w: width, h: height };
-    this.applyViewBox();
+  }
+
+  private getZoomLimits(view: View) {
+    const min = Number.isFinite(view.viewport.minZoom) && view.viewport.minZoom > 0
+      ? view.viewport.minZoom
+      : 1;
+    const max = Number.isFinite(view.viewport.maxZoom) && view.viewport.maxZoom >= min
+      ? view.viewport.maxZoom
+      : min;
+    const requestedInitial = Number.isFinite(view.viewport.initialZoom)
+      ? view.viewport.initialZoom
+      : min;
+    return { min, max, initial: Math.max(min, Math.min(max, requestedInitial)) };
+  }
+
+  private zoomedViewBox(base: { x: number; y: number; w: number; h: number }, zoom: number) {
+    const w = base.w / zoom;
+    const h = base.h / zoom;
+    return {
+      x: base.x + (base.w - w) / 2,
+      y: base.y + (base.h - h) / 2,
+      w,
+      h,
+    };
   }
 
   private applyViewBox() {
@@ -782,11 +846,8 @@ class Renderer implements ClickMapInstance {
     if (!this.currentViewBox) return false;
     const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
     if (!view) return false;
-    const { width, height } = view.canvas;
-    const pad = this.def.settings.padding;
-    const initialWidth = width + (pad?.left ?? 0) + (pad?.right ?? 0);
-    const initialHeight = height + (pad?.top ?? 0) + (pad?.bottom ?? 0);
-    return this.currentViewBox.w < initialWidth || this.currentViewBox.h < initialHeight;
+    const base = this.getBaseViewBox(view);
+    return this.currentViewBox.w < base.w || this.currentViewBox.h < base.h;
   }
 
   // -------------------------------------------------------------------------
@@ -1545,6 +1606,7 @@ class Renderer implements ClickMapInstance {
     window.removeEventListener("pointerup", this.onWindowPointerUp);
     document.removeEventListener("click", this.onDocumentClick);
     document.removeEventListener("keydown", this.onDocumentKeyDown);
+    this.svgEl.removeEventListener("wheel", this.onWheel);
     if (this.shadowRoot) {
       // Shadow roots cannot be detached; clear all renderer-owned contents.
       this.shadowRoot.replaceChildren();
