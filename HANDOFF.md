@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #110 — fix(export): prevent project text from escaping the demo script element
-Branch:       feat/110-script-context-json
-Started:      2026-09-05
-Last commit:  pending  chore: claim #110 — script-context-json
-
-### What's done
-- Claimed the highest-priority ready release blocker.
-
-### What's next
-- Unify Preview/export script-context JSON serialization and add regressions.
-
-### Notes / gotchas
-- Host task brief referenced already-closed #129; pre-flight selected open p0 #110.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-05 — closed #110 — secured Preview and exported HTML script-context JSON against end-tag variants while preserving authored rich text; PR #133.
 - 2026-09-05 — closed #129 — added validated per-view CSS authoring with instance/keyframe scoping, renderer lifecycle cleanup, export parity, and stable documented targets; PR #132.
 - 2026-09-04 — closed #108 — added anchored marker creation, editing, validation, and consistent editor/runtime rendering; PR #109.
 - 2026-09-04 — closed #90 — verified and closed the six-workstream image-first scene graph roadmap; PR #107.
