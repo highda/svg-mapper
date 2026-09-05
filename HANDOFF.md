@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #127 — Add an optional searchable place directory and category filters
+Branch:       feat/127-place-directory
+Started:      2026-09-05
+Last commit:  pending  Task claimed
+
+### What's done
+- Claimed the host-selected task after prerequisite #112 landed.
+
+### What's next
+- Define the shared directory configuration, then implement editor, renderer, fixtures, docs, and tests.
+
+### Notes / gotchas
+- Directory is opt-in, static/offline, and must remain responsive with 1000 areas.
 
 ---
 
