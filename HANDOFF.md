@@ -15,15 +15,16 @@ Last commit:  2d95017  fix: add bounded opt-in touch map gestures
 - Added editor controls, docs, automated tall-host touch coverage, and local browser validation.
 
 ### What's next
-- Run and record the required physical iOS and Android passes for zoom, pan, scrolling past the map, tap, reset, and view changes.
-- If those pass, open/merge the PR and close #113.
+- A human with physical iOS and Android devices must run and record zoom, pan, scrolling past the map, tap, reset, and view-change passes.
+- After those passes succeed, remove `agent:blocked`, open/merge the PR, and close #113.
 
 ### Notes / gotchas
-- Physical iOS/Android acceptance requires human-operated devices; record automated touch emulation separately.
+- Blocked: this unattended environment has neither an Android device/emulator (`adb`) nor an iOS simulator (`xcrun`), so it cannot honestly complete the required actual-device acceptance pass.
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-05 — blocked #113 — implementation and automated touch validation complete; awaiting required physical iOS/Android acceptance.
 - 2026-09-05 — closed #112 — delivered bounded fitted-camera zoom, configurable controls/reset/step, and cursor-anchored modifier wheel gestures; PR #136.
 - 2026-09-05 — closed #128 — made export configuration deploy-ready and packaging/clipboard failures recoverable; PR #135.
 - 2026-09-05 — closed #111 — enforced browser-normalized URL protocol safety across validation, renderer navigation, popup resources, and rich content; PR #134.
