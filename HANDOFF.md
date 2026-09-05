@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #113 — fix(renderer): support touch pan and pinch without trapping host-page scrolling
+Branch:       feat/113-touch-gestures
+Started:      2026-09-05
+Last commit:  bdc6a09  chore: hand off #112 — done
+
+### What's done
+- Claimed the task after its configurable-camera prerequisite landed.
+
+### What's next
+- Implement bounded touch pan/pinch, gesture policy, tap suppression, and coverage.
+
+### Notes / gotchas
+- Physical iOS/Android acceptance requires human-operated devices; record automated touch emulation separately.
 
 ---
 
