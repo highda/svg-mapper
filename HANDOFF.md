@@ -7,16 +7,19 @@
 Issue:        #129 — feat: add scoped custom CSS for each view with editor and export support
 Branch:       feat/129-view-custom-css
 Started:      2026-09-05
-Last commit:  6566720  chore: hand off #108 — done
+Last commit:  3a27653  feat: add per-view CSS authoring model
 
 ### What's done
-- Claimed the host-selected task and created its feature branch.
+- Added persisted optional `View.customCss`, an advanced View CSS editor, reset, undo history, and visible validation.
+- Authoring validation rejects imports and global resource at-rules; editor typecheck and 48 focused tests pass.
 
 ### What's next
-- Implement and document safely scoped per-view CSS across editor, preview, and exported renderer.
+- Implement renderer selector/keyframe scoping and view enter/exit/reset/destroy lifecycle.
+- Add renderer isolation, preview/export parity, mobile browser coverage, and schema/API documentation.
 
 ### Notes / gotchas
 - Custom rules must remain isolated per view and renderer instance in both light and Shadow DOM.
+- The current validation helper is intentionally conservative but does not yet transform CSS; keep renderer acceptance aligned with it.
 
 ---
 
