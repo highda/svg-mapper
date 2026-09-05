@@ -24,6 +24,20 @@ function escId(id: string): string {
   return CSS.escape(id);
 }
 
+function areaBounds(geometry: Area["geometry"]): { x: number; y: number; w: number; h: number } {
+  switch (geometry.type) {
+    case "rect": return { x: geometry.x, y: geometry.y, w: geometry.width, h: geometry.height };
+    case "circle": return { x: geometry.cx - geometry.r, y: geometry.cy - geometry.r, w: geometry.r * 2, h: geometry.r * 2 };
+    case "polygon": {
+      const xs = geometry.points.map(([x]) => x);
+      const ys = geometry.points.map(([, y]) => y);
+      return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+    }
+    case "marker": return { x: geometry.x - 16, y: geometry.y - 32, w: 32, h: 32 };
+    case "path": return { x: 0, y: 0, w: 1, h: 1 };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // HTML sanitiser (strips script tags and event-handler attributes)
 // ---------------------------------------------------------------------------
@@ -253,6 +267,7 @@ class Renderer implements ClickMapInstance {
     }
 
     this.buildDOM();
+    this.renderDirectory();
     this.renderView(this.currentViewId);
 
     // Deep linking: restore from hash on load
@@ -353,6 +368,121 @@ class Renderer implements ClickMapInstance {
     // Close popover on outside click
     document.addEventListener("click", this.onDocumentClick);
     document.addEventListener("keydown", this.onDocumentKeyDown);
+  }
+
+  private renderDirectory() {
+    const config = this.def.settings.directory;
+    if (!config?.enabled) return;
+
+    type Entry = { area: Area; view: View; search: string; category: string };
+    const entries: Entry[] = [];
+    for (const view of this.def.views) {
+      for (const layer of view.layers) {
+        if (!layer.visible) continue; // Hidden authoring layers are intentionally undiscoverable.
+        for (const area of layer.areas) {
+          const metadataText = (config.metadataKeys ?? []).map((key) => area.metadata?.[key])
+            .filter((value) => value !== undefined && value !== null)
+            .map(String).join(" ");
+          entries.push({
+            area,
+            view,
+            search: `${area.name} ${metadataText}`.toLocaleLowerCase(),
+            category: String(config.categoryKey ? area.metadata?.[config.categoryKey] ?? "" : ""),
+          });
+        }
+      }
+    }
+
+    const panel = document.createElement("section");
+    panel.className = "clickmap-directory";
+    panel.setAttribute("aria-label", "Place directory");
+    const heading = document.createElement("h2");
+    heading.textContent = "Find a place";
+    const input = document.createElement("input");
+    input.type = "search";
+    input.className = "clickmap-directory-search";
+    input.placeholder = "Search places";
+    input.setAttribute("aria-label", "Search places");
+    const filters = document.createElement("div");
+    filters.className = "clickmap-directory-filters";
+    filters.setAttribute("aria-label", "Filter by category");
+    const status = document.createElement("div");
+    status.className = "clickmap-directory-status";
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+    const list = document.createElement("ul");
+    list.className = "clickmap-directory-results";
+    let category = "";
+
+    const update = () => {
+      const query = input.value.trim().toLocaleLowerCase();
+      const matches = entries.filter((entry) => (!query || entry.search.includes(query)) && (!category || entry.category === category));
+      status.textContent = `${matches.length} ${matches.length === 1 ? "place" : "places"}`;
+      list.replaceChildren();
+      if (matches.length === 0) {
+        const empty = document.createElement("li");
+        empty.className = "clickmap-directory-empty";
+        empty.textContent = "No places match your search.";
+        list.appendChild(empty);
+        return;
+      }
+      const fragment = document.createDocumentFragment();
+      for (const entry of matches) {
+        const item = document.createElement("li");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "clickmap-directory-result";
+        button.disabled = entry.area.disabled === true;
+        button.textContent = `${entry.area.name} — ${entry.view.name}${entry.area.disabled ? " (unavailable)" : ""}`;
+        button.addEventListener("click", () => this.revealDirectoryEntry(entry.view, entry.area));
+        item.appendChild(button);
+        fragment.appendChild(item);
+      }
+      list.appendChild(fragment);
+    };
+
+    const addFilter = (value: string, label: string) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "clickmap-directory-filter";
+      button.textContent = label;
+      button.setAttribute("aria-pressed", String(category === value));
+      button.addEventListener("click", () => {
+        category = category === value ? "" : value;
+        filters.querySelectorAll("button").forEach((candidate) => candidate.setAttribute("aria-pressed", String(candidate === button && category === value)));
+        update();
+      });
+      filters.appendChild(button);
+    };
+    for (const item of config.categories ?? []) addFilter(item.value, item.label);
+    input.addEventListener("input", update);
+    panel.append(heading, input);
+    if (filters.childElementCount) panel.appendChild(filters);
+    panel.append(status, list);
+    this.root.appendChild(panel);
+    update();
+  }
+
+  private revealDirectoryEntry(view: View, area: Area) {
+    const reveal = () => {
+      const el = this.findAreaEl(area.id);
+      if (!el) return;
+      const bounds = areaBounds(area.geometry);
+      const base = this.getBaseViewBox(view);
+      const limits = this.getZoomLimits(view);
+      const targetZoom = Math.max(limits.min, Math.min(limits.max, Math.min(base.w / Math.max(bounds.w * 2, 1), base.h / Math.max(bounds.h * 2, 1))));
+      const width = base.w / targetZoom;
+      const height = base.h / targetZoom;
+      this.currentViewBox = { x: bounds.x + bounds.w / 2 - width / 2, y: bounds.y + bounds.h / 2 - height / 2, w: width, h: height };
+      this.applyViewBox();
+      el.focus();
+      this.ariaLiveEl.textContent = `${area.name}, ${view.name}`;
+      this.updateDeepLinkHash(view.id, area.id);
+    };
+    if (view.id !== this.currentViewId) {
+      this.goToView(view.id);
+      window.setTimeout(reveal, 170);
+    } else reveal();
   }
 
   // -------------------------------------------------------------------------

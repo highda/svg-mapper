@@ -36,6 +36,8 @@ Transparent holes remain non-clickable, while keyboard focus retains the visible
 
 **Preview** runs the exported renderer in a sandboxed iframe. Exercise the golden path: hover and keyboard-focus areas, follow every view link, go back, open and close popups, test URLs, zoom and pan, and switch among full, tablet, and mobile widths. Preview can block external URL navigation while you test.
 
+To help visitors find places by text, select the view and enable **Place Directory** in the project inspector. Area names are always searched; add comma-separated metadata fields such as `amenity, address` for richer matching. A category field (for example `category`) plus `value = Visitor label` lines creates filter chips and a text legend. Preview uses the real published directory: verify search counts and empty states, keyboard through filters and results, and choose results in several views. Hidden layers never appear; disabled areas are visibly listed as unavailable.
+
 ## 5. Validate and export
 
 Open **Export** (or Cmd/Ctrl+E). Resolve red errors; they disable ZIP download. Review amber warnings and either fix them or explicitly export anyway. Click referenced results to jump to the offending item.

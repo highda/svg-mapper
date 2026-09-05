@@ -4,8 +4,21 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #127 — Add an optional searchable place directory and category filters
+Branch:       feat/127-place-directory
+Started:      2026-09-05
+Last commit:  668c2b9  chore: claim #127 — place directory
+
+### What's done
+- Added opt-in cross-view name/metadata search, accessible counts/empty states, category filters, unavailable-result semantics, and area reveal/focus.
+- Added editor configuration, responsive renderer styles, documentation, validation, and a 1000-area performance test.
+- Exercised mobile editor setup and Preview at 390×844 with a clean browser console.
+
+### What's next
+- Open, verify, and merge the PR; then clear this Active block.
+
+### Notes / gotchas
+- Hidden layers are omitted; disabled areas are listed as unavailable and cannot be selected.
 
 ---
 

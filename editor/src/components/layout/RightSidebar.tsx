@@ -405,6 +405,60 @@ function ViewInspector({ view }: { view: View }) {
         label="Hide labels that do not fit"
       />
 
+      <SectionHeader title="Place Directory" />
+      <p className="text-[10px] text-neutral-600 -mt-1">
+        Adds searchable, keyboard-friendly place discovery to Preview and exports. Hidden layers stay private; disabled places are listed as unavailable.
+      </p>
+      <CheckToggle
+        checked={project.settings.directory?.enabled ?? false}
+        onChange={(enabled) => updateSettings({
+          directory: { ...project.settings.directory, enabled },
+        })}
+        label="Show place directory"
+      />
+      <Row label="Search fields">
+        <TextField
+          defaultValue={project.settings.directory?.metadataKeys?.join(", ") ?? ""}
+          placeholder="amenity, address"
+          onCommit={(value) => updateSettings({
+            directory: {
+              ...project.settings.directory,
+              enabled: project.settings.directory?.enabled ?? false,
+              metadataKeys: value.split(",").map((key) => key.trim()).filter(Boolean),
+            },
+          })}
+        />
+      </Row>
+      <Row label="Category field">
+        <TextField
+          defaultValue={project.settings.directory?.categoryKey ?? ""}
+          placeholder="category"
+          onCommit={(categoryKey) => updateSettings({
+            directory: { ...project.settings.directory, enabled: project.settings.directory?.enabled ?? false, categoryKey: categoryKey.trim() || undefined },
+          })}
+        />
+      </Row>
+      <label className="block text-[10px] text-neutral-500">
+        Category legend (one value = label per line)
+        <textarea
+          aria-label="Directory Categories"
+          defaultValue={(project.settings.directory?.categories ?? []).map((item) => `${item.value} = ${item.label}`).join("\n")}
+          onBlur={(event) => updateSettings({
+            directory: {
+              ...project.settings.directory,
+              enabled: project.settings.directory?.enabled ?? false,
+              categories: event.target.value.split("\n").map((line) => {
+                const [value, ...label] = line.split("=");
+                return { value: value?.trim() ?? "", label: label.join("=").trim() };
+              }).filter((item) => item.value && item.label),
+            },
+          })}
+          rows={3}
+          placeholder={'toilet = Toilets\nplay = Playgrounds'}
+          className="mt-1 w-full resize-y rounded border border-neutral-700 bg-neutral-800 px-1.5 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
+        />
+      </label>
+
       <SectionHeader title="Scene Switcher" />
       <CheckToggle
         checked={project.settings.sceneSwitcher?.enabled ?? false}

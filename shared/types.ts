@@ -356,6 +356,22 @@ export interface ZoomControlsSettings {
   wheelMode?: "off" | "ctrl" | "meta" | "alt" | "shift" | "always";
 }
 
+export interface DirectoryCategory {
+  /** Metadata value matched against `categoryKey`. */
+  value: string;
+  /** Visitor-facing text; ensures the legend never relies on color alone. */
+  label: string;
+}
+
+export interface DirectorySettings {
+  enabled: boolean;
+  /** Metadata fields included with area names in full-text search. */
+  metadataKeys?: string[];
+  /** Metadata field used by the configured category filters. */
+  categoryKey?: string;
+  categories?: DirectoryCategory[];
+}
+
 // ---------------------------------------------------------------------------
 // Project settings
 // ---------------------------------------------------------------------------
@@ -380,6 +396,8 @@ export interface Settings {
   sceneSwitcher?: SceneSwitcherSettings;
   /** Built-in +/− zoom buttons rendered inside the map container. */
   zoomControls?: ZoomControlsSettings;
+  /** Optional static visitor directory spanning all visible layers and views. */
+  directory?: DirectorySettings;
   /** Expands the effective viewBox by these amounts (canvas units). */
   padding?: { top: number; right: number; bottom: number; left: number };
 }

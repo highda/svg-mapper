@@ -188,6 +188,22 @@ export function validateProject(project: ClickMapDefinition): ValidationResult[]
     );
   }
 
+  const directory = project.settings.directory;
+  if (directory?.enabled) {
+    if (directory.categories?.length && !directory.categoryKey?.trim()) {
+      err("DIRECTORY_CATEGORY_KEY_REQUIRED", "Place directory categories require a metadata category field.");
+    }
+    const categoryValues = new Set<string>();
+    for (const category of directory.categories ?? []) {
+      if (!category.value.trim() || !category.label.trim()) {
+        err("INVALID_DIRECTORY_CATEGORY", "Place directory category values and labels cannot be empty.");
+      } else if (categoryValues.has(category.value)) {
+        err("DUPLICATE_DIRECTORY_CATEGORY", `Place directory category value "${category.value}" is duplicated.`);
+      }
+      categoryValues.add(category.value);
+    }
+  }
+
   // Duplicate IDs anywhere in the project.
   const seen = new Map<string, number>();
   const bump = (id: string) => seen.set(id, (seen.get(id) ?? 0) + 1);
