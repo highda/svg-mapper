@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #129 — feat: add scoped custom CSS for each view with editor and export support
+Branch:       feat/129-view-custom-css
+Started:      2026-09-05
+Last commit:  6566720  chore: hand off #108 — done
+
+### What's done
+- Claimed the host-selected task and created its feature branch.
+
+### What's next
+- Implement and document safely scoped per-view CSS across editor, preview, and exported renderer.
+
+### Notes / gotchas
+- Custom rules must remain isolated per view and renderer instance in both light and Shadow DOM.
 
 ---
 
