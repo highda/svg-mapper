@@ -354,6 +354,8 @@ export interface ZoomControlsSettings {
   resetBehavior?: "initial" | "fit";
   /** Wheel gesture required to zoom. Defaults to off to preserve page scrolling. */
   wheelMode?: "off" | "ctrl" | "meta" | "alt" | "shift" | "always";
+  /** Touch gesture ownership. Off preserves all host-page gestures. */
+  touchMode?: "off" | "pan" | "pan-pinch";
 }
 
 // ---------------------------------------------------------------------------

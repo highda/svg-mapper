@@ -26,7 +26,7 @@ The editor validates only a small structural minimum when opening JSON (`schemaV
 
 Required settings are `initialViewId`, `responsive`, `maintainAspectRatio`, `theme`, `enableHistory`, and `enableKeyboardNavigation`. New files also write `sizingMode`; the legacy booleans remain readable for schema 1.0 compatibility.
 
-Optional settings include `contentTemplate` (sanitized HTML with `{{name}}`, `{{id}}`, `{{viewName}}`, or `{{metadata.key}}`), `areaLabels`, `sceneSwitcher`, `zoomControls`, and canvas-unit `padding`. Zoom controls can set their corner, fractional `step`, reset target (`initial` or fitted minimum), and `wheelMode` (`off`, a required modifier, or `always`). Wheel zoom defaults to off so an embedded map does not capture page scrolling.
+Optional settings include `contentTemplate` (sanitized HTML with `{{name}}`, `{{id}}`, `{{viewName}}`, or `{{metadata.key}}`), `areaLabels`, `sceneSwitcher`, `zoomControls`, and canvas-unit `padding`. Zoom controls can set their corner, fractional `step`, reset target (`initial` or fitted minimum), `wheelMode` (`off`, a required modifier, or `always`), and `touchMode` (`off`, `pan`, or `pan-pinch`). Wheel and touch gestures default to off so an embedded map does not capture page scrolling.
 
 ### Container sizing
 

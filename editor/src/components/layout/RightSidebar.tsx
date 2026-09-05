@@ -463,7 +463,7 @@ function ViewInspector({ view }: { view: View }) {
       <CheckToggle
         checked={project.settings.zoomControls?.enabled ?? false}
         onChange={(enabled) => updateSettings({
-          zoomControls: { enabled, position: project.settings.zoomControls?.position ?? "top-right" },
+          zoomControls: { ...project.settings.zoomControls, enabled, position: project.settings.zoomControls?.position ?? "top-right" },
         })}
         label="Show zoom controls"
       />
@@ -518,6 +518,18 @@ function ViewInspector({ view }: { view: View }) {
           <option value="alt">Alt</option>
           <option value="shift">Shift</option>
           <option value="always">Always</option>
+        </select>
+      </Row>
+      <Row label="Touch gestures">
+        <select
+          aria-label="Touch Gesture Mode"
+          value={project.settings.zoomControls?.touchMode ?? "off"}
+          onChange={(e) => updateSettings({ zoomControls: { ...project.settings.zoomControls, enabled: project.settings.zoomControls?.enabled ?? false, touchMode: e.target.value as "off" | "pan" | "pan-pinch" } })}
+          className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+        >
+          <option value="off">Off (page scrolls)</option>
+          <option value="pan">One-finger pan</option>
+          <option value="pan-pinch">Pan and pinch</option>
         </select>
       </Row>
       {(["top", "right", "bottom", "left"] as const).map((side) => (

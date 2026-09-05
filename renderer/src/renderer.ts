@@ -178,6 +178,10 @@ class Renderer implements ClickMapInstance {
   private panStart: { x: number; y: number } | null = null;
   private panStartViewBox: { x: number; y: number; w: number; h: number } | null = null;
   private currentViewBox: { x: number; y: number; w: number; h: number } | null = null;
+  private touchPointers = new Map<number, { x: number; y: number }>();
+  private touchGesture: { midpoint: { x: number; y: number }; distance: number; viewBox: { x: number; y: number; w: number; h: number } } | null = null;
+  private touchMoved = false;
+  private suppressClickUntil = 0;
 
   // Popover state
   private openPopoverId: string | null = null;
@@ -347,6 +351,8 @@ class Renderer implements ClickMapInstance {
     window.addEventListener("keydown", this.onWindowKeyDown);
     window.addEventListener("keyup", this.onWindowKeyUp);
     this.svgEl.addEventListener("pointerdown", (e) => this.onPanStart(e));
+    this.svgEl.addEventListener("pointercancel", (e) => this.onPointerEnd(e));
+    this.svgEl.addEventListener("lostpointercapture", (e) => this.onPointerEnd(e));
     window.addEventListener("pointermove", this.onWindowPointerMove);
     window.addEventListener("pointerup", this.onWindowPointerUp);
 
@@ -371,6 +377,8 @@ class Renderer implements ClickMapInstance {
     }
 
     this.hoveredId = null;
+    this.touchPointers.clear();
+    this.touchGesture = null;
     this.hideTooltip();
     this.closePopover();
     this.viewW = view.canvas.width;
@@ -379,7 +387,7 @@ class Renderer implements ClickMapInstance {
 
     this.renderBackground(view);
     this.renderAreas(view);
-    this.svgEl.style.touchAction = view.viewport.panEnabled ? "none" : "auto";
+    this.svgEl.style.touchAction = (this.def.settings.zoomControls?.touchMode ?? "off") === "off" ? "auto" : "none";
     this.renderBackButton(view);
     this.renderSceneSwitcher();
     this.renderZoomControls();
@@ -698,12 +706,12 @@ class Renderer implements ClickMapInstance {
     const newH = base.h / targetZoom;
     const x = cx - (cx - vb.x) * (newW / vb.w);
     const y = cy - (cy - vb.y) * (newH / vb.h);
-    this.currentViewBox = {
+    this.currentViewBox = this.constrainViewBox(view, {
       x: Math.abs(x - base.x) < 1e-10 ? base.x : x,
       y: Math.abs(y - base.y) < 1e-10 ? base.y : y,
       w: newW,
       h: newH,
-    };
+    });
     this.applyViewBox();
   }
 
@@ -788,6 +796,19 @@ class Renderer implements ClickMapInstance {
     this.bgSvgEl?.setAttribute("viewBox", `${x} ${y} ${w} ${h}`);
   }
 
+  private constrainViewBox(view: View, box: { x: number; y: number; w: number; h: number }) {
+    const base = this.getBaseViewBox(view);
+    const minX = base.x;
+    const maxX = base.x + base.w - box.w;
+    const minY = base.y;
+    const maxY = base.y + base.h - box.h;
+    return {
+      ...box,
+      x: maxX < minX ? base.x + (base.w - box.w) / 2 : Math.max(minX, Math.min(maxX, box.x)),
+      y: maxY < minY ? base.y + (base.h - box.h) / 2 : Math.max(minY, Math.min(maxY, box.y)),
+    };
+  }
+
   // -------------------------------------------------------------------------
   // Spacebar pan (issue #27 G3)
   // -------------------------------------------------------------------------
@@ -811,9 +832,19 @@ class Renderer implements ClickMapInstance {
   };
 
   private onWindowPointerMove = (e: PointerEvent) => this.onPanMove(e);
-  private onWindowPointerUp = () => this.onPanEnd();
+  private onWindowPointerUp = (e: PointerEvent) => this.onPointerEnd(e);
 
   private onPanStart(e: PointerEvent) {
+    if (e.pointerType === "touch") {
+      const mode = this.def.settings.zoomControls?.touchMode ?? "off";
+      if (mode === "off" || !this.currentViewBox) return;
+      this.touchPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      this.touchMoved = false;
+      this.beginTouchGesture();
+      this.svgEl.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      return;
+    }
     if (!this.spaceHeld || !this.currentViewBox) return;
     const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
     if (!view?.viewport.panEnabled || !this.isZoomedIn()) return;
@@ -824,17 +855,103 @@ class Renderer implements ClickMapInstance {
   }
 
   private onPanMove(e: PointerEvent) {
+    if (e.pointerType === "touch" && this.touchPointers.has(e.pointerId)) {
+      this.touchPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      this.moveTouchGesture();
+      e.preventDefault();
+      return;
+    }
     if (!this.panStart || !this.panStartViewBox || !this.currentViewBox) return;
-    const containerW = this.container.clientWidth || 1;
-    const scale = this.panStartViewBox.w / containerW;
-    const dx = (e.clientX - this.panStart.x) * scale;
-    const dy = (e.clientY - this.panStart.y) * scale;
-    this.currentViewBox = {
+    const delta = this.screenDeltaToMap(e.clientX - this.panStart.x, e.clientY - this.panStart.y, this.panStartViewBox);
+    const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
+    if (!view) return;
+    this.currentViewBox = this.constrainViewBox(view, {
       ...this.panStartViewBox,
-      x: this.panStartViewBox.x - dx,
-      y: this.panStartViewBox.y - dy,
-    };
+      x: this.panStartViewBox.x - delta.x,
+      y: this.panStartViewBox.y - delta.y,
+    });
     this.applyViewBox();
+  }
+
+  private beginTouchGesture() {
+    if (!this.currentViewBox) return;
+    const points = [...this.touchPointers.values()];
+    const a = points[0]!;
+    const b = points[1] ?? a;
+    this.touchGesture = {
+      midpoint: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+      distance: Math.hypot(b.x - a.x, b.y - a.y),
+      viewBox: { ...this.currentViewBox },
+    };
+  }
+
+  private moveTouchGesture() {
+    const gesture = this.touchGesture;
+    const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
+    if (!gesture || !view) return;
+    const points = [...this.touchPointers.values()];
+    const a = points[0]!;
+    const b = points[1] ?? a;
+    const midpoint = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const moved = Math.hypot(midpoint.x - gesture.midpoint.x, midpoint.y - gesture.midpoint.y);
+    if (moved > 5 || (points.length > 1 && Math.abs(Math.hypot(b.x - a.x, b.y - a.y) - gesture.distance) > 5)) this.touchMoved = true;
+
+    let box = { ...gesture.viewBox };
+    const mode = this.def.settings.zoomControls?.touchMode ?? "off";
+    if (points.length > 1 && mode === "pan-pinch" && view.viewport.zoomEnabled && gesture.distance > 0) {
+      const limits = this.getZoomLimits(view);
+      const base = this.getBaseViewBox(view);
+      const startZoom = base.w / gesture.viewBox.w;
+      const zoom = Math.max(limits.min, Math.min(limits.max, startZoom * Math.hypot(b.x - a.x, b.y - a.y) / gesture.distance));
+      const anchor = this.screenPointToMap(gesture.midpoint.x, gesture.midpoint.y, gesture.viewBox);
+      const w = base.w / zoom;
+      const h = base.h / zoom;
+      box = { x: anchor.x - (anchor.x - gesture.viewBox.x) * w / gesture.viewBox.w, y: anchor.y - (anchor.y - gesture.viewBox.y) * h / gesture.viewBox.h, w, h };
+    }
+    if (view.viewport.panEnabled && (this.isZoomedIn() || box.w < this.getBaseViewBox(view).w)) {
+      const delta = this.screenDeltaToMap(midpoint.x - gesture.midpoint.x, midpoint.y - gesture.midpoint.y, box);
+      box.x -= delta.x;
+      box.y -= delta.y;
+    }
+    this.currentViewBox = this.constrainViewBox(view, box);
+    this.applyViewBox();
+  }
+
+  private screenDeltaToMap(dx: number, dy: number, box: { x: number; y: number; w: number; h: number }) {
+    const p0 = this.screenPointToMap(0, 0, box);
+    const p1 = this.screenPointToMap(dx, dy, box);
+    return { x: p1.x - p0.x, y: p1.y - p0.y };
+  }
+
+  private screenPointToMap(clientX: number, clientY: number, box: { x: number; y: number; w: number; h: number }) {
+    const matrix = this.svgEl.getScreenCTM?.();
+    if (matrix && this.currentViewBox) {
+      try {
+        const point = new DOMPoint(clientX, clientY).matrixTransform(matrix.inverse());
+        return {
+          x: box.x + (point.x - this.currentViewBox.x) * box.w / this.currentViewBox.w,
+          y: box.y + (point.y - this.currentViewBox.y) * box.h / this.currentViewBox.h,
+        };
+      } catch {
+        // Detached/test SVGs may not expose an invertible screen transform.
+      }
+    }
+    const rect = this.svgEl.getBoundingClientRect();
+    const scale = Math.min((rect.width || 1) / box.w, (rect.height || 1) / box.h);
+    const offsetX = (rect.width - box.w * scale) / 2;
+    const offsetY = (rect.height - box.h * scale) / 2;
+    return { x: box.x + (clientX - rect.left - offsetX) / scale, y: box.y + (clientY - rect.top - offsetY) / scale };
+  }
+
+  private onPointerEnd(e: PointerEvent) {
+    if (e.pointerType === "touch") {
+      if (!this.touchPointers.delete(e.pointerId)) return;
+      if (this.touchMoved) this.suppressClickUntil = Date.now() + 500;
+      if (this.touchPointers.size) this.beginTouchGesture();
+      else this.touchGesture = null;
+      return;
+    }
+    this.onPanEnd();
   }
 
   private onPanEnd() {
@@ -1193,6 +1310,12 @@ class Renderer implements ClickMapInstance {
   }
 
   private onClick(e: MouseEvent) {
+    if (Date.now() < this.suppressClickUntil) {
+      this.suppressClickUntil = 0;
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     const hit = this.getAreaFromEvent(e);
     if (!hit) return;
     const { area } = hit;

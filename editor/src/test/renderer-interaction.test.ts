@@ -44,6 +44,18 @@ function areaElement(id: string): SVGElement {
   return el;
 }
 
+function touch(target: EventTarget, type: string, pointerId: number, clientX: number, clientY: number) {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperties(event, {
+    pointerId: { value: pointerId },
+    pointerType: { value: "touch" },
+    clientX: { value: clientX },
+    clientY: { value: clientY },
+  });
+  target.dispatchEvent(event);
+  return event;
+}
+
 describe("renderer interaction model", () => {
   it("blocks browser-normalized script navigation from unvalidated definitions", () => {
     const area = createRectArea(0, 0, 10, 10);
@@ -141,16 +153,41 @@ describe("renderer interaction model", () => {
     expect(document.querySelector<HTMLElement>(".clickmap-root")!.dataset.sizing).toBe("fixed");
   });
 
-  it("reserves touch gestures only when map panning is enabled", () => {
+  it("reserves touch gestures only under the explicit gesture policy", () => {
     const project = createNewProject();
     project.views[0].viewport.panEnabled = true;
     create({ container: "#map", definition: toDefinition(project) });
-    expect(document.querySelector<SVGSVGElement>(".clickmap-areas")?.style.touchAction).toBe("none");
+    expect(document.querySelector<SVGSVGElement>(".clickmap-areas")?.style.touchAction).toBe("auto");
 
     document.body.innerHTML = '<div id="map"></div>';
-    project.views[0].viewport.panEnabled = false;
+    project.settings.zoomControls = { enabled: false, touchMode: "pan-pinch" };
     create({ container: "#map", definition: toDefinition(project) });
-    expect(document.querySelector<SVGSVGElement>(".clickmap-areas")?.style.touchAction).toBe("auto");
+    expect(document.querySelector<SVGSVGElement>(".clickmap-areas")?.style.touchAction).toBe("none");
+  });
+
+  it("pans and midpoint-anchors pinch gestures without activating a dragged area", () => {
+    const project = createNewProject();
+    const area = createRectArea(0, 0, 300, 300);
+    area.action = { type: "customEvent", eventName: "map-activated" };
+    project.views[0].layers = [{ id: "layer", name: "Layer", visible: true, locked: false, opacity: 1, areas: [area] }];
+    project.views[0].viewport = { ...project.views[0].viewport, initialZoom: 2, maxZoom: 4, panEnabled: true, zoomEnabled: true };
+    project.settings.zoomControls = { enabled: false, touchMode: "pan-pinch" };
+    const activated = vi.fn();
+    window.addEventListener("map-activated", activated);
+    create({ container: "#map", definition: toDefinition(project) });
+    const svg = document.querySelector<SVGSVGElement>(".clickmap-areas")!;
+    Object.defineProperty(svg, "setPointerCapture", { value: vi.fn() });
+    vi.spyOn(svg, "getBoundingClientRect").mockReturnValue({ x: 0, y: 0, left: 0, top: 0, right: 800, bottom: 800, width: 800, height: 800, toJSON: () => ({}) });
+
+    touch(svg, "pointerdown", 1, 300, 400);
+    touch(svg, "pointerdown", 2, 500, 400);
+    touch(window, "pointermove", 1, 200, 400);
+    touch(window, "pointermove", 2, 600, 400);
+    expect(svg.getAttribute("viewBox")).toBe("600 337.5 400 225");
+    touch(window, "pointerup", 1, 200, 400);
+    touch(window, "pointerup", 2, 600, 400);
+    areaElement(area.id).dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    expect(activated).not.toHaveBeenCalled();
   });
 
   it("switches views without a fade when reduced motion is requested", () => {
