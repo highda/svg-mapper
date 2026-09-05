@@ -523,7 +523,7 @@ Imported SVGs and user-provided text are the main attack surface.
 - Strip `<script>` from imported SVGs.
 - Strip event-handler attributes (`onclick`, `onload`, etc.) from imported SVGs.
 - Reject `<iframe>` and `<foreignObject>` in imported SVGs (or strip them).
-- Validate URL protocols on `url` actions; allow `http`, `https`, `mailto`, `tel`; reject `javascript:`, `data:`, anything else.
+- Parse navigation and rich-content URLs with browser-compatible normalization against an explicit HTTPS base. Allow relative and protocol-relative URLs plus `http`, `https`, `mailto`, and `tel`; reject `javascript`, `data`, malformed URLs, and every other protocol at both validation and renderer boundaries. This includes entity-decoded URL attributes in tooltip and popup HTML.
 - Escape tooltip and popup text by default (HTML rendering is a separate, explicit opt-in per popup, with an export-time warning).
 - The renderer escapes user text the same way the editor does.
 

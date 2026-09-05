@@ -110,11 +110,14 @@ describe("validateActionUrl", () => {
   it("accepts relative URLs", () => {
     expect(validateActionUrl("/cafeteria").valid).toBe(true);
     expect(validateActionUrl("page.html").valid).toBe(true);
+    expect(validateActionUrl("//cdn.example.com/place").valid).toBe(true);
   });
 
   it("rejects javascript: and data:", () => {
     expect(validateActionUrl("javascript:alert(1)").valid).toBe(false);
     expect(validateActionUrl("JaVaScRiPt:alert(1)").valid).toBe(false);
+    expect(validateActionUrl("java\nscript:alert(1)").valid).toBe(false);
+    expect(validateActionUrl("java\tscript:alert(1)").valid).toBe(false);
     expect(validateActionUrl("data:text/html,<script>x</script>").valid).toBe(false);
   });
 

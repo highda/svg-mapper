@@ -11,6 +11,7 @@ import type {
   AreaStyleState,
 } from "../../shared/types.js";
 import { scopeViewCss, validateViewCss } from "../../shared/view-css.js";
+import { validateActionUrl } from "../../shared/validation.js";
 import { Emitter } from "./emitter.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -35,7 +36,12 @@ function sanitiseHtml(raw: string): string {
   div.querySelectorAll("*").forEach((el) => {
     for (const attr of Array.from(el.attributes)) {
       if (/^on/i.test(attr.name)) el.removeAttribute(attr.name);
-      if (attr.value && /javascript:/i.test(attr.value)) el.removeAttribute(attr.name);
+      if (
+        ["href", "src", "xlink:href", "action", "formaction", "poster"].includes(attr.name.toLowerCase()) &&
+        !validateActionUrl(attr.value).valid
+      ) {
+        el.removeAttribute(attr.name);
+      }
     }
   });
   return div.innerHTML;
@@ -1165,7 +1171,9 @@ class Renderer implements ClickMapInstance {
   private dispatchAction(action: Action, area: Area) {
     switch (action.type) {
       case "url":
-        window.open(action.href, action.target);
+        // Definitions can be supplied directly or fetched without passing
+        // through editor validation, so navigation needs its own hard boundary.
+        if (validateActionUrl(action.href).valid) window.open(action.href, action.target);
         break;
       case "goToView":
         this.goToView(action.targetViewId);
@@ -1217,11 +1225,13 @@ class Renderer implements ClickMapInstance {
 
     // Rich tooltip: optional image (issue #23 B4)
     if (tt.imageUrl) {
-      const img = document.createElement("img");
-      img.src = tt.imageUrl;
-      img.alt = "";
-      img.style.cssText = "display:block;width:100%;max-height:80px;object-fit:cover;border-radius:2px;margin-bottom:4px;";
-      this.tooltipEl.appendChild(img);
+      if (validateActionUrl(tt.imageUrl).valid) {
+        const img = document.createElement("img");
+        img.src = tt.imageUrl;
+        img.alt = "";
+        img.style.cssText = "display:block;width:100%;max-height:80px;object-fit:cover;border-radius:2px;margin-bottom:4px;";
+        this.tooltipEl.appendChild(img);
+      }
     }
 
     if (title) {
@@ -1276,11 +1286,13 @@ class Renderer implements ClickMapInstance {
 
     // Build content
     if (content.imageUrl) {
-      const img = document.createElement("img");
-      img.src = content.imageUrl;
-      img.alt = "";
-      img.style.cssText = "display:block;width:100%;max-height:120px;object-fit:cover;border-radius:2px 2px 0 0;margin-bottom:6px;";
-      this.popoverEl.appendChild(img);
+      if (validateActionUrl(content.imageUrl).valid) {
+        const img = document.createElement("img");
+        img.src = content.imageUrl;
+        img.alt = "";
+        img.style.cssText = "display:block;width:100%;max-height:120px;object-fit:cover;border-radius:2px 2px 0 0;margin-bottom:6px;";
+        this.popoverEl.appendChild(img);
+      }
     }
 
     if (content.title && templatedBody === null) {
@@ -1297,7 +1309,7 @@ class Renderer implements ClickMapInstance {
       this.popoverEl.appendChild(p);
     }
 
-    if (content.linkHref) {
+    if (content.linkHref && validateActionUrl(content.linkHref).valid) {
       const a = document.createElement("a");
       a.href = content.linkHref;
       a.textContent = content.linkLabel ?? content.linkHref;

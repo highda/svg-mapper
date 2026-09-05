@@ -55,6 +55,18 @@ describe("validateProject — errors", () => {
     expect(codes(def)).toContain("INVALID_URL");
   });
 
+  it("flags browser-normalized unsafe action and popup URLs", () => {
+    const def = baseDef();
+    const actionArea = createRectArea(0, 0, 50, 50);
+    actionArea.action = { type: "url", href: "java\nscript:alert(1)", target: "_blank" };
+    actionArea.tooltip = { enabled: true, imageUrl: "vbscript:bad" };
+    const popupArea = createRectArea(60, 0, 50, 50);
+    popupArea.action = { type: "popup", content: { linkHref: "java\nscript:alert(1)", imageUrl: "data:text/html,bad" } };
+    addAreaToFirstLayer(def, actionArea);
+    addAreaToFirstLayer(def, popupArea);
+    expect(codes(def).filter((code) => code === "INVALID_URL")).toHaveLength(4);
+  });
+
   it("flags invalid geometry (zero-size rect)", () => {
     const def = baseDef();
     const area = createRectArea(0, 0, 50, 50);

@@ -45,6 +45,15 @@ function areaElement(id: string): SVGElement {
 }
 
 describe("renderer interaction model", () => {
+  it("blocks browser-normalized script navigation from unvalidated definitions", () => {
+    const area = createRectArea(0, 0, 10, 10);
+    area.action = { type: "url", href: "java\nscript:window.__probe=1", target: "_blank" };
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    renderAreas(area);
+    areaElement(area.id).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(open).not.toHaveBeenCalled();
+  });
+
   it("renders an image region with its portable keyboard focus target", () => {
     const project = createNewProject();
     project.assets.push({ id: "cutout", name: "cutout.png", type: "image/png", src: "data:image/png;base64,AA==", width: 2, height: 2, inline: true });
@@ -606,6 +615,26 @@ describe("renderer interaction model", () => {
     expect(document.activeElement).toBe(popover.querySelector("a"));
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true }));
     expect(document.activeElement).toBe(close);
+  });
+
+  it("removes unsafe rich-content URLs after entity decoding and browser normalization", () => {
+    const area = createRectArea(0, 0, 10, 10);
+    area.tooltip = {
+      enabled: true,
+      body: '<a href="java&#x0A;script:alert(1)">unsafe</a><a href="/safe">safe</a><img src="data:text/html,bad">',
+    };
+    area.action = { type: "popup", content: { linkHref: "java\tscript:alert(1)", imageUrl: "data:text/html,bad" } };
+    renderAreas(area);
+
+    areaElement(area.id).dispatchEvent(new MouseEvent("pointerover", { bubbles: true }));
+    const links = document.querySelectorAll<HTMLAnchorElement>(".clickmap-tooltip a");
+    expect(links[0]).not.toHaveAttribute("href");
+    expect(links[1]).toHaveAttribute("href", "/safe");
+    expect(document.querySelector(".clickmap-tooltip img")).not.toHaveAttribute("src");
+
+    areaElement(area.id).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(document.querySelector(".clickmap-popover a")).toBeNull();
+    expect(document.querySelector(".clickmap-popover img")).toBeNull();
   });
 
   it("auto-positions popovers away from the nearest container edge", () => {
