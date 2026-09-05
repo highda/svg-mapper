@@ -4,25 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #137 — fix(workflow): parked external blockers must release the serial lock
-Branch:       fix/137-release-blocked-lock
-Started:      2026-09-05
-Last commit:  bdc6a09  chore: hand off #112 — done
-
-### What's done
-- Released #113's serial lock while retaining its parked blocked state.
-- Defined the workflow correction in issue #137.
-
-### What's next
-- Update and verify the agent workflow contract and autonomous prompt.
-- Merge #137 and clear the Active block.
-
-### Notes / gotchas
-- A parked task keeps `agent:blocked` but never `agent:in-progress`.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-05 — closed #137 — parked external blockers now release the serial lock so the autonomous loop continues.
 - 2026-09-05 — closed #112 — delivered bounded fitted-camera zoom, configurable controls/reset/step, and cursor-anchored modifier wheel gestures; PR #136.
 - 2026-09-05 — closed #128 — made export configuration deploy-ready and packaging/clipboard failures recoverable; PR #135.
 - 2026-09-05 — closed #111 — enforced browser-normalized URL protocol safety across validation, renderer navigation, popup resources, and rich content; PR #134.
