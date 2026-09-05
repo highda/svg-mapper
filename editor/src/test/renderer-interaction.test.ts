@@ -45,6 +45,80 @@ function areaElement(id: string): SVGElement {
 }
 
 describe("renderer interaction model", () => {
+  it("searches configured metadata, filters categories, and explains unavailable places", () => {
+    const project = createNewProject();
+    const toilets = createRectArea(100, 100, 40, 40);
+    toilets.name = "North facilities";
+    toilets.metadata = { amenity: "Accessible toilets", category: "services" };
+    const closed = createRectArea(200, 100, 40, 40);
+    closed.name = "Lake kiosk";
+    closed.metadata = { amenity: "Coffee", category: "food" };
+    closed.disabled = true;
+    const hidden = createRectArea(300, 100, 40, 40);
+    hidden.name = "Staff shed";
+    project.views[0].layers = [
+      { id: "public", name: "Public", visible: true, locked: false, opacity: 1, areas: [toilets, closed] },
+      { id: "private", name: "Private", visible: false, locked: false, opacity: 1, areas: [hidden] },
+    ];
+    project.settings.directory = {
+      enabled: true,
+      metadataKeys: ["amenity"],
+      categoryKey: "category",
+      categories: [{ value: "services", label: "Services" }, { value: "food", label: "Food & drink" }],
+    };
+    create({ container: "#map", definition: toDefinition(project) });
+
+    const search = document.querySelector<HTMLInputElement>(".clickmap-directory-search")!;
+    expect(document.querySelector(".clickmap-directory-status")).toHaveTextContent("2 places");
+    expect(document.querySelector(".clickmap-directory")?.textContent).not.toContain("Staff shed");
+    search.value = "toilets";
+    search.dispatchEvent(new Event("input"));
+    expect(document.querySelector(".clickmap-directory-status")).toHaveTextContent("1 place");
+    expect(document.querySelector(".clickmap-directory")?.textContent).toContain("North facilities");
+    search.value = "";
+    search.dispatchEvent(new Event("input"));
+    document.querySelectorAll<HTMLButtonElement>(".clickmap-directory-filter")[1]!.click();
+    expect(document.querySelector(".clickmap-directory-status")).toHaveTextContent("1 place");
+    const result = document.querySelector<HTMLButtonElement>(".clickmap-directory-result")!;
+    expect(result).toBeDisabled();
+    expect(result).toHaveTextContent("unavailable");
+  });
+
+  it("reveals a directory result in camera bounds and moves keyboard focus", () => {
+    const project = createNewProject();
+    const area = createRectArea(1200, 700, 100, 50);
+    area.name = "Rose garden";
+    project.views[0].layers = [{ id: "places", name: "Places", visible: true, locked: false, opacity: 1, areas: [area] }];
+    project.settings.directory = { enabled: true };
+    create({ container: "#map", definition: toDefinition(project) });
+
+    document.querySelector<HTMLButtonElement>(".clickmap-directory-result")!.click();
+    expect(document.activeElement).toBe(areaElement(area.id));
+    expect(document.querySelector(".clickmap-areas")?.getAttribute("viewBox")).not.toBe("0 0 1600 900");
+    expect(document.querySelector(".clickmap-aria-live")).toHaveTextContent("Rose garden");
+  });
+
+  it("builds and searches a 1000-place static directory within its performance budget", () => {
+    const project = createNewProject();
+    const areas = Array.from({ length: 1000 }, (_, index) => {
+      const area = createRectArea(index % 100 * 12, Math.floor(index / 100) * 12, 10, 10);
+      area.id = `place-${index}`;
+      area.name = `Property ${index}`;
+      area.metadata = { availability: index % 2 ? "available" : "leased" };
+      return area;
+    });
+    project.views[0].layers = [{ id: "properties", name: "Properties", visible: true, locked: false, opacity: 1, areas }];
+    project.settings.directory = { enabled: true, metadataKeys: ["availability"] };
+    const started = performance.now();
+    create({ container: "#map", definition: toDefinition(project) });
+    const elapsed = performance.now() - started;
+    const search = document.querySelector<HTMLInputElement>(".clickmap-directory-search")!;
+    search.value = "Property 999";
+    search.dispatchEvent(new Event("input"));
+    expect(document.querySelector(".clickmap-directory-status")).toHaveTextContent("1 place");
+    expect(elapsed).toBeLessThan(1500);
+  });
+
   it("blocks browser-normalized script navigation from unvalidated definitions", () => {
     const area = createRectArea(0, 0, 10, 10);
     area.action = { type: "url", href: "java\nscript:window.__probe=1", target: "_blank" };
