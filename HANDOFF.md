@@ -4,8 +4,20 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #111 — fix(security): validate navigation URLs using browser-compatible protocol parsing
+Branch:       fix/111-browser-url-validation
+Started:      2026-09-05
+Last commit:  cb2638d  chore: hand off #110 — done
+
+### What's done
+- Claimed the highest-priority ready issue and reviewed its security acceptance criteria.
+
+### What's next
+- Harden shared validation, renderer navigation, and rich-content URL sanitization with browser-compatible parsing.
+- Add regression coverage and update security documentation.
+
+### Notes / gotchas
+- Preserve legitimate relative, protocol-relative, HTTP(S), mailto, and tel links while rejecting normalized script/data schemes.
 
 ---
 

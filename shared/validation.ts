@@ -26,6 +26,7 @@ export interface ValidationResult {
 const RASTER_WARN_BYTES = 4 * 1024 * 1024;
 
 const ALLOWED_URL_PROTOCOLS = ["http:", "https:", "mailto:", "tel:"];
+const URL_VALIDATION_BASE = "https://svg-mapper.invalid/";
 
 export interface UrlValidation {
   valid: boolean;
@@ -38,13 +39,17 @@ export function validateActionUrl(raw: string): UrlValidation {
   const value = raw.trim();
   if (value === "") return { valid: false, error: "URL is required." };
 
-  const schemeMatch = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(value);
-  if (!schemeMatch) {
-    // Relative or protocol-relative URL — allowed.
-    return { valid: true };
+  let parsed: URL;
+  try {
+    // URL parsing intentionally mirrors the browser navigation algorithm. In
+    // particular, it strips ASCII tabs/newlines embedded in a scheme, unlike a
+    // regular-expression prefix check.
+    parsed = new URL(value, URL_VALIDATION_BASE);
+  } catch {
+    return { valid: false, error: "URL is malformed." };
   }
 
-  const protocol = (schemeMatch[1] ?? "").toLowerCase() + ":";
+  const protocol = parsed.protocol.toLowerCase();
   if (!ALLOWED_URL_PROTOCOLS.includes(protocol)) {
     return {
       valid: false,
@@ -232,6 +237,13 @@ export function validateProject(project: ClickMapDefinition): ValidationResult[]
           }
         }
 
+        if (area.tooltip?.imageUrl) {
+          const v = validateActionUrl(area.tooltip.imageUrl);
+          if (!v.valid) {
+            err("INVALID_URL", `Area "${area.name}" has an invalid tooltip image URL: ${v.error}`, ref);
+          }
+        }
+
         switch (area.action.type) {
           case "goToView":
             if (!viewIds.has(area.action.targetViewId)) {
@@ -243,7 +255,18 @@ export function validateProject(project: ClickMapDefinition): ValidationResult[]
             }
             break;
           case "popup":
-            // Inline popup content — no external popup reference needed.
+            if (area.action.content.linkHref) {
+              const v = validateActionUrl(area.action.content.linkHref);
+              if (!v.valid) {
+                err("INVALID_URL", `Area "${area.name}" has an invalid popup link: ${v.error}`, ref);
+              }
+            }
+            if (area.action.content.imageUrl) {
+              const v = validateActionUrl(area.action.content.imageUrl);
+              if (!v.valid) {
+                err("INVALID_URL", `Area "${area.name}" has an invalid popup image URL: ${v.error}`, ref);
+              }
+            }
             break;
           case "toggleLayer":
             if (!layerIds.has(area.action.targetLayerId)) {

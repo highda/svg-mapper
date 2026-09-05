@@ -77,4 +77,4 @@ map.on("area:click", selected);
 
 A `customEvent` area action additionally dispatches a native `CustomEvent` on `window`; its configured payload is `event.detail`.
 
-Interactive areas support pointer input and Enter/Space keyboard activation unless disabled. Tooltip and popup HTML is sanitized. Users can zoom and, where enabled, hold Space and drag to pan.
+Interactive areas support pointer input and Enter/Space keyboard activation unless disabled. Tooltip and popup HTML is sanitized. Navigation, popup links, and rich-content URL attributes are parsed with browser-compatible normalization at runtime even for definitions that bypass the editor. Relative and protocol-relative URLs and `http`, `https`, `mailto`, and `tel` are allowed; malformed, `javascript`, `data`, and other protocols are ignored. Users can zoom and, where enabled, hold Space and drag to pan.
