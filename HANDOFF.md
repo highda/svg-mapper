@@ -4,26 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #112 — feat(renderer): deliver configurable zoom with enforced limits and editor controls
-Branch:       feat/112-configurable-zoom
-Started:      2026-09-05
-Last commit:  3e911b6  feat: enforce per-view zoom bounds
-
-### What's done
-- Defined initial zoom relative to the padded fitted camera and clamped button zoom to per-view limits.
-- Hid zoom controls for zoom-disabled views, added zoom-range validation, and exposed Initial zoom in the inspector.
-- Added renderer, validation, and inspector coverage; exercised the new field in the local browser with no console errors.
-
-### What's next
-- Add configurable control visibility/position, step/reset, and modifier-gated cursor-centered wheel zoom.
-- Cover view re-entry, aspect ratios, independent instances, and Preview/export parity; update docs.
-
-### Notes / gotchas
-- Coordinate camera events with #130; promote #113 and #127 after delivery if otherwise unblocked.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-05 — closed #112 — delivered bounded fitted-camera zoom, configurable controls/reset/step, and cursor-anchored modifier wheel gestures; PR #136.
 - 2026-09-05 — closed #128 — made export configuration deploy-ready and packaging/clipboard failures recoverable; PR #135.
 - 2026-09-05 — closed #111 — enforced browser-normalized URL protocol safety across validation, renderer navigation, popup resources, and rich content; PR #134.
 - 2026-09-05 — closed #110 — secured Preview and exported HTML script-context JSON against end-tag variants while preserving authored rich text; PR #133.
