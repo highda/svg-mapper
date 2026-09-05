@@ -4,24 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #128 — feat(export): configure embed paths and handle export failures clearly
-Branch:       feat/128-export-configuration-errors
-Started:      2026-09-05
-Last commit:  3c06394  chore: claim #128 — export configuration errors
-
-### What's done
-- Added configurable nested upload paths, unique container IDs, and responsive/fixed/viewport embed sizing.
-- Added no-ZIP previews, dependency and size estimates, busy/error states, manual clipboard fallback, tests, docs, and desktop/mobile browser validation.
-
-### What's next
-- Commit, open the PR, merge after checks, and clear the handoff.
-
-### Notes / gotchas
-- Renderer/shared expose typecheck scripts but no test scripts; their typechecks passed.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-05 — closed #128 — made export configuration deploy-ready and packaging/clipboard failures recoverable; PR #135.
 - 2026-09-05 — closed #111 — enforced browser-normalized URL protocol safety across validation, renderer navigation, popup resources, and rich content; PR #134.
 - 2026-09-05 — closed #110 — secured Preview and exported HTML script-context JSON against end-tag variants while preserving authored rich text; PR #133.
 - 2026-09-05 — closed #129 — added validated per-view CSS authoring with instance/keyframe scoping, renderer lifecycle cleanup, export parity, and stable documented targets; PR #132.
