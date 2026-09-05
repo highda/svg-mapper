@@ -348,6 +348,12 @@ export type ZoomControlsPosition =
 export interface ZoomControlsSettings {
   enabled: boolean;
   position?: ZoomControlsPosition;
+  /** Fractional zoom change per button/wheel step. Defaults to 0.2. */
+  step?: number;
+  /** Camera used by the reset button. Defaults to the view's initial zoom. */
+  resetBehavior?: "initial" | "fit";
+  /** Wheel gesture required to zoom. Defaults to off to preserve page scrolling. */
+  wheelMode?: "off" | "ctrl" | "meta" | "alt" | "shift" | "always";
 }
 
 // ---------------------------------------------------------------------------

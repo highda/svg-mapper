@@ -327,6 +327,54 @@ describe("renderer interaction model", () => {
     expect(document.querySelector(".clickmap-areas")).toHaveAttribute("viewBox", "400 225 800 450");
   });
 
+  it("uses the configured step and reset camera", () => {
+    const project = createNewProject();
+    project.settings.zoomControls = { enabled: true, step: 1, resetBehavior: "fit" };
+    project.views[0].viewport.initialZoom = 2;
+    create({ container: "#map", definition: toDefinition(project) });
+
+    const svg = document.querySelector<SVGSVGElement>(".clickmap-areas")!;
+    expect(svg).toHaveAttribute("viewBox", "400 225 800 450");
+    document.querySelector<HTMLButtonElement>(".clickmap-zoom-in")!.click();
+    expect(svg).toHaveAttribute("viewBox", "600 337.5 400 225");
+    document.querySelector<HTMLButtonElement>(".clickmap-zoom-reset")!.click();
+    expect(svg).toHaveAttribute("viewBox", "0 0 1600 900");
+  });
+
+  it("requires the configured wheel modifier and anchors zoom at the cursor", () => {
+    const project = createNewProject();
+    project.settings.zoomControls = { enabled: false, step: 1, wheelMode: "ctrl" };
+    create({ container: "#map", definition: toDefinition(project) });
+
+    const svg = document.querySelector<SVGSVGElement>(".clickmap-areas")!;
+    vi.spyOn(svg, "getBoundingClientRect").mockReturnValue({
+      x: 0, y: 0, left: 0, top: 0, right: 800, bottom: 450, width: 800, height: 450,
+      toJSON: () => ({}),
+    });
+    const plainWheel = new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: -1, clientX: 200, clientY: 112.5 });
+    svg.dispatchEvent(plainWheel);
+    expect(plainWheel.defaultPrevented).toBe(false);
+    expect(svg).toHaveAttribute("viewBox", "0 0 1600 900");
+
+    const modifiedWheel = new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: -1, clientX: 200, clientY: 112.5, ctrlKey: true });
+    svg.dispatchEvent(modifiedWheel);
+    expect(modifiedWheel.defaultPrevented).toBe(true);
+    expect(svg).toHaveAttribute("viewBox", "200 112.5 800 450");
+  });
+
+  it("fits cursor anchoring through letterboxing in a tall host", () => {
+    const project = createNewProject();
+    project.settings.zoomControls = { enabled: false, step: 1, wheelMode: "always" };
+    create({ container: "#map", definition: toDefinition(project) });
+    const svg = document.querySelector<SVGSVGElement>(".clickmap-areas")!;
+    vi.spyOn(svg, "getBoundingClientRect").mockReturnValue({
+      x: 0, y: 0, left: 0, top: 0, right: 800, bottom: 800, width: 800, height: 800,
+      toJSON: () => ({}),
+    });
+    svg.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: -1, clientX: 400, clientY: 400 }));
+    expect(svg).toHaveAttribute("viewBox", "400 225 800 450");
+  });
+
   it("maps the configured background fit mode to SVG image geometry", () => {
     const project = createNewProject();
     project.assets = [{ id: "asset_1", name: "Plan", type: "image/png", src: "plan.png", inline: false, width: 1600, height: 900 }];
