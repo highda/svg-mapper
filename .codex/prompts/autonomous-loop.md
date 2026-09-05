@@ -50,6 +50,11 @@ into `agent:ready` (or create one if none describes the gap), then claim and
 advance it. An empty Ready column is a workflow gap, not a reason to report
 `blocked`.
 
+Issues carrying `agent:blocked` without `agent:in-progress` are parked external
+waits. They do not hold the serial lock and must not stop the loop while any
+other feasible ready or backlog work exists. Reclaim one only after its stated
+external condition has changed.
+
 If .codex/runtime/fresh-session-required exists, treat the last iteration as
 interrupted: first reconcile the memento, Git status, and current task; then
 remove that sentinel and continue.

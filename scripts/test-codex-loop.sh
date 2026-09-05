@@ -30,6 +30,10 @@ rg -F '.codex/MEMENTO.md' "$repo_root/.codex/prompts/autonomous-loop.md" >/dev/n
 rg -F 'editor/package.json' "$repo_root/.codex/prompts/autonomous-loop.md" >/dev/null
 rg -F 'independent command' "$repo_root/.codex/prompts/autonomous-loop.md" >/dev/null
 rg -F 'empty Ready column is a workflow gap' "$repo_root/.codex/prompts/autonomous-loop.md" >/dev/null
+rg -F 'parked external' "$repo_root/.codex/prompts/autonomous-loop.md" >/dev/null
+rg -F 'must not stop the loop' "$repo_root/.codex/prompts/autonomous-loop.md" >/dev/null
+rg -F -- '--remove-label "agent:in-progress"' "$repo_root/AGENTS.md" >/dev/null
+rg -F 'never halts the repository-wide loop' "$repo_root/AGENTS.md" >/dev/null
 rg -F 'never stage or commit them' "$repo_root/.codex/prompts/autonomous-loop.md" >/dev/null
 rg -F 'completion-candidate.md' "$repo_root/.codex/prompts/autonomous-loop.md" >/dev/null
 rg -F 'loop-complete.md' "$repo_root/.codex/prompts/completion-review.md" >/dev/null
