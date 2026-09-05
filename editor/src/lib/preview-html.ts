@@ -1,4 +1,5 @@
 import type { ClickMapDefinition } from "@svg-mapper/shared";
+import { serializeJsonForScript } from "./script-json";
 
 // Builds the srcdoc for the Preview iframe. The document embeds the *real*
 // renderer build (same code path as the export package) plus a thin harness
@@ -12,11 +13,6 @@ export interface PreviewHtmlOptions {
   rendererJs: string;
   rendererCss: string;
   blockUrls: boolean;
-}
-
-// `</script>` inside the JSON payload would terminate the script tag early.
-function safeJson(value: unknown): string {
-  return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
 export function buildPreviewHtml(opts: PreviewHtmlOptions): string {
@@ -45,7 +41,7 @@ html, body { margin: 0; height: 100%; background: #262626; }
 <script>${opts.rendererJs}</script>
 <script>
 (function () {
-  var DEFINITION = ${safeJson(opts.definition)};
+  var DEFINITION = ${serializeJsonForScript(opts.definition)};
   var BLOCK_URLS = ${opts.blockUrls ? "true" : "false"};
 
   function post(payload) {

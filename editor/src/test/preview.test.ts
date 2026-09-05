@@ -42,15 +42,17 @@ describe("buildPreviewHtml", () => {
     );
   });
 
-  it("escapes </script> sequences inside the definition", () => {
+  it("escapes every less-than character in script-context JSON", () => {
     const project = createNewProject();
-    project.project.name = 'x</script><script>alert(1)</script>';
+    project.project.name = 'x</ScRiPt ><script>alert(1)</script><b>rich</b>';
     const html = buildPreviewHtml({
       ...base,
       definition: toDefinition(project),
       blockUrls: true,
     });
-    expect(html).not.toContain("x</script>");
-    expect(html).toContain("x\\u003c/script");
+    expect(html).not.toContain("x</ScRiPt >");
+    expect(html).not.toContain("<b>rich</b>");
+    expect(html).toContain("x\\u003c/ScRiPt >");
+    expect(html).toContain("\\u003cb>rich\\u003c/b>");
   });
 });
