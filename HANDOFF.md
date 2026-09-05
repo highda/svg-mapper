@@ -7,7 +7,7 @@
 Issue:        #112 — feat(renderer): deliver configurable zoom with enforced limits and editor controls
 Branch:       feat/112-configurable-zoom
 Started:      2026-09-05
-Last commit:  b33a5db  chore: claim #112 — configurable zoom
+Last commit:  3e911b6  feat: enforce per-view zoom bounds
 
 ### What's done
 - Defined initial zoom relative to the padded fitted camera and clamped button zoom to per-view limits.
