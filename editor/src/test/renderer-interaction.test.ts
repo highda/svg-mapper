@@ -220,6 +220,52 @@ describe("renderer interaction model", () => {
     expect(host.querySelector(".clickmap-root")).toBeNull();
   });
 
+  it("scopes view CSS per renderer, rewrites keyframes, and replaces it on navigation", async () => {
+    document.body.innerHTML = '<div id="map-a"></div><div id="map-b"></div>';
+    const first = createNewProject();
+    first.views[0].customCss = ".clickmap-bg { color: red; animation: pulse 1s; } @keyframes pulse { to { opacity: .5; } }";
+    first.views.push({
+      ...structuredClone(first.views[0]),
+      id: "second",
+      name: "Second",
+      slug: "second",
+      customCss: ".clickmap-bg { color: green; }",
+    });
+    const second = createNewProject();
+    second.views[0].customCss = ".clickmap-bg { color: blue; }";
+
+    const firstInstance = create({ container: "#map-a", definition: toDefinition(first) });
+    create({ container: "#map-b", definition: toDefinition(second) });
+    const firstRoot = document.querySelector<HTMLElement>("#map-a .clickmap-root")!;
+    const secondRoot = document.querySelector<HTMLElement>("#map-b .clickmap-root")!;
+    const firstStyle = document.querySelector<HTMLStyleElement>("#map-a style[data-clickmap-view-style]")!;
+    const secondStyle = document.querySelector<HTMLStyleElement>("#map-b style[data-clickmap-view-style]")!;
+
+    expect(firstRoot.dataset.clickmapInstance).not.toBe(secondRoot.dataset.clickmapInstance);
+    expect(firstStyle.textContent).toContain(`[data-clickmap-instance="${firstRoot.dataset.clickmapInstance}"] .clickmap-bg`);
+    expect(firstStyle.textContent).toContain("-pulse");
+    expect(firstStyle.textContent).not.toContain("color: blue");
+    expect(secondStyle.textContent).toContain("color: blue");
+
+    firstInstance.goToView("second");
+    await new Promise((resolve) => setTimeout(resolve, 160));
+    expect(firstStyle.textContent).toContain("color: green");
+    expect(firstStyle.textContent).not.toContain("color: red");
+
+    firstInstance.reset();
+    expect(firstStyle.textContent).toContain("color: red");
+    firstInstance.destroy();
+    expect(document.querySelector("#map-a style[data-clickmap-view-style]")).toBeNull();
+    expect(secondStyle.isConnected).toBe(true);
+  });
+
+  it("does not apply invalid or unsupported view CSS", () => {
+    const project = createNewProject();
+    project.views[0].customCss = "@font-face { font-family: unsafe; src: url(https://example.com/font); }";
+    create({ container: "#map", definition: toDefinition(project) });
+    expect(document.querySelector<HTMLStyleElement>("style[data-clickmap-view-style]")?.textContent).toBe("");
+  });
+
   it("renders zoom controls, applies padding, and resets the viewBox", () => {
     const project = createNewProject();
     project.settings.zoomControls = { enabled: true, position: "bottom-left" };

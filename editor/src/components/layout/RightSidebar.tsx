@@ -22,6 +22,7 @@ import { useStore } from "../../store";
 import { validateActionUrl } from "../../lib/url-validate";
 import { createAlphaHitMask, MAX_ALPHA_MASK_DIMENSION } from "../../lib/alpha-mask";
 import { colorToHex, isValidCssColor, parseCssColor, withHexColor, withOpacity } from "../../lib/css-color";
+import { validateViewCss } from "../../lib/view-css";
 
 // ---------------------------------------------------------------------------
 // Shared primitives
@@ -230,7 +231,9 @@ function StyleStateEditor({
 // ---------------------------------------------------------------------------
 
 function ViewInspector({ view }: { view: View }) {
-  const { renameView, setCanvasSize, project, setViewBackground, setViewBackgroundFit, setViewBackgroundPosition, updateSettings, setEditorState } = useStore();
+  const { renameView, setCanvasSize, project, setViewBackground, setViewBackgroundFit, setViewBackgroundPosition, updateSettings, setEditorState, setViewCustomCss } = useStore();
+  const [customCss, setCustomCss] = useState(view.customCss ?? "");
+  const customCssError = validateViewCss(customCss);
   const canvasSize = view.canvas;
   const grid = project.editor?.grid ?? { enabled: false, size: 10 };
 
@@ -292,6 +295,31 @@ function ViewInspector({ view }: { view: View }) {
           ))}
         </select>
       </Row>
+
+      <SectionHeader title="Advanced CSS" />
+      <p className="text-[10px] text-neutral-500">
+        Scoped to this view. Use renderer classes such as <code>.clickmap-bg</code>, <code>[data-area-id]</code>, <code>.clickmap-area-label</code>, <code>.clickmap-popover</code>, and <code>.clickmap-zoom-controls</code>.
+      </p>
+      <label className="block text-[10px] text-neutral-400" htmlFor={`view-css-${view.id}`}>View CSS</label>
+      <textarea
+        id={`view-css-${view.id}`}
+        aria-label="View CSS"
+        aria-invalid={customCssError ? "true" : undefined}
+        value={customCss}
+        onChange={(event) => setCustomCss(event.target.value)}
+        onBlur={() => { if (!customCssError) setViewCustomCss(view.id, customCss.trim() || undefined); }}
+        rows={7}
+        spellCheck={false}
+        className="w-full resize-y rounded border border-neutral-700 bg-neutral-950 p-2 font-mono text-[11px] text-neutral-200 outline-none focus:border-blue-500"
+        placeholder={".clickmap-bg { opacity: .8; }"}
+      />
+      {customCssError ? <p role="alert" className="text-[10px] text-red-400">{customCssError}</p> : <p className="text-[10px] text-emerald-500">CSS syntax is ready to apply.</p>}
+      <button
+        type="button"
+        onClick={() => { setCustomCss(""); setViewCustomCss(view.id, undefined); }}
+        disabled={!customCss && !view.customCss}
+        className="rounded border border-neutral-700 px-2 py-1 text-[10px] text-neutral-300 disabled:opacity-40"
+      >Reset view CSS</button>
 
       <SectionHeader title="Canvas Size" />
       <p className="text-[10px] text-neutral-600 -mt-1">Independent for this view.</p>

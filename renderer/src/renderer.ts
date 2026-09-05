@@ -10,6 +10,7 @@ import type {
   Action,
   AreaStyleState,
 } from "../../shared/types.js";
+import { scopeViewCss, validateViewCss } from "../../shared/view-css.js";
 import { Emitter } from "./emitter.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -125,6 +126,7 @@ function getInlinedCSS(): string {
 }
 
 const managedShadowRoots = new WeakMap<HTMLElement, ShadowRoot>();
+let rendererSequence = 0;
 
 // ---------------------------------------------------------------------------
 // Core renderer
@@ -151,6 +153,8 @@ class Renderer implements ClickMapInstance {
   private zoomControlsEl: HTMLDivElement | null = null;
   private ariaLiveEl!: HTMLDivElement;
   private shadowRoot: ShadowRoot | null = null;
+  private viewStyleEl: HTMLStyleElement | null = null;
+  private readonly instanceId = `clickmap-${++rendererSequence}`;
 
   private ro!: ResizeObserver;
   private roTimer: ReturnType<typeof setTimeout> | null = null;
@@ -266,6 +270,7 @@ class Renderer implements ClickMapInstance {
   private buildDOM() {
     this.root = document.createElement("div");
     this.root.className = "clickmap-root";
+    this.root.dataset.clickmapInstance = this.instanceId;
 
     this.viewEl = document.createElement("div");
     this.viewEl.className = "clickmap-view";
@@ -303,6 +308,9 @@ class Renderer implements ClickMapInstance {
     this.root.appendChild(this.popoverEl);
     this.root.appendChild(this.ariaLiveEl);
 
+    this.viewStyleEl = document.createElement("style");
+    this.viewStyleEl.dataset.clickmapViewStyle = "";
+
     // Shadow DOM mode (issue #29)
     if (this.options.shadowDom) {
       this.shadowRoot = managedShadowRoots.get(this.container) ?? null;
@@ -314,8 +322,10 @@ class Renderer implements ClickMapInstance {
       const styleEl = document.createElement("style");
       styleEl.textContent = `${getInlinedCSS()}\n${this.options.css ?? ""}`;
       this.shadowRoot.appendChild(styleEl);
+      this.shadowRoot.appendChild(this.viewStyleEl);
       this.shadowRoot.appendChild(this.root);
     } else {
+      this.container.appendChild(this.viewStyleEl);
       this.container.appendChild(this.root);
     }
 
@@ -358,6 +368,7 @@ class Renderer implements ClickMapInstance {
     this.closePopover();
     this.viewW = view.canvas.width;
     this.viewH = view.canvas.height;
+    this.applyViewCss(view);
 
     this.renderBackground(view);
     this.renderAreas(view);
@@ -367,6 +378,27 @@ class Renderer implements ClickMapInstance {
     this.renderZoomControls();
     this.updateScale();
     this.applyChoropleth();
+  }
+
+  private applyViewCss(view: View) {
+    if (!this.viewStyleEl) return;
+    const css = view.customCss?.trim() ?? "";
+    if (!css) {
+      this.viewStyleEl.textContent = "";
+      return;
+    }
+    const error = validateViewCss(css);
+    if (error) {
+      this.viewStyleEl.textContent = "";
+      this.emitter.emit({ type: "error", code: "INVALID_VIEW_CSS", message: `${view.name}: ${error}` });
+      return;
+    }
+    try {
+      this.viewStyleEl.textContent = scopeViewCss(css, `[data-clickmap-instance="${this.instanceId}"]`);
+    } catch (reason) {
+      this.viewStyleEl.textContent = "";
+      this.emitter.emit({ type: "error", code: "INVALID_VIEW_CSS", message: `${view.name}: ${(reason as Error).message}` });
+    }
   }
 
   private renderBackground(view: View) {
@@ -442,6 +474,7 @@ class Renderer implements ClickMapInstance {
       if (!layer.visible) continue;
 
       const g = svgEl<SVGGElement>("g");
+      g.setAttribute("class", "clickmap-layer");
       g.setAttribute("opacity", String(layer.opacity));
       g.setAttribute("data-layer-id", layer.id);
 
@@ -816,6 +849,7 @@ class Renderer implements ClickMapInstance {
         : area.style.default;
 
     this.applyStyle(shape, initialStyle);
+    shape.setAttribute("class", "clickmap-area");
     shape.setAttribute("data-area-id", area.id);
 
     if (isDisabled) {
@@ -854,6 +888,7 @@ class Renderer implements ClickMapInstance {
     const rotation = area.image.rotation ?? 0;
     if (rotation) image.setAttribute("transform", `rotate(${rotation} ${area.geometry.x + area.geometry.width / 2} ${area.geometry.y + area.geometry.height / 2})`);
     image.setAttribute("pointer-events", "none");
+    image.setAttribute("class", "clickmap-area-image");
     return image;
   }
 
@@ -1502,6 +1537,7 @@ class Renderer implements ClickMapInstance {
       // Shadow roots cannot be detached; clear all renderer-owned contents.
       this.shadowRoot.replaceChildren();
     } else {
+      this.viewStyleEl?.remove();
       this.root.remove();
     }
   }

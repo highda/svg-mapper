@@ -82,6 +82,7 @@ export interface AppState {
   addView: () => void;
   duplicateView: (viewId: string) => void;
   renameView: (viewId: string, name: string) => void;
+  setViewCustomCss: (viewId: string, css: string | undefined) => void;
   deleteView: (viewId: string) => void;
   setCanvasSize: (width: number, height: number) => void;
   setViewport: (viewId: string, patch: Partial<Viewport>) => void;
@@ -479,6 +480,15 @@ export const useStore = create<AppState>()(
         pushHistory(s);
         view.name = name;
         view.slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-") || view.slug;
+      });
+    },
+
+    setViewCustomCss(viewId: string, css: string | undefined) {
+      set((s) => {
+        const view = s.project.views.find((v) => v.id === viewId);
+        if (!view || view.customCss === css) return;
+        pushHistory(s);
+        view.customCss = css;
       });
     },
 

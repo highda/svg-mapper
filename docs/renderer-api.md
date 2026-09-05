@@ -33,6 +33,14 @@ The export supplies a dependency-free browser script. Loading it creates the glo
 
 When shadow DOM is off, include `clickmap-renderer.css`. When it is on, the bundled default CSS is injected automatically. Call `destroy()` before replacing an instance in the same container.
 
+### Per-view CSS targets
+
+The active view's optional `customCss` is scoped to the renderer instance in both light and Shadow DOM. Navigating, going back, or resetting replaces the stylesheet; destroying the instance removes it. Two maps can therefore use conflicting selectors and keyframe names without affecting each other or the host.
+
+Stable authoring targets are `.clickmap-root`, `.clickmap-view`, `.clickmap-bg`, `.clickmap-bg-svg`, `.clickmap-bg-img`, `.clickmap-areas`, `.clickmap-layer`, `.clickmap-area`, `.clickmap-area-image`, `.clickmap-area-labels`, `.clickmap-area-label`, `.clickmap-tooltip`, `.clickmap-popover`, `.clickmap-back-btn`, `.clickmap-scene-switcher`, `.clickmap-scene-btn`, `.clickmap-scene-dropdown`, `.clickmap-zoom-controls`, and their documented modifier classes. Data attributes such as `[data-area-id="..."]` and `[data-layer-id="..."]` allow specific targeting.
+
+Normal custom CSS overrides inspector-authored SVG presentation attributes. Runtime inline declarations (including cursor and overlay position) have higher priority unless the author deliberately uses `!important`. For portable isolation, imports, `url()` resources, global resource rules, CSS nesting, and unknown at-rules are errors rather than partially applied. `@media`, `@supports`, `@container`, `@layer`, and locally renamed keyframes are supported.
+
 ## Instance methods
 
 | Method | Effect |
@@ -65,7 +73,7 @@ map.on("area:click", selected);
 | `area:hover` | `areaId`, `areaName`, optional `metadata` |
 | `area:click` | `areaId`, `areaName`, `action`, optional `metadata` |
 | `popup:open` / `popup:close` | `popupId` (the triggering area ID for inline popups) |
-| `error` | `code`, `message` (`LOAD_FAILED` or `VIEW_NOT_FOUND`) |
+| `error` | `code`, `message` (`LOAD_FAILED`, `VIEW_NOT_FOUND`, or `INVALID_VIEW_CSS`) |
 
 A `customEvent` area action additionally dispatches a native `CustomEvent` on `window`; its configured payload is `event.detail`.
 

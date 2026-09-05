@@ -20,13 +20,16 @@ describe("buildPreviewHtml", () => {
   };
 
   it("embeds the definition, renderer js/css, and message source", () => {
-    const def = toDefinition(createNewProject());
+    const project = createNewProject();
+    project.views[0].customCss = ".clickmap-bg { opacity: .75; }";
+    const def = toDefinition(project);
     const html = buildPreviewHtml({ ...base, definition: def, blockUrls: true });
     expect(html).toContain("/* renderer */");
     expect(html).toContain("/* css */");
     expect(html).toContain(def.settings.initialViewId);
     expect(html).toContain(PREVIEW_MESSAGE_SOURCE);
     expect(html).toContain("ClickMapRenderer.create");
+    expect(html).toContain(".clickmap-bg { opacity: .75; }");
   });
 
   it("toggles URL blocking", () => {
