@@ -286,6 +286,8 @@ export interface View {
   background?: ViewBackground;
   viewport: Viewport;
   ui: ViewUI;
+  /** Optional advanced CSS, scoped by the renderer to this view and instance. */
+  customCss?: string;
   layers: Layer[];
 }
 
