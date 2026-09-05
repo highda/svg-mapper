@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { unzipSync, strFromU8 } from "fflate";
 import { JSDOM } from "jsdom";
-import { generateExportPackage } from "../lib/export-package";
+import { generateExportPackage, generateExportPreview } from "../lib/export-package";
 import { createRectArea } from "../lib/area-utils";
 import { createNewProject, toDefinition } from "../lib/project";
 
@@ -186,6 +186,75 @@ describe("generateExportPackage", () => {
     expect(typeof pkg.mapJson).toBe("string");
     const parsed = JSON.parse(pkg.mapJson) as Record<string, unknown>;
     expect(parsed).toHaveProperty("views");
+  });
+
+  it("generates matching nested paths, unique containers, sizing, and README guidance", () => {
+    const project = createNewProject("Directory A");
+    const options = {
+      inlineAssets: true,
+      basePath: "/sites/campus/maps/directory-a/",
+      containerId: "campus-map-a",
+      containerWidth: "800px",
+      containerHeight: "600px",
+    };
+    const pkg = generateExportPackage(toDefinition(project), STUB_JS, STUB_CSS, options);
+    const files = unzipSync(pkg.zip);
+    const embed = strFromU8(files["embed.html"]!);
+    const readme = strFromU8(files["README.txt"]!);
+
+    expect(pkg.embedSnippet).toContain('id="campus-map-a"');
+    expect(pkg.embedSnippet).toContain('container: "#campus-map-a"');
+    expect(pkg.embedSnippet).toContain("/sites/campus/maps/directory-a/map.json");
+    expect(pkg.embedSnippet).toContain("width: 800px; height: 600px");
+    expect(embed).toContain("/sites/campus/maps/directory-a/clickmap-renderer.js");
+    expect(readme).toContain("/sites/campus/maps/directory-a");
+    expect(readme).toContain('id="campus-map-a"');
+
+    const second = generateExportPackage(toDefinition(createNewProject("Directory B")), STUB_JS, STUB_CSS, {
+      ...options,
+      basePath: "/sites/campus/maps/directory-b",
+      containerId: "campus-map-b",
+    });
+    expect(second.embedSnippet).toContain('container: "#campus-map-b"');
+    expect(second.embedSnippet).not.toContain("campus-map-a");
+  });
+
+  it("keeps configured paths inert in embed script and HTML contexts", () => {
+    const project = createNewProject("Safe Embed");
+    const pkg = generateExportPackage(toDefinition(project), STUB_JS, STUB_CSS, {
+      inlineAssets: true,
+      basePath: '/maps/"><script>window.__embedProbe=1</script>',
+      containerId: "safe-map",
+    });
+    const embed = strFromU8(unzipSync(pkg.zip)["embed.html"]!);
+    expect(embed).not.toContain('<script>window.__embedProbe=1</script>');
+    expect(embed).toContain("&quot;&gt;&lt;script&gt;");
+    expect(embed).toContain("\\u003cscript>window.__embedProbe=1\\u003c/script>");
+  });
+
+  it("previews a large image-heavy package without creating a ZIP", () => {
+    const project = createNewProject("Large Map");
+    const payload = "A".repeat(512 * 1024);
+    project.assets = Array.from({ length: 4 }, (_, index) => ({
+      id: `asset_${index}`,
+      type: "image/png",
+      name: `image-${index}`,
+      src: `data:image/png;base64,${payload}`,
+      width: 1000,
+      height: 1000,
+      inline: false,
+    }));
+    const preview = generateExportPreview(toDefinition(project), STUB_JS, STUB_CSS, {
+      inlineAssets: false,
+      basePath: "/nested/maps/large",
+      containerId: "large-map",
+    });
+
+    expect(preview).not.toHaveProperty("zip");
+    expect(preview.assetFileCount).toBe(4);
+    expect(preview.assetBytes).toBeGreaterThan(1_000_000);
+    expect(preview.mapJson).toContain("assets/image-0.png");
+    expect(preview.estimatedUncompressedBytes).toBeGreaterThan(preview.assetBytes);
   });
 
   it("non-inline mode rewrites asset paths to relative paths in map.json", () => {

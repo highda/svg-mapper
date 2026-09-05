@@ -9,12 +9,48 @@ import { serializeJsonForScript } from "./script-json";
 export interface ExportOptions {
   /** Inline all assets into map.json as data-URIs instead of separate files. */
   inlineAssets: boolean;
+  /** Public directory containing the uploaded package. */
+  basePath?: string;
+  /** Unique host-page element id. */
+  containerId?: string;
+  /** CSS width and height applied to the host element. */
+  containerWidth?: string;
+  containerHeight?: string;
 }
 
 export interface ExportPackage {
   zip: Uint8Array;
   embedSnippet: string;
   mapJson: string;
+}
+
+export interface ExportPreview {
+  embedSnippet: string;
+  mapJson: string;
+  readme: string;
+  estimatedUncompressedBytes: number;
+  assetBytes: number;
+  assetFileCount: number;
+}
+
+const DEFAULT_EXPORT_OPTIONS = {
+  basePath: "/maps/my-map",
+  containerId: "clickmap",
+  containerWidth: "100%",
+  containerHeight: "auto",
+} as const;
+
+function resolvedOptions(options: ExportOptions) {
+  return { ...DEFAULT_EXPORT_OPTIONS, ...options };
+}
+
+function normalizeBasePath(path: string): string {
+  const trimmed = path.trim().replace(/\/+$/, "");
+  return trimmed || ".";
+}
+
+function serializeJsString(value: string): string {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
 // Derive a safe filename slug from an asset name, deduplicating with a counter map.
@@ -30,15 +66,19 @@ function makeAssetFilenamer() {
   };
 }
 
-function buildEmbedSnippet(basePath = "/maps/my-map"): string {
-  return `<div id="clickmap"></div>
+function buildEmbedSnippet(options: ReturnType<typeof resolvedOptions>): string {
+  const basePath = normalizeBasePath(options.basePath);
+  const htmlBasePath = escapeHtml(basePath);
+  const id = escapeHtml(options.containerId);
+  const selector = serializeJsString(`#${options.containerId}`);
+  return `<div id="${id}" style="width: ${escapeHtml(options.containerWidth)}; height: ${escapeHtml(options.containerHeight)};"></div>
 
-<link rel="stylesheet" href="${basePath}/clickmap-renderer.css">
-<script src="${basePath}/clickmap-renderer.js"></script>
+<link rel="stylesheet" href="${htmlBasePath}/clickmap-renderer.css">
+<script src="${htmlBasePath}/clickmap-renderer.js"></script>
 <script>
   ClickMapRenderer.create({
-    container: "#clickmap",
-    definitionUrl: "${basePath}/map.json",
+    container: ${selector},
+    definitionUrl: ${serializeJsString(`${basePath}/map.json`)},
     // shadowDom: true, // Optional: isolate the map from host-page CSS.
     // css: ".clickmap-root { /* custom overrides */ }", // Shadow mode only.
   });
@@ -81,28 +121,32 @@ ${rendererJs}
 </html>`;
 }
 
-function buildEmbedHtml(basePath = "/maps/my-map"): string {
+function buildEmbedHtml(options: ReturnType<typeof resolvedOptions>): string {
+  const basePath = normalizeBasePath(options.basePath);
+  const htmlBasePath = escapeHtml(basePath);
+  const id = escapeHtml(options.containerId);
+  const selector = serializeJsString(`#${options.containerId}`);
   return `<!-- Embed snippet: paste into your page's <head> and <body> -->
 
 <!-- In <head>: -->
-<link rel="stylesheet" href="${basePath}/clickmap-renderer.css">
+<link rel="stylesheet" href="${htmlBasePath}/clickmap-renderer.css">
 
 <!-- In <body> where the map should appear: -->
-<div id="clickmap"></div>
+<div id="${id}" style="width: ${escapeHtml(options.containerWidth)}; height: ${escapeHtml(options.containerHeight)};"></div>
 
 <!-- Before </body>: -->
-<script src="${basePath}/clickmap-renderer.js"></script>
+<script src="${htmlBasePath}/clickmap-renderer.js"></script>
 <script>
   ClickMapRenderer.create({
-    container: "#clickmap",
-    definitionUrl: "${basePath}/map.json",
+    container: ${selector},
+    definitionUrl: ${serializeJsString(`${basePath}/map.json`)},
     // shadowDom: true, // Optional: isolate the map from host-page CSS.
     // css: ".clickmap-root { /* custom overrides */ }", // Shadow mode only.
   });
 </script>`;
 }
 
-function buildReadme(projectName: string): string {
+function buildReadme(projectName: string, options: ReturnType<typeof resolvedOptions>): string {
   return `${projectName} — Clickable Map Package
 ${"=".repeat((projectName + " — Clickable Map Package").length)}
 
@@ -119,8 +163,9 @@ QUICK START
 -----------
 1. Upload the entire folder to your web server or CDN.
 2. Open embed.html and copy the snippet into your page.
-3. Update the three paths (/maps/my-map/...) to match your upload location.
-4. The <div id="clickmap"> can be placed anywhere in your page body.
+3. Upload it at ${normalizeBasePath(options.basePath)} (the path already used by embed.html).
+4. The <div id="${options.containerId}"> can be placed anywhere in your page body.
+   Its configured size is ${options.containerWidth} × ${options.containerHeight}.
 
 OPENING LOCALLY
 ---------------
@@ -196,7 +241,8 @@ export function generateExportPackage(
   rendererCss: string,
   options: ExportOptions,
 ): ExportPackage {
-  const { inlineAssets } = options;
+  const resolved = resolvedOptions(options);
+  const { inlineAssets } = resolved;
 
   // For the ZIP's map.json: inline keeps data-URIs; external rewrites to paths.
   let exportedDefinition: ClickMapDefinition;
@@ -208,18 +254,18 @@ export function generateExportPackage(
   }
 
   const mapJson = JSON.stringify(exportedDefinition, null, 2);
-  const embedSnippet = buildEmbedSnippet();
+  const embedSnippet = buildEmbedSnippet(resolved);
 
   const files: Record<string, Uint8Array> = {};
 
   files["map.json"] = strToU8(mapJson);
   files["clickmap-renderer.js"] = strToU8(rendererJs);
   files["clickmap-renderer.css"] = strToU8(rendererCss);
-  files["embed.html"] = strToU8(buildEmbedHtml());
+  files["embed.html"] = strToU8(buildEmbedHtml(resolved));
   files["index.html"] = strToU8(
     buildIndexHtml(exportedDefinition, rendererJs, rendererCss),
   );
-  files["README.txt"] = strToU8(buildReadme(definition.project.name));
+  files["README.txt"] = strToU8(buildReadme(definition.project.name, resolved));
 
   // Asset files (only when not inlining).
   if (!inlineAssets && pathMap) {
@@ -233,4 +279,31 @@ export function generateExportPackage(
 
   const zip = zipSync(files, { level: 6 });
   return { zip, embedSnippet, mapJson };
+}
+
+/** Build all text shown by the Export screen without performing ZIP compression. */
+export function generateExportPreview(
+  definition: ClickMapDefinition,
+  rendererJs: string,
+  rendererCss: string,
+  options: ExportOptions,
+): ExportPreview {
+  const resolved = resolvedOptions(options);
+  const exportedDefinition = options.inlineAssets
+    ? definition
+    : definitionWithAssetPaths(definition).definition;
+  const mapJson = JSON.stringify(exportedDefinition, null, 2);
+  const embedSnippet = buildEmbedSnippet(resolved);
+  const readme = buildReadme(definition.project.name, resolved);
+  const assetBytes = definition.assets.reduce((total, asset) => total + dataUriToBytes(asset.src).byteLength, 0);
+  const assetFileCount = options.inlineAssets ? 0 : definition.assets.length;
+  const textBytes = new TextEncoder().encode(mapJson + embedSnippet + readme + rendererJs + rendererCss).byteLength;
+  return {
+    embedSnippet,
+    mapJson,
+    readme,
+    estimatedUncompressedBytes: textBytes + (options.inlineAssets ? 0 : assetBytes),
+    assetBytes,
+    assetFileCount,
+  };
 }
