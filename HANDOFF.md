@@ -7,13 +7,16 @@
 Issue:        #113 — fix(renderer): support touch pan and pinch without trapping host-page scrolling
 Branch:       feat/113-touch-gestures
 Started:      2026-09-05
-Last commit:  bdc6a09  chore: hand off #112 — done
+Last commit:  2d95017  fix: add bounded opt-in touch map gestures
 
 ### What's done
-- Claimed the task after its configurable-camera prerequisite landed.
+- Added explicit off/pan/pan-pinch ownership so host scrolling remains the default.
+- Added bounded transform-aware mouse/touch pan, midpoint pinch, pointer cancellation, and drag click suppression.
+- Added editor controls, docs, automated tall-host touch coverage, and local browser validation.
 
 ### What's next
-- Implement bounded touch pan/pinch, gesture policy, tap suppression, and coverage.
+- Run and record the required physical iOS and Android passes for zoom, pan, scrolling past the map, tap, reset, and view changes.
+- If those pass, open/merge the PR and close #113.
 
 ### Notes / gotchas
 - Physical iOS/Android acceptance requires human-operated devices; record automated touch emulation separately.
