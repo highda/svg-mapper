@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #110 — fix(export): prevent project text from escaping the demo script element
+Branch:       feat/110-script-context-json
+Started:      2026-09-05
+Last commit:  pending  chore: claim #110 — script-context-json
+
+### What's done
+- Claimed the highest-priority ready release blocker.
+
+### What's next
+- Unify Preview/export script-context JSON serialization and add regressions.
+
+### Notes / gotchas
+- Host task brief referenced already-closed #129; pre-flight selected open p0 #110.
 
 ---
 

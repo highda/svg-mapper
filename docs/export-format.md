@@ -22,6 +22,12 @@ With inlining disabled, `map.json` uses generated relative paths under `assets/`
 
 Every export includes the optimized production renderer automatically. There is no separate development renderer to choose or deploy.
 
+The Preview document and standalone `index.html` encode embedded definitions
+with a script-context JSON serializer. Every less-than character is escaped in
+the HTML source, so project names, metadata, and rich tooltip or popup content
+cannot be interpreted as a closing script tag; `map.json` retains the authored
+text unchanged.
+
 ## Deployment
 
 For a standalone map, upload the directory and link to `index.html`. For an existing site, copy `embed.html` into the page and replace all `/maps/my-map` placeholders with the deployed directory. Keep `map.json` on the same origin as the page or configure CORS on its server.

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { unzipSync, strFromU8 } from "fflate";
+import { JSDOM } from "jsdom";
 import { generateExportPackage } from "../lib/export-package";
 import { createRectArea } from "../lib/area-utils";
 import { createNewProject, toDefinition } from "../lib/project";
@@ -105,6 +106,58 @@ describe("generateExportPackage", () => {
     expect(html).toContain(STUB_CSS);
     expect(html).toContain("ClickMapRenderer.create");
   });
+
+  it.each([true, false])(
+    "keeps script end-tag variants inert in index.html (inlineAssets=%s)",
+    (inlineAssets) => {
+      const project = createNewProject('</ScRiPt ><script>window.__probe=1</script >');
+      const area = createRectArea(0, 0, 10, 10);
+      area.metadata = { hostile: "</SCRIPT\t><script>window.__probe=2</script >" };
+      area.tooltip = { enabled: true, body: "<b>Normal rich content</b>" };
+      project.views[0].layers = [{ id: "layer_hostile", name: "Hostile", visible: true, locked: false, opacity: 1, areas: [area] }];
+
+      const pkg = generateExportPackage(toDefinition(project), STUB_JS, STUB_CSS, {
+        inlineAssets,
+      });
+      const html = strFromU8(unzipSync(pkg.zip)["index.html"]!);
+
+      expect(html).not.toContain("</ScRiPt >");
+      expect(html).not.toContain("</SCRIPT\\t>");
+      expect(html).not.toContain("<b>Normal rich content</b>");
+      expect(html).toContain("\\u003c/ScRiPt >");
+      expect(html).toContain("\\u003cb>Normal rich content\\u003c/b>");
+      expect(JSON.parse(pkg.mapJson).project.name).toBe(project.project.name);
+      expect(JSON.parse(pkg.mapJson).views[0].layers[0].areas[0].tooltip.body)
+        .toBe("<b>Normal rich content</b>");
+    },
+  );
+
+  it.each([true, false])(
+    "browser parsing preserves hostile and rich text without executing it (inlineAssets=%s)",
+    (inlineAssets) => {
+      const project = createNewProject('</script ><script>window.__reviewProbe=1</script >');
+      const area = createRectArea(0, 0, 10, 10);
+      area.tooltip = { enabled: true, body: "<strong>Hours & details</strong>" };
+      area.metadata = { variant: "</ScRiPt\n><script>window.__reviewProbe=2</script >" };
+      project.views[0].layers = [{ id: "layer_browser", name: "Browser", visible: true, locked: false, opacity: 1, areas: [area] }];
+      const renderer = `window.ClickMapRenderer={create:function(options){window.__definition=options.definition;}};`;
+      const pkg = generateExportPackage(toDefinition(project), renderer, STUB_CSS, {
+        inlineAssets,
+      });
+      const html = strFromU8(unzipSync(pkg.zip)["index.html"]!);
+      const dom = new JSDOM(html, { runScripts: "dangerously" });
+      const browserWindow = dom.window as unknown as {
+        __reviewProbe?: number;
+        __definition?: typeof project;
+      };
+
+      expect(browserWindow.__reviewProbe).toBeUndefined();
+      expect(browserWindow.__definition?.project.name).toBe(project.project.name);
+      expect(browserWindow.__definition?.views[0].layers[0].areas[0].tooltip?.body)
+        .toBe("<strong>Hours & details</strong>");
+      dom.window.close();
+    },
+  );
 
   it("embed.html contains the script and link tags", () => {
     const { pkg } = makePackage();

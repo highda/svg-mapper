@@ -4,6 +4,7 @@
 
 import { zipSync, strToU8 } from "fflate";
 import type { ClickMapDefinition, Asset } from "@svg-mapper/shared";
+import { serializeJsonForScript } from "./script-json";
 
 export interface ExportOptions {
   /** Inline all assets into map.json as data-URIs instead of separate files. */
@@ -49,7 +50,7 @@ function buildIndexHtml(
   rendererJs: string,
   rendererCss: string,
 ): string {
-  const safeJson = JSON.stringify(definition, null, 2).replace(/<\/script>/gi, "\\u003c/script>");
+  const safeJson = serializeJsonForScript(definition, 2);
 
   const projectName = definition.project.name;
 
