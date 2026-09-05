@@ -7,16 +7,17 @@
 Issue:        #128 — feat(export): configure embed paths and handle export failures clearly
 Branch:       feat/128-export-configuration-errors
 Started:      2026-09-05
-Last commit:  6566720  chore: hand off #111 — done
+Last commit:  3c06394  chore: claim #128 — export configuration errors
 
 ### What's done
-- Claimed the host-selected export configuration and failure-handling task.
+- Added configurable nested upload paths, unique container IDs, and responsive/fixed/viewport embed sizing.
+- Added no-ZIP previews, dependency and size estimates, busy/error states, manual clipboard fallback, tests, docs, and desktop/mobile browser validation.
 
 ### What's next
-- Implement configurable paths/container sizing, cheap previews, packaging state, failure recovery, tests, docs, and browser validation.
+- Commit, open the PR, merge after checks, and clear the handoff.
 
 ### Notes / gotchas
-- Keep large image-heavy preview generation free of ZIP compression.
+- Renderer/shared expose typecheck scripts but no test scripts; their typechecks passed.
 
 ---
 

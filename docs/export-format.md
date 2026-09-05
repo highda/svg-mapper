@@ -1,6 +1,6 @@
 # Export format
 
-The Export screen validates the current project before packaging it. Errors disable download. Warnings require confirmation but do not block export. Click a validation row to reveal the relevant object when a reference is available.
+The Export screen validates the current project before packaging it. Errors disable download. Warnings require confirmation but do not block export. Click a validation row to reveal the relevant object when a reference is available. Packaging starts only after Download ZIP is selected; the preview does not compress a ZIP. While packaging, duplicate submits are disabled, and a recoverable error is shown if packaging or download setup fails.
 
 ## ZIP contents
 
@@ -16,7 +16,7 @@ The Export screen validates the current project before packaging it. Errors disa
 
 ## Asset modes
 
-**Inline assets** is the default. Asset data stays in `map.json`, making it larger but easy to move. `index.html` always embeds its definition and therefore opens directly with `file://`.
+**Inline assets** is the default. Asset data stays in `map.json`, making it larger but easy to move. `index.html` always embeds its definition and therefore opens directly with `file://`. The screen estimates the uncompressed package and source-asset sizes and states whether a separate `assets/` directory is required; ZIP compression means the downloaded byte count can differ.
 
 With inlining disabled, `map.json` uses generated relative paths under `assets/`. Upload the complete extracted directory without renaming files. Filenames are sanitized and deduplicated. The editor can also copy the current `map.json` or embed snippet without downloading a ZIP.
 
@@ -30,7 +30,9 @@ text unchanged.
 
 ## Deployment
 
-For a standalone map, upload the directory and link to `index.html`. For an existing site, copy `embed.html` into the page and replace all `/maps/my-map` placeholders with the deployed directory. Keep `map.json` on the same origin as the page or configure CORS on its server.
+For a standalone map, upload the directory and link to `index.html`. For an existing site, set the upload base path, a host-page-unique container ID, and responsive, fixed, or viewport sizing before downloading. The generated quick-copy snippet, `embed.html`, and README use those settings consistently. Keep `map.json` on the same origin as the page or configure CORS on its server. Configure a different container ID and base path for each map when embedding multiple maps on one page.
+
+Clipboard permission can be denied by browsers or embedding policies. A failed copy action is never reported as successful: the editor displays the source in a selectable manual-copy field and keeps a retry action available.
 
 The host page must allow scripts and styles under its Content Security Policy. If inline scripts/styles are prohibited, use the separate JS/CSS files and load the definition with `definitionUrl`. Remote images must also be allowed by the host's image policy.
 

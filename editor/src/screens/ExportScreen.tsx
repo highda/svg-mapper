@@ -6,7 +6,7 @@ import {
 } from "@svg-mapper/shared";
 import { useStore } from "../store";
 import { toDefinition } from "../lib/project";
-import { generateExportPackage } from "../lib/export-package";
+import { generateExportPackage, generateExportPreview } from "../lib/export-package";
 import rendererJs from "../../../renderer/dist/clickmap-renderer.js?raw";
 import rendererCss from "../../../renderer/dist/clickmap-renderer.css?raw";
 
@@ -42,28 +42,53 @@ function ResultRow({ result }: { result: ValidationResult }) {
 
 function CopyButton({ text, label }: { text: string; label: string }) {
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
 
-  function copy() {
-    void navigator.clipboard.writeText(text).then(() => {
+  async function copy() {
+    setCopyFailed(false);
+    try {
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    });
+    } catch {
+      setCopied(false);
+      setCopyFailed(true);
+    }
   }
 
   return (
-    <button
-      onClick={copy}
-      className="rounded border border-neutral-700 px-3 py-1 text-xs text-neutral-300 hover:bg-neutral-700"
-    >
-      {copied ? "Copied!" : label}
-    </button>
+    <div>
+      <button
+        onClick={() => void copy()}
+        className="rounded border border-neutral-700 px-3 py-1 text-xs text-neutral-300 hover:bg-neutral-700"
+      >
+        {copied ? "Copied!" : copyFailed ? "Retry copy" : label}
+      </button>
+      {copyFailed && (
+        <div className="mt-2" role="alert">
+          <p className="mb-1 text-[11px] text-amber-300">Clipboard access failed. Select and copy manually:</p>
+          <textarea readOnly value={text} aria-label={`${label} manual copy`} className="h-24 w-full rounded border border-amber-700 bg-neutral-950 p-2 text-[10px] text-neutral-300" onFocus={(event) => event.currentTarget.select()} />
+        </div>
+      )}
+    </div>
   );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 export function ExportScreen() {
   const project = useStore((s) => s.project);
   const [confirmingWarnings, setConfirmingWarnings] = useState(false);
   const [inlineAssets, setInlineAssets] = useState(true);
+  const [basePath, setBasePath] = useState("/maps/my-map");
+  const [containerId, setContainerId] = useState("clickmap");
+  const [size, setSize] = useState<"responsive" | "fixed" | "viewport">("responsive");
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const definition = useMemo(() => toDefinition(project), [project]);
   const results = useMemo(() => validateProject(definition), [definition]);
@@ -71,24 +96,52 @@ export function ExportScreen() {
   const warnings = results.filter((r) => r.severity === "warning");
   const blocked = hasBlockingErrors(results);
 
-  const mapJsonPreview = useMemo(() => JSON.stringify(definition, null, 2), [definition]);
-
-  function doExport() {
-    const pkg = generateExportPackage(definition, rendererJs, rendererCss, {
+  const sizing = size === "fixed"
+    ? { containerWidth: "800px", containerHeight: "600px" }
+    : size === "viewport"
+      ? { containerWidth: "100vw", containerHeight: "100vh" }
+      : { containerWidth: "100%", containerHeight: "auto" };
+  const configError = !/^[A-Za-z][A-Za-z0-9_-]*$/.test(containerId)
+    ? "Container ID must start with a letter and contain only letters, numbers, _ or -."
+    : !basePath.trim()
+      ? "Upload base path is required."
+      : null;
+  const exportOptions = { inlineAssets, basePath, containerId, ...sizing };
+  const preview = useMemo(
+    () => generateExportPreview(definition, rendererJs, rendererCss, {
       inlineAssets,
-    });
+      basePath,
+      containerId,
+      containerWidth: sizing.containerWidth,
+      containerHeight: sizing.containerHeight,
+    }),
+    [definition, inlineAssets, basePath, containerId, sizing.containerWidth, sizing.containerHeight],
+  );
 
-    // Trigger download.
-    const blob = new Blob([pkg.zip.buffer as ArrayBuffer], { type: "application/zip" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const slug = definition.project.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-    a.href = url;
-    a.download = `${slug}-export.zip`;
-    a.click();
-    URL.revokeObjectURL(url);
+  async function doExport() {
+    if (exporting || configError) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      // Let React paint the busy state before synchronous compression begins.
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      const pkg = generateExportPackage(definition, rendererJs, rendererCss, exportOptions);
 
-    setConfirmingWarnings(false);
+      const blob = new Blob([pkg.zip.buffer as ArrayBuffer], { type: "application/zip" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const slug = definition.project.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      a.href = url;
+      a.download = `${slug}-export.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      setConfirmingWarnings(false);
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : "Packaging failed. Try again.");
+    } finally {
+      setExporting(false);
+    }
   }
 
   function handleExportClick() {
@@ -97,13 +150,8 @@ export function ExportScreen() {
       setConfirmingWarnings(true);
       return;
     }
-    doExport();
+    void doExport();
   }
-
-  const embedSnippet = useMemo(
-    () => generateExportPackage(definition, "", "", { inlineAssets }).embedSnippet,
-    [definition, inlineAssets],
-  );
 
   return (
     <main className="relative flex min-w-0 flex-1 flex-col bg-neutral-800" data-testid="export-screen">
@@ -127,11 +175,11 @@ export function ExportScreen() {
             )}
             <button
               onClick={handleExportClick}
-              disabled={blocked}
+              disabled={blocked || exporting || !!configError}
               data-testid="export-button"
               className="rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-neutral-700 disabled:text-neutral-500"
             >
-              Download ZIP
+              {exporting ? "Packaging…" : "Download ZIP"}
             </button>
           </div>
         </div>
@@ -142,6 +190,8 @@ export function ExportScreen() {
             Fix all errors before exporting. Click an entry to jump to the offending object.
           </p>
         )}
+
+        {exportError && <p role="alert" className="rounded border border-red-800 bg-red-950/50 px-3 py-2 text-xs text-red-300">Export failed: {exportError} You can retry without losing your settings.</p>}
 
         {results.length === 0 ? (
           <p className="rounded border border-emerald-800 bg-emerald-950/40 px-3 py-2 text-xs text-emerald-300">
@@ -190,8 +240,24 @@ export function ExportScreen() {
             />
             Inline assets into map.json (larger file, no separate assets/ folder)
           </label>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <label className="text-xs text-neutral-300">Upload base path
+              <input value={basePath} onChange={(event) => setBasePath(event.target.value)} placeholder="/maps/store-directory" className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100" />
+            </label>
+            <label className="text-xs text-neutral-300">Container ID
+              <input value={containerId} onChange={(event) => setContainerId(event.target.value)} className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100" />
+            </label>
+            <label className="text-xs text-neutral-300 sm:col-span-2">Container sizing
+              <select value={size} onChange={(event) => setSize(event.target.value as typeof size)} className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100">
+                <option value="responsive">Responsive — 100% wide, intrinsic height</option>
+                <option value="fixed">Fixed — 800 × 600 px</option>
+                <option value="viewport">Viewport — 100vw × 100vh</option>
+              </select>
+            </label>
+          </div>
+          {configError && <p role="alert" className="mt-2 text-xs text-red-300">{configError}</p>}
           <p className="mt-2 text-[11px] leading-relaxed text-neutral-500">
-            The optimized production renderer is included automatically.
+            Includes renderer JS and CSS plus {inlineAssets ? "one self-contained map.json; no assets folder is required" : `${preview.assetFileCount} file${preview.assetFileCount === 1 ? "" : "s"} in assets/ referenced by map.json`}. Estimated uncompressed package: {formatBytes(preview.estimatedUncompressedBytes)} ({formatBytes(preview.assetBytes)} of source assets).
           </p>
         </section>
 
@@ -201,12 +267,12 @@ export function ExportScreen() {
             Quick copy
           </h3>
           <div className="flex flex-wrap gap-2">
-            <CopyButton text={embedSnippet} label="Copy embed snippet" />
-            <CopyButton text={mapJsonPreview} label="Copy map.json" />
+            <CopyButton text={preview.embedSnippet} label="Copy embed snippet" />
+            <CopyButton text={preview.mapJson} label="Copy map.json" />
           </div>
 
           <pre className="mt-3 max-w-full overflow-x-auto rounded bg-neutral-900 p-2 text-[10px] leading-relaxed text-neutral-400">
-            {embedSnippet}
+            {preview.embedSnippet}
           </pre>
         </section>
       </div>
@@ -228,11 +294,12 @@ export function ExportScreen() {
                 Cancel
               </button>
               <button
-                onClick={doExport}
+                onClick={() => void doExport()}
+                disabled={exporting}
                 data-testid="export-anyway"
                 className="rounded bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-500"
               >
-                Export anyway
+                {exporting ? "Packaging…" : "Export anyway"}
               </button>
             </div>
           </div>

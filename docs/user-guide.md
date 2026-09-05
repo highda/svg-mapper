@@ -40,6 +40,6 @@ Transparent holes remain non-clickable, while keyboard focus retains the visible
 
 Open **Export** (or Cmd/Ctrl+E). Resolve red errors; they disable ZIP download. Review amber warnings and either fix them or explicitly export anyway. Click referenced results to jump to the offending item.
 
-Choose whether assets remain inline (portable, larger JSON) or are emitted under `assets/`, then select **Download ZIP**. You can also copy the embed snippet or renderer-ready JSON. Save the editable project separately if future edits are expected.
+Choose whether assets remain inline (portable, larger JSON) or are emitted under `assets/`. Set the deployed base path, a container ID that is unique on the host page, and a responsive, fixed, or viewport size. The dependency summary and uncompressed size estimate explain what must be uploaded before you select **Download ZIP**. Packaging runs only on download and prevents duplicate submissions while busy. You can also copy the matching embed snippet or renderer-ready JSON; if clipboard access is denied, use the selectable manual-copy fallback. Packaging errors remain visible and can be retried without losing these settings. Save the editable project separately if future edits are expected.
 
 Finally, open the ZIP's `index.html` locally for a smoke test and deploy using [Export format](export-format.md). Integrators should use the [Renderer API](renderer-api.md); schema consumers should use the [Data model](data-model.md).
