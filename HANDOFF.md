@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #128 — feat(export): configure embed paths and handle export failures clearly
+Branch:       feat/128-export-configuration-errors
+Started:      2026-09-05
+Last commit:  6566720  chore: hand off #111 — done
+
+### What's done
+- Claimed the host-selected export configuration and failure-handling task.
+
+### What's next
+- Implement configurable paths/container sizing, cheap previews, packaging state, failure recovery, tests, docs, and browser validation.
+
+### Notes / gotchas
+- Keep large image-heavy preview generation free of ZIP compression.
 
 ---
 
