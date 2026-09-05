@@ -310,7 +310,7 @@ Generates the deployment package (see §7) and offers: download as ZIP, copy emb
 
 Contextual settings driven by current selection:
 
-- **No selection** → project / view settings: name, background asset, dimensions, viewport (zoom/pan), responsive behavior, default hover style, default tooltip behavior, back-button behavior.
+- **No selection** → project / view settings: name, background asset, dimensions, viewport (zoom/pan), responsive behavior, default hover style, default tooltip behavior, back-button behavior, and an advanced per-view CSS override with visible validation.
 - **Area selected** → area settings: name, id, type, layer, geometry values, default/hover/active style, tooltip, action type + target, ARIA label, metadata.
 - **Layer selected** → layer settings: name, visibility, lock, opacity, style inheritance, area count.
 

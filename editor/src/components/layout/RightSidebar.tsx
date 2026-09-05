@@ -17,7 +17,7 @@ import type {
   Viewport,
   View,
 } from "@svg-mapper/shared";
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import { useStore } from "../../store";
 import { validateActionUrl } from "../../lib/url-validate";
 import { createAlphaHitMask, MAX_ALPHA_MASK_DIMENSION } from "../../lib/alpha-mask";
@@ -233,7 +233,6 @@ function StyleStateEditor({
 function ViewInspector({ view }: { view: View }) {
   const { renameView, setCanvasSize, project, setViewBackground, setViewBackgroundFit, setViewBackgroundPosition, updateSettings, setEditorState, setViewCustomCss } = useStore();
   const [customCss, setCustomCss] = useState(view.customCss ?? "");
-  useEffect(() => setCustomCss(view.customCss ?? ""), [view.id, view.customCss]);
   const customCssError = validateViewCss(customCss);
   const canvasSize = view.canvas;
   const grid = project.editor?.grid ?? { enabled: false, size: 10 };

@@ -88,6 +88,14 @@ describe("generateExportPackage", () => {
     expect(parsed.views[0].layers[0].areas[0].style).toEqual(area.style);
   });
 
+  it("preserves per-view CSS in the exported definition", () => {
+    const project = createNewProject("Styled Map");
+    project.views[0].customCss = ".clickmap-bg { filter: grayscale(1); }";
+    const pkg = generateExportPackage(toDefinition(project), STUB_JS, STUB_CSS, { inlineAssets: true });
+    const parsed = JSON.parse(pkg.mapJson) as typeof project;
+    expect(parsed.views[0].customCss).toBe(project.views[0].customCss);
+  });
+
   it("index.html embeds the renderer JS and map definition", () => {
     const { pkg } = makePackage();
     const files = unzipSync(pkg.zip);
