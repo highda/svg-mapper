@@ -4,8 +4,21 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #137 — fix(workflow): parked external blockers must release the serial lock
+Branch:       fix/137-release-blocked-lock
+Started:      2026-09-05
+Last commit:  bdc6a09  chore: hand off #112 — done
+
+### What's done
+- Released #113's serial lock while retaining its parked blocked state.
+- Defined the workflow correction in issue #137.
+
+### What's next
+- Update and verify the agent workflow contract and autonomous prompt.
+- Merge #137 and clear the Active block.
+
+### Notes / gotchas
+- A parked task keeps `agent:blocked` but never `agent:in-progress`.
 
 ---
 

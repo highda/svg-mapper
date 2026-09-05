@@ -166,14 +166,25 @@ While `agent:in-progress` is on your issue, you own the tree.
 
 ### If you get blocked
 
+First distinguish a task-local pause from an external wait:
+
+- If another agent can make useful progress on the same task now, keep
+  `agent:in-progress` and hand it off under §6b. Do not mark it blocked.
+- If progress requires unavailable human input, credentials, hardware, service
+  recovery, or another external state change, park the task under §6c. A parked
+  task is not active and must not retain the serial lock.
+
 ```sh
-gh issue edit "$N" --add-label "agent:blocked"
+gh issue edit "$N" --add-label "agent:blocked" --remove-label "agent:in-progress"
 gh issue comment "$N" --body "Blocked: <one paragraph explaining the blocker, what you tried, what would unblock>."
-# Update HANDOFF.md "Notes / gotchas" with the same.
-git add HANDOFF.md && git commit -m "chore: block #$N — <one-line>" && git push
+# Clear HANDOFF.md Active and add a parked ledger entry.
+git add HANDOFF.md && git commit -m "chore: park #$N — <one-line>" && git push
 ```
 
-**Do not also remove `agent:in-progress`.** The lock persists across the block, so the next session knows immediately what state to resume from. Only a human or the resuming agent clears the block.
+Only release the lock after all work is committed and pushed and the issue has
+an accurate Done / Next / Gotchas snapshot. `agent:blocked` preserves the parked
+state; `agent:in-progress` remains reserved exclusively for the one task an
+agent can advance now. The loop must continue with feasible `agent:ready` work.
 
 ---
 
@@ -236,9 +247,18 @@ git push
 
 Leave `agent:in-progress` **on**. The next agent will pick this up via the pre-flight in §2.
 
-### 6c. Task blocked — stopping until someone unblocks
+### 6c. Task externally blocked — park it and continue the loop
 
-Same as 6b but the issue also has `agent:blocked` (set in §5). The next agent's pre-flight finds it; they either unblock it themselves (remove the label, continue) or pick a different task and leave the blocked one alone.
+Commit and push all useful work, post the same Done / Next / Gotchas snapshot as
+§6b, add `agent:blocked`, and remove `agent:in-progress`. Clear the `HANDOFF.md`
+Active block and add a ledger entry describing what the task awaits. The next
+loop iteration picks another feasible ready task; parked work never halts the
+repository-wide loop.
+
+When the external condition changes, remove `agent:blocked`, add `agent:ready`,
+and let a later agent claim it normally. If the condition can be checked cheaply,
+an agent may check it during backlog triage, but blocked issues are not active
+work and do not take priority over the serial lock.
 
 ---
 
@@ -308,7 +328,7 @@ If these don't exist yet, run:
 # State labels (the serial-lock machinery)
 gh label create "agent:ready"       --color "1f883d" --description "Picked, defined, ready for an agent to claim"
 gh label create "agent:in-progress" --color "fbca04" --description "Active task — the serial lock"
-gh label create "agent:blocked"     --color "b60205" --description "Active but blocked; needs human or unblocking task"
+gh label create "agent:blocked"     --color "b60205" --description "Parked external wait; does not hold the serial lock"
 gh label create "agent:review"      --color "8957e5" --description "PR open, awaiting review/merge"
 
 # Type labels
