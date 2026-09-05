@@ -4,26 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #129 — feat: add scoped custom CSS for each view with editor and export support
-Branch:       feat/129-view-custom-css
-Started:      2026-09-05
-Last commit:  3a27653  feat: add per-view CSS authoring model
-
-### What's done
-- Added persisted optional `View.customCss`, an advanced View CSS editor, reset, undo history, and visible validation.
-- Authoring validation rejects imports and global resource at-rules; editor typecheck and 48 focused tests pass.
-
-### What's next
-- Implement renderer selector/keyframe scoping and view enter/exit/reset/destroy lifecycle.
-- Add renderer isolation, preview/export parity, mobile browser coverage, and schema/API documentation.
-
-### Notes / gotchas
-- Custom rules must remain isolated per view and renderer instance in both light and Shadow DOM.
-- The current validation helper is intentionally conservative but does not yet transform CSS; keep renderer acceptance aligned with it.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-05 — closed #129 — added validated per-view CSS authoring with instance/keyframe scoping, renderer lifecycle cleanup, export parity, and stable documented targets; PR #132.
 - 2026-09-04 — closed #108 — added anchored marker creation, editing, validation, and consistent editor/runtime rendering; PR #109.
 - 2026-09-04 — closed #90 — verified and closed the six-workstream image-first scene graph roadmap; PR #107.
 - 2026-09-04 — closed #105 — added adjacent deep layer duplication with collision-safe IDs, internal reference remapping, history, persistence, and responsive UI coverage; PR #106.
