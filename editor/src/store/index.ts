@@ -88,7 +88,7 @@ export interface AppState {
   renameView: (viewId: string, name: string) => void;
   setInitialView: (viewId: string) => void;
   setViewCustomCss: (viewId: string, css: string | undefined) => void;
-  deleteView: (viewId: string) => void;
+  deleteView: (viewId: string, retargetViewId?: string) => void;
   setCanvasSize: (width: number, height: number) => void;
   setViewport: (viewId: string, patch: Partial<Viewport>) => void;
 
@@ -592,12 +592,26 @@ export const useStore = create<AppState>()(
       });
     },
 
-    deleteView(viewId: string) {
+    deleteView(viewId: string, retargetViewId?: string) {
       set((s) => {
         if (s.project.views.length <= 1) return;
         const idx = s.project.views.findIndex((v) => v.id === viewId);
         if (idx === -1) return;
+        const canRetarget = retargetViewId !== viewId
+          && s.project.views.some((view) => view.id === retargetViewId);
         pushHistory(s);
+        if (canRetarget) {
+          for (const sourceView of s.project.views) {
+            if (sourceView.id === viewId) continue;
+            for (const layer of sourceView.layers) {
+              for (const area of layer.areas) {
+                if (area.action.type === "goToView" && area.action.targetViewId === viewId) {
+                  area.action.targetViewId = retargetViewId!;
+                }
+              }
+            }
+          }
+        }
         s.project.views.splice(idx, 1);
         if (s.project.settings.initialViewId === viewId) {
           s.project.settings.initialViewId = s.project.views[Math.min(idx, s.project.views.length - 1)].id;
