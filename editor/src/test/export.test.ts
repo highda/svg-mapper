@@ -50,6 +50,32 @@ describe("generateExportPackage", () => {
     );
   });
 
+  it("preserves linked styling for a 100-region layout in saved and exported data", () => {
+    const project = createNewProject("Venue plan");
+    const style = {
+      default: { fill: "#123456", stroke: "#ffffff", strokeWidth: 1 },
+      hover: { fill: "#234567", stroke: "#ffffff", strokeWidth: 2 },
+      active: { fill: "#345678", stroke: "#ffffff", strokeWidth: 3 },
+    };
+    project.sharedStyles.seats = { name: "Seats", style };
+    const areas = Array.from({ length: 100 }, (_, index) => ({
+      ...createRectArea((index % 10) * 20, Math.floor(index / 10) * 20, 16, 16),
+      id: `seat_${index}`,
+      name: `Seat ${index + 1}`,
+      style,
+      sharedStyleId: "seats",
+    }));
+    project.views[0]!.layers = [{ id: "seats", name: "Seats", visible: true, locked: false, opacity: 1, areas }];
+
+    const saved = JSON.parse(JSON.stringify(project)) as typeof project;
+    const pkg = generateExportPackage(toDefinition(saved), STUB_JS, STUB_CSS, { inlineAssets: true });
+    const exported = JSON.parse(pkg.mapJson) as typeof project;
+    expect(saved.views[0]!.layers[0]!.areas).toHaveLength(100);
+    expect(exported.views[0]!.layers[0]!.areas).toHaveLength(100);
+    expect(exported.sharedStyles.seats).toEqual({ name: "Seats", style });
+    expect(exported.views[0]!.layers[0]!.areas.every((area) => area.sharedStyleId === "seats" && area.style.default.fill === "#123456")).toBe(true);
+  });
+
   it("round-trips templates, metadata, rich tooltips, and popups in map.json", () => {
     const project = createNewProject("Content Map");
     project.settings.contentTemplate = "<h3>{{name}}</h3><p>{{metadata.price}}</p>";

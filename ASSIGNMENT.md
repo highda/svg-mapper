@@ -347,7 +347,9 @@ Contextual settings driven by current selection:
 
 ### 6.2 Nice-to-have (Phase 2+)
 
-Drag-drop import, paste SVG code, import from URL; SVGO optimization; SVG path / SVG group auto-import as Areas; auto-name from SVG IDs; snap-to-grid; snap-to-path; magnetic guides; alignment tools; multi-select; copy/paste Areas across Views; Boolean combine/split; lock background; Circle/Path/Marker/Text tools; popup editor; rich-content cards; area templates; bulk style editing; search/filter Areas; minimap; global style themes.
+Drag-drop import, paste SVG code, import from URL; SVGO optimization; SVG path / SVG group auto-import as Areas; auto-name from SVG IDs; snap-to-path; magnetic guides; copy/paste groups across Views; Boolean combine/split; lock background; Path/Text tools; minimap; global style themes.
+
+Implemented authoring improvements include snap-to-grid, Circle and Marker tools, popup/rich-content editing, content templates, area search/filtering, multi-selection, bulk style/action editing, alignment/distribution, group movement/duplication, and named style presets with apply-once or linked-update semantics.
 
 ---
 

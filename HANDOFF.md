@@ -7,7 +7,7 @@
 Issue:        #126 — feat(editor): add multi-selection and reusable styles for repeated map regions
 Branch:       feat/126-multi-selection-styles
 Started:      2026-09-06
-Last commit:  42c0066  feat: add linked reusable area styles
+Last commit:  pending  feat: finish multi-area geometry workflows
 
 ### What's done
 - Added synchronized multi-area selection state with Shift toggling in the canvas and tree.
@@ -21,9 +21,12 @@ Last commit:  42c0066  feat: add linked reusable area styles
 - Added validated named style presets with explicit apply-once and linked-update behavior.
 - Preserved presets and linked styles through undo, saved project data, and exported map data.
 - Covered the authoring flow with unit tests and a production-build Playwright golden path.
+- Added atomic alignment, distribution, group movement, and collision-safe group duplication.
+- Honored locked layers and constrained spatial operations to the active view.
+- Covered 100-region save/export styling, cross-view copy, undo, and production browser behavior.
 
 ### What's next
-- Add align/distribute and group move/duplicate; finish 100-region and persistence/export coverage.
+- Open, verify, and merge the completion PR; then clear the handoff.
 
 ### Notes / gotchas
 - `selectedAreaId` remains the primary/last-selected compatibility field; `selectedAreaIds` is the ordered full selection.

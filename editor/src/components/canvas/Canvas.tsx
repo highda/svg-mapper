@@ -80,6 +80,8 @@ export function Canvas() {
     addArea,
     deleteArea,
     duplicateArea,
+    duplicateAreas,
+    moveAreas,
     undo,
     redo,
     copyArea,
@@ -123,6 +125,7 @@ export function Canvas() {
     areaId?: string;
     handle?: RectHandle;
     areaGeoBefore?: Area["geometry"];
+    areaGeometriesBefore?: Array<{ id: string; geometry: Area["geometry"] }>;
     panBefore?: { x: number; y: number };
     previewRect?: { x: number; y: number; width: number; height: number } | null;
     selectionBefore?: string[];
@@ -224,7 +227,8 @@ export function Canvas() {
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "d" && selectedAreaId) {
         e.preventDefault();
-        duplicateArea(selectedAreaId);
+        if (selectedAreaIds.length > 1) duplicateAreas(selectedAreaIds);
+        else duplicateArea(selectedAreaId);
         return;
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "c" && selectedAreaId) {
@@ -293,6 +297,7 @@ export function Canvas() {
   }, [
     activeTool,
     selectedAreaId,
+    selectedAreaIds,
     polyPts,
     zoom,
     setActiveTool,
@@ -301,6 +306,8 @@ export function Canvas() {
     addArea,
     deleteArea,
     duplicateArea,
+    duplicateAreas,
+    moveAreas,
     copyArea,
     pasteArea,
     undo,
@@ -392,7 +399,8 @@ export function Canvas() {
       toggleSelectedAreaId(areaId);
       return;
     }
-    setSelectedAreaId(areaId);
+    const movingIds = selectedAreaIds.includes(areaId) ? selectedAreaIds : [areaId];
+    if (!selectedAreaIds.includes(areaId)) setSelectedAreaId(areaId);
 
     // Find the area geometry for drag baseline
     let geoSnapshot: Area["geometry"] | undefined;
@@ -400,6 +408,18 @@ export function Canvas() {
       for (const layer of view.layers) {
         const a = layer.areas.find((ar) => ar.id === areaId);
         if (a) { geoSnapshot = a.geometry; break; }
+      }
+    }
+    const geometrySnapshots: Array<{ id: string; geometry: Area["geometry"] }> = [];
+    for (const view of project.views) {
+      if (view.id !== activeViewId) continue;
+      for (const layer of view.layers) {
+        if (layer.locked) continue;
+        for (const area of layer.areas) {
+          if (movingIds.includes(area.id) && area.geometry.type !== "path") {
+            geometrySnapshots.push({ id: area.id, geometry: area.geometry });
+          }
+        }
       }
     }
 
@@ -410,6 +430,7 @@ export function Canvas() {
       startContent: cp,
       areaId,
       areaGeoBefore: geoSnapshot,
+      areaGeometriesBefore: geometrySnapshots,
     };
   }
 
@@ -513,17 +534,16 @@ export function Canvas() {
     } else if (d.type === "move" && d.areaId) {
       const dx = cp.x - d.startContent.x;
       const dy = cp.y - d.startContent.y;
-      // Live-update via updateAreaGeometry using the snapshot + delta
-      if (d.areaGeoBefore) {
-        const newGeo = snapGeometry(moveGeometry(d.areaGeoBefore, dx, dy));
+      if (d.areaGeometriesBefore?.length) {
         // Directly mutate store for smooth dragging (no undo entry mid-drag)
         useStore.setState((s) => {
           for (const v of s.project.views) {
             for (const layer of v.layers) {
-              const a = layer.areas.find((ar) => ar.id === d.areaId);
-              if (a) {
-                (a as Area).geometry = newGeo as (typeof a)["geometry"];
-                return;
+              for (const area of layer.areas) {
+                const baseline = d.areaGeometriesBefore!.find((entry) => entry.id === area.id);
+                if (baseline) {
+                  (area as Area).geometry = moveGeometry(baseline.geometry, dx, dy) as typeof area.geometry;
+                }
               }
             }
           }
@@ -613,11 +633,16 @@ export function Canvas() {
         area.geometry = snapGeometry(area.geometry);
         addArea(area);
       }
-    } else if (d.type === "move" && d.areaId && d.areaGeoBefore) {
-      const dx = cp.x - d.startContent.x;
-      const dy = cp.y - d.startContent.y;
-      const finalGeo = snapGeometry(moveGeometry(d.areaGeoBefore, dx, dy));
-      useStore.getState().updateAreaGeometry(d.areaId, finalGeo);
+    } else if (d.type === "move" && d.areaGeometriesBefore?.length) {
+      const dx = grid.enabled ? snapValue(cp.x - d.startContent.x, grid.size) : cp.x - d.startContent.x;
+      const dy = grid.enabled ? snapValue(cp.y - d.startContent.y, grid.size) : cp.y - d.startContent.y;
+      useStore.setState((s) => {
+        for (const v of s.project.views) for (const layer of v.layers) for (const area of layer.areas) {
+          const baseline = d.areaGeometriesBefore!.find((entry) => entry.id === area.id);
+          if (baseline) (area as Area).geometry = baseline.geometry as typeof area.geometry;
+        }
+      });
+      useStore.getState().moveAreas(d.areaGeometriesBefore.map(({ id }) => id), dx, dy);
     } else if (d.type === "resize" && d.areaId && d.handle && d.areaGeoBefore) {
       if (d.areaGeoBefore.type !== "rect") return;
       const dx = cp.x - d.startContent.x;

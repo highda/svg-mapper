@@ -91,6 +91,88 @@ describe("store: multi-selection", () => {
     expect(useStore.getState().project.sharedStyles[id]!.name).toBe("Seats");
     expect(useStore.getState().project.views[0]!.layers[0]!.areas[1]!.style.default.fill).toBe("#2563eb");
   });
+
+  it("aligns, distributes, moves, and duplicates a selection as atomic operations", () => {
+    const areas = [
+      createRectArea(10, 20, 20, 10),
+      createRectArea(80, 60, 20, 10),
+      createRectArea(170, 100, 20, 10),
+    ];
+    areas.forEach((area) => useStore.getState().addArea(area));
+    useStore.setState({ past: [], future: [], selectedAreaId: areas[1]!.id, selectedAreaIds: areas.map(({ id }) => id) });
+
+    useStore.getState().alignAreas(areas.map(({ id }) => id), "middle");
+    let geometries = useStore.getState().project.views[0]!.layers[0]!.areas.map(({ geometry }) => geometry);
+    expect(geometries.map((geometry) => geometry.type === "rect" ? geometry.y : -1)).toEqual([60, 60, 60]);
+    expect(useStore.getState().past).toHaveLength(1);
+
+    useStore.getState().undo();
+    useStore.getState().setSelectedAreaIds(areas.map(({ id }) => id));
+    useStore.getState().distributeAreas(areas.map(({ id }) => id), "horizontal");
+    geometries = useStore.getState().project.views[0]!.layers[0]!.areas.map(({ geometry }) => geometry);
+    expect(geometries.map((geometry) => geometry.type === "rect" ? geometry.x : -1)).toEqual([10, 90, 170]);
+
+    useStore.getState().moveAreas(areas.map(({ id }) => id), 5, -5);
+    geometries = useStore.getState().project.views[0]!.layers[0]!.areas.map(({ geometry }) => geometry);
+    expect(geometries.map((geometry) => geometry.type === "rect" ? geometry.x : -1)).toEqual([15, 95, 175]);
+
+    useStore.getState().duplicateAreas(areas.map(({ id }) => id));
+    const duplicated = useStore.getState().project.views[0]!.layers[0]!.areas;
+    expect(duplicated).toHaveLength(6);
+    expect(new Set(duplicated.map(({ id }) => id)).size).toBe(6);
+    expect(useStore.getState().selectedAreaIds).toHaveLength(3);
+    expect(duplicated.filter(({ name }) => name.endsWith(" copy"))).toHaveLength(3);
+  });
+
+  it("leaves areas in locked layers unchanged during group geometry operations", () => {
+    const movable = createRectArea(10, 10, 20, 20);
+    const locked = createRectArea(50, 50, 20, 20);
+    useStore.getState().addArea(movable);
+    useStore.setState((state) => ({
+      project: {
+        ...state.project,
+        views: [{
+          ...state.project.views[0]!,
+          layers: [state.project.views[0]!.layers[0]!, {
+            id: "locked_layer", name: "Locked", visible: true, locked: true, opacity: 1, areas: [locked],
+          }],
+        }],
+      },
+      past: [], future: [],
+    }));
+
+    useStore.getState().moveAreas([movable.id, locked.id], 20, 20);
+    expect(useStore.getState().project.views[0]!.layers[0]!.areas[0]!.geometry).toMatchObject({ x: 30, y: 30 });
+    expect(useStore.getState().project.views[0]!.layers[1]!.areas[0]!.geometry).toMatchObject({ x: 50, y: 50 });
+    useStore.getState().duplicateAreas([movable.id, locked.id]);
+    expect(useStore.getState().project.views[0]!.layers[0]!.areas).toHaveLength(2);
+    expect(useStore.getState().project.views[0]!.layers[1]!.areas).toHaveLength(1);
+  });
+
+  it("copies a styled area across views and preserves it through save/open", () => {
+    const source = createRectArea(12, 34, 56, 78);
+    source.style = { ...source.style, default: { ...source.style.default, fill: "#7c3aed" } };
+    source.metadata = { section: "A" };
+    useStore.getState().addArea(source);
+    useStore.getState().copyArea(source.id);
+    useStore.getState().addView();
+    const targetViewId = useStore.getState().activeViewId;
+    useStore.getState().addLayer(targetViewId);
+    useStore.getState().pasteArea();
+
+    const pasted = useStore.getState().project.views[1]!.layers[0]!.areas[0]!;
+    expect(pasted.id).not.toBe(source.id);
+    expect(pasted.style.default.fill).toBe("#7c3aed");
+    expect(pasted.metadata).toEqual({ section: "A" });
+
+    const serialized = serializeProjectFile(useStore.getState().project);
+    useStore.getState().newProject();
+    useStore.getState().loadProject(serialized);
+    expect(useStore.getState().project.views[1]!.layers[0]!.areas[0]).toMatchObject({
+      id: pasted.id,
+      metadata: { section: "A" },
+    });
+  });
 });
 
 describe("store: newProject", () => {

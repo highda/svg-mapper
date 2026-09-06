@@ -1343,7 +1343,7 @@ function LabelEditor({ areaId, label }: { areaId: string; label: AreaLabel | und
 
 function AreaInspector() {
   const { selectedAreaId, selectedAreaIds, project, renameArea, updateAreaStyle, updateAreas,
-    createSharedStyle, updateSharedStyle, applySharedStyle } = useStore();
+    createSharedStyle, updateSharedStyle, applySharedStyle, alignAreas, distributeAreas, duplicateAreas } = useStore();
   const [presetName, setPresetName] = useState("");
   const [presetId, setPresetId] = useState(() => project.views
     .flatMap((view) => view.layers.flatMap((layer) => layer.areas))
@@ -1390,6 +1390,23 @@ function AreaInspector() {
       </Row>
 
       <SectionHeader title="Geometry" scope="Area" />
+      {selectedAreas.length > 1 && (
+        <div className="space-y-1 rounded border border-neutral-700 bg-neutral-800/60 p-2">
+          <p className="text-[10px] text-neutral-400">Arrange {selectedAreas.length} selected areas</p>
+          <div className="grid grid-cols-3 gap-1">
+            {(["left", "center", "right", "top", "middle", "bottom"] as const).map((alignment) => (
+              <button key={alignment} type="button" onClick={() => alignAreas(selectedAreaIds, alignment)} className="rounded bg-neutral-700 px-1 py-1 text-[10px] capitalize text-white hover:bg-neutral-600">
+                {alignment}
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-1">
+            <button type="button" disabled={selectedAreas.length < 3} onClick={() => distributeAreas(selectedAreaIds, "horizontal")} className="rounded bg-neutral-700 px-1 py-1 text-[10px] text-white disabled:opacity-40">Distribute ↔</button>
+            <button type="button" disabled={selectedAreas.length < 3} onClick={() => distributeAreas(selectedAreaIds, "vertical")} className="rounded bg-neutral-700 px-1 py-1 text-[10px] text-white disabled:opacity-40">Distribute ↕</button>
+          </div>
+          <button type="button" onClick={() => duplicateAreas(selectedAreaIds)} className="w-full rounded bg-blue-700 px-2 py-1 text-xs text-white hover:bg-blue-600">Duplicate selection</button>
+        </div>
+      )}
       <GeometryEditor areaId={a.id} geometry={a.geometry as unknown as { type: string }} />
 
       <SectionHeader title="Style" scope="Area" />
