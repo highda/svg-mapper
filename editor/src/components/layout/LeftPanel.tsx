@@ -46,12 +46,40 @@ function InlineRename({
 // ---------------------------------------------------------------------------
 
 function AreaRow({ areaId, name, layerId, targetIndex, locked, onMoveMessage }: { areaId: string; name: string; layerId: string; targetIndex: number; locked: boolean; onMoveMessage: (message: string) => void }) {
-  const { selectedAreaIds, setSelectedAreaId, toggleSelectedAreaId, reorderArea, moveAreaToLayer, project } = useStore();
+  const { selectedAreaId, selectedAreaIds, setSelectedAreaId, setSelectedAreaIds, toggleSelectedAreaId, reorderArea, moveAreaToLayer, project } = useStore();
   const selected = selectedAreaIds.includes(areaId);
   const [dragOver, setDragOver] = useState(false);
 
+  function visibleRows(element: HTMLElement) {
+    const container = element.closest('[aria-label="Views and layers"]') ?? document;
+    return [...container.querySelectorAll<HTMLElement>("[data-area-row]")];
+  }
+
+  function selectRange(element: HTMLElement, targetId: string) {
+    const ids = visibleRows(element).map((row) => row.dataset.areaRow).filter((id): id is string => Boolean(id));
+    const anchorIndex = selectedAreaId === null ? -1 : ids.indexOf(selectedAreaId);
+    const targetIndex = ids.indexOf(targetId);
+    if (anchorIndex < 0 || targetIndex < 0) {
+      setSelectedAreaId(targetId);
+      return;
+    }
+    const [start, end] = anchorIndex < targetIndex ? [anchorIndex, targetIndex] : [targetIndex, anchorIndex];
+    const range = ids.slice(start, end + 1);
+    setSelectedAreaIds(anchorIndex <= targetIndex ? range : range.reverse());
+  }
+
+  function handleSelection(event: React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>) {
+    if (event.shiftKey) selectRange(event.currentTarget, areaId);
+    else if (event.metaKey || event.ctrlKey) toggleSelectedAreaId(areaId);
+    else setSelectedAreaId(areaId);
+  }
+
   return (
     <div
+      role="treeitem"
+      tabIndex={0}
+      aria-selected={selected}
+      data-area-row={areaId}
       draggable={!locked}
       onDragStart={(event) => {
         event.stopPropagation();
@@ -75,7 +103,26 @@ function AreaRow({ areaId, name, layerId, targetIndex, locked, onMoveMessage }: 
         const result = moveAreaToLayer(movedAreaId, layerId, targetIndex);
         onMoveMessage(result === "moved" ? `Area moved before ${name}.` : result === "locked" ? "Layer is locked." : "Area could not be moved.");
       }}
-      onClick={(event) => event.shiftKey ? toggleSelectedAreaId(areaId) : setSelectedAreaId(areaId)}
+      onClick={handleSelection}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          handleSelection(event);
+          return;
+        }
+        if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+        event.preventDefault();
+        const rows = visibleRows(event.currentTarget);
+        const index = rows.indexOf(event.currentTarget);
+        const next = rows[index + (event.key === "ArrowDown" ? 1 : -1)];
+        if (!next) return;
+        next.focus();
+        const nextId = next.dataset.areaRow;
+        if (nextId) {
+          if (event.shiftKey) selectRange(event.currentTarget, nextId);
+          else setSelectedAreaId(nextId);
+        }
+      }}
       className={`flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-xs ${dragOver ? locked ? "ring-1 ring-red-500" : "ring-1 ring-blue-400" : ""} ${
         selected
           ? "bg-blue-600 text-white"
@@ -568,7 +615,7 @@ export function LeftPanel({ workspace = false }: { workspace?: boolean }) {
 
       {/* Tree (hidden when searching) */}
       {!query && (
-        <div className="flex-1 overflow-y-auto p-1.5">
+        <div role="tree" aria-label="Map hierarchy" className="flex-1 overflow-y-auto p-1.5">
           {project.views.map((view) => (
             <ViewSection key={view.id} view={view} isActive={view.id === activeViewId} onMoveMessage={setMoveMessage} />
           ))}

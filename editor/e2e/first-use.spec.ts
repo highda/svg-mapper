@@ -25,3 +25,22 @@ for (const viewport of [
     await page.screenshot({ path: testInfo.outputPath(`${viewport.name}-first-use.png`), fullPage: true });
   });
 }
+
+test("tree supports pointer ranges and keyboard selection", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Samples", exact: true }).click();
+  await page.getByRole("button", { name: /Property floors/ }).click();
+  await page.getByRole("button", { name: "Tree", exact: true }).click();
+
+  const first = page.getByRole("treeitem", { name: /Available suite/ }).first();
+  const second = page.getByRole("treeitem", { name: /Meeting room/ }).first();
+  await first.click();
+  await second.click({ modifiers: ["Shift"] });
+  await expect(first).toHaveAttribute("aria-selected", "true");
+  await expect(second).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("complementary", { name: "Inspector" })).toContainText("2 areas");
+
+  await second.press("ArrowUp");
+  await expect(first).toBeFocused();
+  await expect(second).toHaveAttribute("aria-selected", "false");
+});
