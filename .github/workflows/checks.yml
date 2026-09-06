@@ -32,8 +32,8 @@ jobs:
       - run: npm run typecheck --prefix renderer
       - run: npm run typecheck --prefix editor
       - run: npm run lint --prefix editor
-      - run: npm run test --prefix editor
       - run: npm run build --prefix renderer
+      - run: npm run test --prefix editor
       - run: npm run check:size --prefix renderer
       - run: npm run build --prefix editor
         env:
