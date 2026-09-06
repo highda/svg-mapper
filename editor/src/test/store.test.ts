@@ -28,6 +28,15 @@ describe("store: multi-selection", () => {
     expect(useStore.getState().selectedAreaIds).toEqual([]);
     expect(useStore.getState().selectedAreaId).toBeNull();
   });
+
+  it("replaces selection with unique ordered ids and makes the last primary", () => {
+    useStore.getState().setSelectedAreaIds(["area_one", "area_two", "area_one"]);
+    expect(useStore.getState().selectedAreaIds).toEqual(["area_one", "area_two"]);
+    expect(useStore.getState().selectedAreaId).toBe("area_two");
+
+    useStore.getState().setSelectedAreaIds([]);
+    expect(useStore.getState().selectedAreaId).toBeNull();
+  });
 });
 
 describe("store: newProject", () => {

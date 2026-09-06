@@ -73,6 +73,7 @@ export interface AppState {
   // ── Design screen ────────────────────────────────────────────────────────
   setActiveTool: (tool: Tool) => void;
   setSelectedAreaId: (id: string | null) => void;
+  setSelectedAreaIds: (ids: string[]) => void;
   toggleSelectedAreaId: (id: string) => void;
   setSelectedLayerId: (id: string | null) => void;
   setActiveViewId: (id: string) => void;
@@ -386,6 +387,14 @@ export const useStore = create<AppState>()(
         s.selectedAreaId = id;
         s.selectedAreaIds = id === null ? [] : [id];
         if (id !== null) s.selectedLayerId = null;
+      });
+    },
+
+    setSelectedAreaIds(ids: string[]) {
+      set((s) => {
+        s.selectedAreaIds = [...new Set(ids)];
+        s.selectedAreaId = s.selectedAreaIds.at(-1) ?? null;
+        if (s.selectedAreaIds.length > 0) s.selectedLayerId = null;
       });
     },
 

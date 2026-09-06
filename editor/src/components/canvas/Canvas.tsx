@@ -75,6 +75,7 @@ export function Canvas() {
     selectedAreaIds,
     setActiveTool,
     setSelectedAreaId,
+    setSelectedAreaIds,
     toggleSelectedAreaId,
     addArea,
     deleteArea,
@@ -116,7 +117,7 @@ export function Canvas() {
 
   // Drag state (refs to avoid re-renders during drag)
   const drag = useRef<{
-    type: "pan" | "move" | "draw-rect" | "resize" | "draw-circle" | "resize-circle";
+    type: "pan" | "marquee" | "move" | "draw-rect" | "resize" | "draw-circle" | "resize-circle";
     startSvg: { x: number; y: number };
     startContent: { x: number; y: number };
     areaId?: string;
@@ -124,6 +125,7 @@ export function Canvas() {
     areaGeoBefore?: Area["geometry"];
     panBefore?: { x: number; y: number };
     previewRect?: { x: number; y: number; width: number; height: number } | null;
+    selectionBefore?: string[];
   } | null>(null);
 
   const spaceHeld = useRef(false);
@@ -315,6 +317,9 @@ export function Canvas() {
   const [previewRect, setPreviewRect] = useState<{
     x: number; y: number; width: number; height: number;
   } | null>(null);
+  const [marqueeRect, setMarqueeRect] = useState<{
+    x: number; y: number; width: number; height: number;
+  } | null>(null);
 
   function toContent(svgPt: { x: number; y: number }) {
     const svg = svgRef.current;
@@ -343,10 +348,15 @@ export function Canvas() {
     }
 
     if (activeTool === "select") {
-      // Background drag = pan; short tap = deselect (disambiguated in onSvgPointerUp)
+      // Background drag selects intersecting regions. Space/middle-button pans.
       svg.setPointerCapture(e.pointerId);
-      drag.current = { type: "pan", startSvg: sp, startContent: cp, panBefore: { x: panX, y: panY } };
-      setIsPanning(true);
+      drag.current = {
+        type: "marquee",
+        startSvg: sp,
+        startContent: cp,
+        selectionBefore: e.shiftKey ? selectedAreaIds : [],
+      };
+      setMarqueeRect({ x: cp.x, y: cp.y, width: 0, height: 0 });
     } else if (activeTool === "rect") {
       svg.setPointerCapture(e.pointerId);
       drag.current = {
@@ -487,6 +497,13 @@ export function Canvas() {
       const dsvgX = sp.x - d.startSvg.x;
       const dsvgY = sp.y - d.startSvg.y;
       setEditorState({ pan: { x: d.panBefore.x + dsvgX, y: d.panBefore.y + dsvgY } });
+    } else if (d.type === "marquee") {
+      setMarqueeRect({
+        x: Math.min(d.startContent.x, cp.x),
+        y: Math.min(d.startContent.y, cp.y),
+        width: Math.abs(cp.x - d.startContent.x),
+        height: Math.abs(cp.y - d.startContent.y),
+      });
     } else if (d.type === "draw-rect") {
       const rx = Math.min(d.startContent.x, cp.x);
       const ry = Math.min(d.startContent.y, cp.y);
@@ -562,11 +579,28 @@ export function Canvas() {
     setIsPanning(false);
 
     if (d.type === "pan") {
-      // If barely moved in select mode, treat as a background click → deselect
-      if (activeTool === "select") {
-        const dx = sp.x - d.startSvg.x;
-        const dy = sp.y - d.startSvg.y;
-        if (Math.abs(dx) < 4 && Math.abs(dy) < 4) setSelectedAreaId(null);
+      // Panning is handled continuously above.
+    } else if (d.type === "marquee") {
+      const x = Math.min(d.startContent.x, cp.x);
+      const y = Math.min(d.startContent.y, cp.y);
+      const width = Math.abs(cp.x - d.startContent.x);
+      const height = Math.abs(cp.y - d.startContent.y);
+      setMarqueeRect(null);
+      if (Math.abs(sp.x - d.startSvg.x) < 4 && Math.abs(sp.y - d.startSvg.y) < 4) {
+        setSelectedAreaIds(d.selectionBefore ?? []);
+      } else {
+        if (!view) return;
+        const hits = view.layers
+          .filter((layer) => layer.visible)
+          .flatMap((layer) => layer.areas)
+          .filter((area) => {
+            const bounds = getGeometryBbox(area.geometry);
+            return bounds !== null
+              && bounds.x <= x + width && bounds.x + bounds.width >= x
+              && bounds.y <= y + height && bounds.y + bounds.height >= y;
+          })
+          .map((area) => area.id);
+        setSelectedAreaIds([...(d.selectionBefore ?? []), ...hits]);
       }
     } else if (d.type === "draw-rect") {
       const rx = Math.min(d.startContent.x, cp.x);
@@ -751,6 +785,21 @@ export function Canvas() {
           )}
 
           {/* Rect drawing preview */}
+          {marqueeRect && (
+            <rect
+              data-testid="selection-marquee"
+              x={marqueeRect.x}
+              y={marqueeRect.y}
+              width={marqueeRect.width}
+              height={marqueeRect.height}
+              fill="rgba(59,130,246,0.12)"
+              stroke="#3b82f6"
+              strokeWidth={1 / zoom}
+              strokeDasharray={`${4 / zoom} ${3 / zoom}`}
+              pointerEvents="none"
+            />
+          )}
+
           {previewRect && (
             <rect
               x={previewRect.x}
