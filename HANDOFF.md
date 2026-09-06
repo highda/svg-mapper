@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #115 — fix(export): prevent missing files when packaging external and raw SVG assets
+Branch:       feat/115-package-assets
+Started:      2026-09-06
+Last commit:  3ef7e4e  chore: hand off #114 — done
+
+### What's done
+- Claimed the issue and reviewed its acceptance criteria.
+
+### What's next
+- Audit export asset classification and implement reliable inline/external packaging.
+
+### Notes / gotchas
+- The host task brief referenced already-completed issue #127, so the loop selected the highest-priority ready task.
 
 ---
 

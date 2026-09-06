@@ -238,7 +238,7 @@ export function ExportScreen() {
               onChange={(e) => setInlineAssets(e.target.checked)}
               className="accent-blue-500"
             />
-            Inline assets into map.json (larger file, no separate assets/ folder)
+            Keep embedded assets in map.json (larger file, no separate assets/ folder)
           </label>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <label className="text-xs text-neutral-300">Upload base path
@@ -257,8 +257,14 @@ export function ExportScreen() {
           </div>
           {configError && <p role="alert" className="mt-2 text-xs text-red-300">{configError}</p>}
           <p className="mt-2 text-[11px] leading-relaxed text-neutral-500">
-            Includes renderer JS and CSS plus {inlineAssets ? "one self-contained map.json; no assets folder is required" : `${preview.assetFileCount} file${preview.assetFileCount === 1 ? "" : "s"} in assets/ referenced by map.json`}. Estimated uncompressed package: {formatBytes(preview.estimatedUncompressedBytes)} ({formatBytes(preview.assetBytes)} of source assets).
+            Includes renderer JS and CSS plus {inlineAssets ? `one map.json with embedded asset data; no assets folder is required${preview.externalDependencies.length > 0 ? " (external references remain external)" : ""}` : `${preview.assetFileCount} file${preview.assetFileCount === 1 ? "" : "s"} in assets/ referenced by map.json`}. Estimated uncompressed package: {formatBytes(preview.estimatedUncompressedBytes)} ({formatBytes(preview.assetBytes)} of embedded source assets).
           </p>
+          {preview.externalDependencies.length > 0 && (
+            <div className="mt-2 rounded border border-amber-800 bg-amber-950/30 p-2 text-[11px] text-amber-200" role="status">
+              <p className="font-medium">{preview.externalDependencies.length} external asset {preview.externalDependencies.length === 1 ? "dependency is" : "dependencies are"} preserved.</p>
+              <p className="mt-1 text-amber-300/80">Remote URLs must stay reachable; deploy relative paths beside map.json. README.txt lists every dependency.</p>
+            </div>
+          )}
         </section>
 
         {/* Quick copy actions */}

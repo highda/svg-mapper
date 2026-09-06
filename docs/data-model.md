@@ -46,7 +46,7 @@ Backgrounds and areas are world-attached: they share a viewBox and pan/zoom toge
 
 ## Assets, views, and layers
 
-An `Asset` has `id`, MIME `type`, `name`, `src`, intrinsic `width` and `height`, and `inline`. Supported types are PNG, JPEG, WebP, and SVG. Editor storage uses a data URI or inline SVG markup. External-asset export rewrites `src` to a relative `assets/...` path.
+An `Asset` has `id`, MIME `type`, `name`, `src`, intrinsic `width` and `height`, and `inline`. Supported types are PNG, JPEG, WebP, and SVG. Editor storage normally uses a data URI or inline SVG markup. External-asset export writes those embedded bytes under `assets/...` and rewrites their `src`; pre-existing remote URLs and relative paths are preserved and disclosed as external dependencies instead of pointing at files absent from the package.
 
 A `View` has `id`, `name`, URL-friendly `slug`, its own required `canvas: {width,height}`, optional `background: {assetId, fit, position?}`, `viewport`, `ui`, optional `customCss`, and `layers`. Background fit is `contain`, `cover`, `fill`, or `none`. `position` is a normalized `{x,y}` alignment/focal point: `{0,0}` is top-left, `{0.5,0.5}` is the default center, and `{1,1}` is bottom-right. It aligns contained or intrinsic artwork and selects the focal region retained by `cover`; values are clamped to 0–1. Viewport holds minimum, maximum, and initial zoom plus pan/zoom flags. UI flags control the title, breadcrumbs, and back button.
 
