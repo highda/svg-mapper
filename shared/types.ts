@@ -480,6 +480,8 @@ export interface RendererOptions {
   container: string | HTMLElement;
   definition?: ClickMapDefinition;
   definitionUrl?: string;
+  /** Base URL for relative reusable asset sources. Defaults to the fetched definition URL or document.baseURI. */
+  assetBaseUrl?: string;
   /** Choropleth data-driven fill colouring. */
   choropleth?: ChoroplethOptions;
   /** URL hash–based deep linking. */

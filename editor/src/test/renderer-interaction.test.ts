@@ -164,7 +164,8 @@ describe("renderer interaction model", () => {
     area.image = { assetId: "logo", fit: "contain", opacity: 0.5, rotation: 30, decorative: true };
     project.views[0].layers = [{ id: "layer", name: "Layer", visible: true, locked: false, opacity: 1, areas: [area] }];
     create({ container: "#map", definition: toDefinition(project) });
-    const visual = document.querySelector<SVGImageElement>('image[href="logo.png"]')!;
+    const visual = document.querySelector<SVGImageElement>(".clickmap-area-image")!;
+    expect(visual.getAttribute("href")).toBe(new URL("logo.png", document.baseURI).href);
     expect(visual.getAttribute("preserveAspectRatio")).toBe("xMidYMid meet");
     expect(visual.getAttribute("opacity")).toBe("0.5");
     expect(visual.getAttribute("transform")).toContain("rotate(30");
@@ -458,6 +459,60 @@ describe("renderer interaction model", () => {
     const background = document.querySelector<SVGImageElement>(".clickmap-bg-img");
     expect(background?.getAttribute("preserveAspectRatio")).toBe("none");
     expect(background).toHaveAttribute("width", "1600");
+  });
+
+  it("resolves inline-definition backgrounds and foreground images from an explicit asset base", () => {
+    const project = createNewProject();
+    const imageArea = createRectArea(10, 20, 100, 80);
+    imageArea.image = { assetId: "foreground", fit: "contain" };
+    project.assets = [
+      { id: "background", name: "Plan", type: "image/png", src: "images/plan.png?rev=2", inline: false, width: 1600, height: 900 },
+      { id: "foreground", name: "Pin", type: "image/svg+xml", src: "../shared/pin.svg#icon", inline: false, width: 100, height: 80 },
+    ];
+    project.views[0].background = { assetId: "background", fit: "contain" };
+    project.views[0].layers = [{ id: "layer", name: "Layer", visible: true, locked: false, opacity: 1, areas: [imageArea] }];
+
+    create({
+      container: "#map",
+      definition: toDefinition(project),
+      assetBaseUrl: "https://cdn.example/maps/estate/",
+    });
+
+    expect(document.querySelector(".clickmap-bg-img")).toHaveAttribute(
+      "href",
+      "https://cdn.example/maps/estate/images/plan.png?rev=2",
+    );
+    expect(document.querySelector(".clickmap-area-image")).toHaveAttribute(
+      "href",
+      "https://cdn.example/maps/shared/pin.svg#icon",
+    );
+  });
+
+  it("uses the redirected definition response URL as the relative asset base", async () => {
+    const project = createNewProject();
+    project.assets = [{ id: "asset_1", name: "Plan", type: "image/png", src: "assets/plan.png?size=2", inline: false, width: 1600, height: 900 }];
+    project.views[0].background = { assetId: "asset_1", fit: "contain" };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      url: "https://cdn.example/releases/v2/nested/map.json?cache=1",
+      json: () => Promise.resolve(toDefinition(project)),
+    }));
+
+    create({ container: "#map", definitionUrl: "https://origin.example/maps/map.json" });
+
+    await vi.waitFor(() => expect(document.querySelector(".clickmap-bg-img")).toHaveAttribute(
+      "href",
+      "https://cdn.example/releases/v2/nested/assets/plan.png?size=2",
+    ));
+  });
+
+  it("preserves absolute, data, and raw SVG asset sources", () => {
+    const project = createNewProject();
+    project.assets = [{ id: "asset_1", name: "Plan", type: "image/svg+xml", src: '<svg xmlns="http://www.w3.org/2000/svg"></svg>', inline: true, width: 10, height: 10 }];
+    project.views[0].background = { assetId: "asset_1", fit: "contain" };
+    create({ container: "#map", definition: toDefinition(project), assetBaseUrl: "https://cdn.example/maps/" });
+    expect(document.querySelector(".clickmap-bg-img")?.getAttribute("href")).toMatch(/^data:image\/svg\+xml/);
   });
 
   it("renders imported inline SVG data URIs as fitted images", () => {

@@ -16,7 +16,7 @@ The export supplies a dependency-free browser script. Loading it creates the glo
 </script>
 ```
 
-`create(options)` returns an instance immediately. Supply exactly one of `definition` (an already parsed object) or `definitionUrl` (fetched asynchronously). With a URL, operations and subscriptions made before loading completes are queued; `getDefinition()` throws and `getCurrentView()` returns an empty string until then. Listen for `ready` before reading state. Fetches follow normal browser CORS rules.
+`create(options)` returns an instance immediately. Supply exactly one of `definition` (an already parsed object) or `definitionUrl` (fetched asynchronously). With a URL, operations and subscriptions made before loading completes are queued; `getDefinition()` throws and `getCurrentView()` returns an empty string until then. Listen for `ready` before reading state. Fetches follow normal browser CORS rules. Relative reusable asset sources resolve against the fetched response URL (after redirects). Inline definitions resolve them against `document.baseURI`; set `assetBaseUrl` to override either default. A trailing slash denotes a directory base.
 
 `container` accepts a CSS selector or `HTMLElement`. Its CSS requirement depends on `settings.sizingMode`: `fixed` needs enough room for the canvas pixel size, `fluid-width` needs a nonzero width and derives height from the canvas ratio, and `fill-container` needs explicit nonzero width and height. See the data-model sizing truth table. Initialization in a zero-size container is supported; the renderer remains mounted until a later resize.
 
@@ -26,6 +26,7 @@ The export supplies a dependency-free browser script. Loading it creates the glo
 | --- | --- |
 | `container` | Required selector or element |
 | `definition` / `definitionUrl` | Required map source |
+| `assetBaseUrl` | Optional base for relative background and foreground asset sources |
 | `deepLink` | `{enabled,useSlug?}` synchronizes `#view-slug` or `#view-slug/area-id` |
 | `choropleth` | Initial `{data,colorLow,colorHigh,noDataColor?,legend?}` fill scale |
 | `shadowDom` | Render into an open shadow root to isolate host-page CSS |
@@ -78,5 +79,7 @@ map.on("area:click", selected);
 A `customEvent` area action additionally dispatches a native `CustomEvent` on `window`; its configured payload is `event.detail`.
 
 Interactive areas support pointer input and Enter/Space keyboard activation unless disabled. Tooltip and popup HTML is sanitized. Navigation, popup links, and rich-content URL attributes are parsed with browser-compatible normalization at runtime even for definitions that bypass the editor. Relative and protocol-relative URLs and `http`, `https`, `mailto`, and `tel` are allowed; malformed, `javascript`, `data`, and other protocols are ignored. Users can zoom with the accessible buttons and, where enabled, hold Space and drag to pan. `settings.zoomControls` configures button visibility/position, fractional step, reset-to-initial or reset-to-fit behavior, and cursor-anchored wheel zoom. Wheel input is off unless explicitly enabled; modifier modes preserve normal page scrolling when the modifier is not held.
+
+`assetBaseUrl` applies only to reusable assets referenced by backgrounds and foreground images. Relative tooltip/popup media and navigation URLs retain normal host-document URL semantics. Absolute, protocol-relative, data URI, and raw SVG asset sources are preserved.
 
 `settings.directory` optionally renders an accessible, responsive place finder over the map. It searches names and configured `metadataKeys` across views, and supports labeled category filters through `categoryKey` plus `categories`. Results on hidden layers are omitted; disabled results are announced as unavailable. Choosing a result changes view, brings its geometry into camera bounds, focuses it, and updates an enabled deep link. The directory is dependency-free and performs all work locally, including exported `file://` packages.

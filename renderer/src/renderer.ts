@@ -24,6 +24,19 @@ function escId(id: string): string {
   return CSS.escape(id);
 }
 
+function resolveAssetSource(src: string, baseUrl: string): string {
+  if (/^\s*<svg\b/i.test(src)) {
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(src)}`;
+  }
+  // Keep already self-contained or explicitly located sources byte-for-byte.
+  if (/^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(src)) return src;
+  try {
+    return new URL(src, baseUrl).href;
+  } catch {
+    return src;
+  }
+}
+
 function areaBounds(geometry: Area["geometry"]): { x: number; y: number; w: number; h: number } {
   switch (geometry.type) {
     case "rect": return { x: geometry.x, y: geometry.y, w: geometry.width, h: geometry.height };
@@ -159,6 +172,7 @@ class Renderer implements ClickMapInstance {
   private history: string[] = [];
   private currentViewId: string;
   private options: RendererOptions;
+  private assetBaseUrl: string;
 
   // DOM nodes (attached to root or shadow root depending on shadowDom option)
   private root!: HTMLDivElement;
@@ -242,6 +256,11 @@ class Renderer implements ClickMapInstance {
   constructor(options: RendererOptions, def: ClickMapDefinition) {
     this.def = def;
     this.options = options;
+    try {
+      this.assetBaseUrl = new URL(options.assetBaseUrl ?? document.baseURI, document.baseURI).href;
+    } catch {
+      this.assetBaseUrl = document.baseURI;
+    }
 
     const raw = options.container;
     const container =
@@ -556,9 +575,7 @@ class Renderer implements ClickMapInstance {
 
     const image = svgEl<SVGImageElement>("image");
     image.setAttribute("class", "clickmap-bg-img");
-    const src = asset.type === "image/svg+xml" && /^\s*<svg\b/i.test(asset.src)
-      ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(asset.src)}`
-      : asset.src;
+    const src = resolveAssetSource(asset.src, this.assetBaseUrl);
     image.setAttribute("href", src);
 
     const position = view.background.position ?? { x: 0.5, y: 0.5 };
@@ -1074,7 +1091,7 @@ class Renderer implements ClickMapInstance {
     if (!asset) return null;
     const image = svgEl<SVGImageElement>("image");
     if (area.image.visible === false) return null;
-    image.setAttribute("href", asset.src);
+    image.setAttribute("href", resolveAssetSource(asset.src, this.assetBaseUrl));
     image.setAttribute("x", String(area.geometry.x));
     image.setAttribute("y", String(area.geometry.y));
     image.setAttribute("width", String(area.geometry.width));
@@ -1785,11 +1802,16 @@ class DeferredRenderer implements ClickMapInstance {
       .then((r) => {
         if (!r.ok)
           throw new Error(`HTTP ${r.status} loading definition`);
-        return r.json() as Promise<ClickMapDefinition>;
+        return Promise.resolve(r.json() as Promise<ClickMapDefinition>)
+          .then((def) => ({ def, responseUrl: r.url }));
       })
-      .then((def) => {
+      .then(({ def, responseUrl }) => {
         if (this.destroyed) return;
-        this.inner = new Renderer(options, def);
+        const fallbackUrl = new URL(options.definitionUrl!, document.baseURI).href;
+        this.inner = new Renderer(
+          { ...options, assetBaseUrl: options.assetBaseUrl ?? (responseUrl || fallbackUrl) },
+          def,
+        );
         for (const op of this.queue) {
           if (op.kind === "on")
             this.inner.on(op.type as ClickMapEventType, op.cb as never);

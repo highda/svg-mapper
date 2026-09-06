@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #114 — fix(renderer): resolve relative assets against the fetched definition URL
+Branch:       fix/114-relative-asset-base
+Started:      2026-09-06
+Last commit:  5338243  chore: hand off #127 — done
+
+### What's done
+- Claimed the task and confirmed the reported relative-asset base gap.
+
+### What's next
+- Define asset-base semantics, implement consistent resolution, and add renderer/export regression coverage and docs.
+
+### Notes / gotchas
+- `.codex/runtime/task-brief.md` still describes already-closed #127; GitHub and HANDOFF agree that no task was active, so the next highest-priority feasible ready task was claimed.
 
 ---
 
