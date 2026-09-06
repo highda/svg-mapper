@@ -4,24 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #125 — guide first-time authors from sample map to working export
-Branch:       feat/125-first-use-guidance
-Started:      2026-09-06
-Last commit:  ec66229  chore: hand off #123 — done
-
-### What's done
-- Claimed the task and confirmed its first-use acceptance criteria.
-
-### What's next
-- Inspect the editor's project creation, sample assets, inspector, and documentation.
-- Implement and browser-test the guided first-use flow.
-
-### Notes / gotchas
-- Keep sample projects on normal editor/import/export paths; no special renderer format.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-06 — closed #125 — added editable bundled samples, guided first-use progress, scoped inspector language, and desktop/mobile walkthrough coverage; PR #151.
 - 2026-09-06 — closed #123 — synchronized independent browser history and made renderer transitions cancellable; PR #150.
 - 2026-09-06 — closed #122 — made inline and fetched readiness observable exactly once with abortable loading and lifecycle coverage; PR #149.
 - 2026-09-06 — closed #124 — added stable PR gates, production exported-package browser tests, failure artifacts, and renderer size enforcement; PR #148.
