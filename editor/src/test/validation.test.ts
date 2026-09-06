@@ -28,6 +28,22 @@ function codes(def: ClickMapDefinition): string[] {
 }
 
 describe("validateProject — errors", () => {
+  it("rejects cross-view layer toggles and empty custom event names", () => {
+    const def = baseDef();
+    const source = createRectArea(0, 0, 10, 10);
+    addAreaToFirstLayer(def, source);
+    def.views.push({
+      ...def.views[0]!,
+      id: "view_other",
+      name: "Other",
+      layers: [{ ...def.views[0]!.layers[0]!, id: "other_layer", areas: [] }],
+    });
+    source.action = { type: "toggleLayer", targetLayerId: "other_layer" };
+    expect(validateProject(def).map((result) => result.code)).toContain("BROKEN_TOGGLELAYER");
+    source.action = { type: "customEvent", eventName: "   " };
+    expect(validateProject(def).map((result) => result.code)).toContain("INVALID_CUSTOM_EVENT");
+  });
+
   it("rejects non-finite, non-positive, and misordered zoom ranges", () => {
     const def = baseDef();
     def.views[0].viewport = { ...def.views[0].viewport, minZoom: 2, initialZoom: 1, maxZoom: 4 };

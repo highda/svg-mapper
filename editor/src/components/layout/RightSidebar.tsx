@@ -919,8 +919,26 @@ function PopupContentEditor({
 
 function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
   const { updateAreaAction, project } = useStore();
+  const [payloadDraft, setPayloadDraft] = useState(
+    action.type === "customEvent" && action.payload !== undefined
+      ? JSON.stringify(action.payload, null, 2)
+      : "",
+  );
 
   const views = project.views;
+  const activeView = views.find((view) => view.id === useStore.getState().activeViewId);
+  const layers = activeView?.layers ?? [];
+  let payloadError = "";
+  if (action.type === "customEvent" && payloadDraft.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(payloadDraft);
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+        payloadError = "Payload must be a JSON object.";
+      }
+    } catch {
+      payloadError = "Enter valid JSON before leaving this field.";
+    }
+  }
 
   function setType(type: Action["type"]) {
     switch (type) {
@@ -943,9 +961,23 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
         });
         break;
       }
-      default:
-        updateAreaAction(areaId, { type: "none" });
+      case "toggleLayer":
+        updateAreaAction(areaId, { type: "toggleLayer", targetLayerId: layers[0]?.id ?? "" });
+        break;
+      case "customEvent":
+        setPayloadDraft("");
+        updateAreaAction(areaId, { type: "customEvent", eventName: project.customEvents[0] ?? "" });
+        break;
     }
+  }
+
+  function commitPayload() {
+    if (action.type !== "customEvent" || payloadError) return;
+    const trimmed = payloadDraft.trim();
+    updateAreaAction(areaId, {
+      ...action,
+      ...(trimmed ? { payload: JSON.parse(trimmed) as Record<string, unknown> } : { payload: undefined }),
+    });
   }
 
   return (
@@ -960,6 +992,8 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
           <option value="url">URL</option>
           <option value="popup">Popup</option>
           <option value="goToView">Go to View</option>
+          <option value="toggleLayer">Toggle Layer</option>
+          <option value="customEvent">Custom Event</option>
         </select>
       </Row>
 
@@ -1017,6 +1051,48 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
               <option value="none">None</option>
             </select>
           </Row>
+        </>
+      )}
+
+      {action.type === "toggleLayer" && (
+        <Row label="Layer">
+          <select
+            aria-label="Target layer"
+            value={action.targetLayerId}
+            onChange={(e) => updateAreaAction(areaId, { ...action, targetLayerId: e.target.value })}
+            className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+          >
+            {!layers.some((layer) => layer.id === action.targetLayerId) && (
+              <option value={action.targetLayerId}>Missing layer ({action.targetLayerId || "none"})</option>
+            )}
+            {layers.map((layer) => <option key={layer.id} value={layer.id}>{layer.name}</option>)}
+          </select>
+        </Row>
+      )}
+
+      {action.type === "customEvent" && (
+        <>
+          <Row label="Event">
+            <TextField
+              defaultValue={action.eventName}
+              placeholder="map:request-details"
+              onCommit={(eventName) => updateAreaAction(areaId, { ...action, eventName: eventName.trim() })}
+            />
+          </Row>
+          <label className="block text-[10px] text-neutral-500">
+            JSON payload (optional)
+            <textarea
+              aria-label="Custom event JSON payload"
+              aria-invalid={Boolean(payloadError)}
+              value={payloadDraft}
+              placeholder={'{\n  "source": "map"\n}'}
+              onChange={(e) => setPayloadDraft(e.target.value)}
+              onBlur={commitPayload}
+              rows={4}
+              className={`mt-1 w-full resize-y rounded border bg-neutral-800 px-1.5 py-1 font-mono text-xs text-neutral-200 outline-none focus:border-blue-500 ${payloadError ? "border-red-500" : "border-neutral-700"}`}
+            />
+          </label>
+          {payloadError && <p role="alert" className="text-[10px] text-red-400">{payloadError}</p>}
         </>
       )}
     </div>
@@ -1344,7 +1420,7 @@ function AreaInspector() {
       <TooltipEditor areaId={a.id} tooltip={tooltip} />
 
       <SectionHeader title="Action" />
-      <ActionEditor areaId={a.id} action={a.action} />
+      <ActionEditor key={`${a.id}-${a.action.type}`} areaId={a.id} action={a.action} />
     </div>
   );
 }

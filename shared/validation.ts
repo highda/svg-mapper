@@ -172,8 +172,6 @@ export function validateProject(project: ClickMapDefinition): ValidationResult[]
   const views = project.views ?? [];
   const assetsById = new Map(project.assets.map((a) => [a.id, a]));
   const viewIds = new Set(views.map((v) => v.id));
-  const layerIds = new Set<string>();
-  for (const v of views) for (const l of v.layers) layerIds.add(l.id);
 
   // ── Errors ────────────────────────────────────────────────────────────────
 
@@ -310,12 +308,17 @@ export function validateProject(project: ClickMapDefinition): ValidationResult[]
             }
             break;
           case "toggleLayer":
-            if (!layerIds.has(area.action.targetLayerId)) {
+            if (!view.layers.some((candidate) => candidate.id === (area.action as { targetLayerId: string }).targetLayerId)) {
               err(
                 "BROKEN_TOGGLELAYER",
-                `Area "${area.name}" toggles missing Layer "${area.action.targetLayerId}".`,
+                `Area "${area.name}" toggles Layer "${area.action.targetLayerId}", which is missing from its View.`,
                 ref,
               );
+            }
+            break;
+          case "customEvent":
+            if (!area.action.eventName.trim()) {
+              err("INVALID_CUSTOM_EVENT", `Area "${area.name}" has an empty custom event name.`, ref);
             }
             break;
           case "url": {

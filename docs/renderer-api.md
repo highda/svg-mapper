@@ -76,7 +76,7 @@ map.on("area:click", selected);
 | `popup:open` / `popup:close` | `popupId` (the triggering area ID for inline popups) |
 | `error` | `code`, `message` (`LOAD_FAILED`, `VIEW_NOT_FOUND`, or `INVALID_VIEW_CSS`) |
 
-A `customEvent` area action additionally dispatches a native `CustomEvent` on `window`; its configured payload is `event.detail`.
+A `customEvent` area action additionally dispatches a native `CustomEvent` on `window`; its configured JSON-object payload is `event.detail`. A `toggleLayer` action changes a layer in the current view and announces whether it was shown or hidden. Visibility changes survive view navigation, while `reset()` restores authored visibility; hidden layer content is absent from pointer and keyboard interaction.
 
 Interactive areas support pointer input and Enter/Space keyboard activation unless disabled. Tooltip and popup HTML is sanitized. Navigation, popup links, and rich-content URL attributes are parsed with browser-compatible normalization at runtime even for definitions that bypass the editor. Relative and protocol-relative URLs and `http`, `https`, `mailto`, and `tel` are allowed; malformed, `javascript`, `data`, and other protocols are ignored. Users can zoom with the accessible buttons and, where enabled, hold Space and drag to pan. `settings.zoomControls` configures button visibility/position, fractional step, reset-to-initial or reset-to-fit behavior, and cursor-anchored wheel zoom. Wheel input is off unless explicitly enabled; modifier modes preserve normal page scrolling when the modifier is not held.
 

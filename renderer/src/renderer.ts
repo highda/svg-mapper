@@ -196,6 +196,8 @@ class Renderer implements ClickMapInstance {
   private viewH = 1;
   private hoveredId: string | null = null;
   private alphaMaskBytes = new Map<string, string>();
+  /** Per-view runtime overrides. They survive navigation, while reset clears them. */
+  private layerVisibility = new Map<string, Map<string, boolean>>();
 
   // Choropleth
   private choroplethData: Map<string, number> = new Map();
@@ -615,7 +617,8 @@ class Renderer implements ClickMapInstance {
     const labelSettings = this.def.settings.areaLabels;
 
     for (const layer of view.layers) {
-      if (!layer.visible) continue;
+      const visible = this.layerVisibility.get(view.id)?.get(layer.id) ?? layer.visible;
+      if (!visible) continue;
 
       const g = svgEl<SVGGElement>("g");
       g.setAttribute("class", "clickmap-layer");
@@ -1397,9 +1400,32 @@ class Renderer implements ClickMapInstance {
         this.openPopover(action, area);
         break;
       case "toggleLayer":
+        this.toggleLayer(action.targetLayerId);
+        break;
       case "none":
         break;
     }
+  }
+
+  private toggleLayer(targetLayerId: string) {
+    const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
+    const layer = view?.layers.find((candidate) => candidate.id === targetLayerId);
+    if (!view || !layer) {
+      this.emitter.emit({
+        type: "error",
+        code: "LAYER_NOT_FOUND",
+        message: `Layer "${targetLayerId}" was not found in the current view.`,
+      });
+      this.ariaLiveEl.textContent = "Layer could not be changed.";
+      return;
+    }
+    const overrides = this.layerVisibility.get(view.id) ?? new Map<string, boolean>();
+    const visible = !(overrides.get(layer.id) ?? layer.visible);
+    overrides.set(layer.id, visible);
+    this.layerVisibility.set(view.id, overrides);
+    this.renderAreas(view);
+    this.applyChoropleth();
+    this.ariaLiveEl.textContent = `${layer.name} ${visible ? "shown" : "hidden"}.`;
   }
 
   // -------------------------------------------------------------------------
@@ -1731,6 +1757,7 @@ class Renderer implements ClickMapInstance {
 
   reset() {
     this.history = [];
+    this.layerVisibility.clear();
     this.currentViewId = this.def.settings.initialViewId;
     this.renderView(this.currentViewId);
     this.updateDeepLinkHash(this.currentViewId);

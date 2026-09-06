@@ -4,8 +4,20 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #120 — Complete toggle-layer and custom-event action authoring
+Branch:       feat/120-action-authoring
+Started:      2026-09-06
+Last commit:  23cc5ea  chore: claim #120 — action authoring
+
+### What's done
+- Added complete toggle-layer and custom-event inspector controls, validation, runtime behavior, docs, and tests.
+- Verified keyboard activation in Preview hides the target layer and announces the change.
+
+### What's next
+- Commit, push, open the PR, and merge after checks.
+
+### Notes / gotchas
+- Runtime layer overrides are current-view scoped, survive navigation, and reset to authored visibility.
 
 ---
 
