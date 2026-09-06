@@ -28,10 +28,10 @@ import { validateViewCss } from "../../lib/view-css";
 // Shared primitives
 // ---------------------------------------------------------------------------
 
-function SectionHeader({ title }: { title: string }) {
+function SectionHeader({ title, scope }: { title: string; scope?: "Project" | "View" | "Layer" | "Area" }) {
   return (
-    <div className="mb-1 border-b border-neutral-700 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
-      {title}
+    <div className="mb-1 flex items-center border-b border-neutral-700 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+      <span>{title}</span>{scope && <span className="ml-auto rounded bg-neutral-800 px-1.5 py-0.5 text-[9px] tracking-normal text-neutral-400">{scope}</span>}
     </div>
   );
 }
@@ -243,7 +243,7 @@ function ViewInspector({ view }: { view: View }) {
 
   return (
     <div className="space-y-3">
-      <SectionHeader title="View" />
+      <SectionHeader title="Basics" scope="View" />
 
       <Row label="Name">
         <TextField
@@ -296,7 +296,7 @@ function ViewInspector({ view }: { view: View }) {
         </select>
       </Row>
 
-      <SectionHeader title="Advanced CSS" />
+      <SectionHeader title="Advanced: custom CSS" scope="View" />
       <p className="text-[10px] text-neutral-500">
         Scoped to this view. Use renderer classes such as <code>.clickmap-bg</code>, <code>[data-area-id]</code>, <code>.clickmap-area-label</code>, <code>.clickmap-popover</code>, and <code>.clickmap-zoom-controls</code>.
       </p>
@@ -321,7 +321,7 @@ function ViewInspector({ view }: { view: View }) {
         className="rounded border border-neutral-700 px-2 py-1 text-[10px] text-neutral-300 disabled:opacity-40"
       >Reset view CSS</button>
 
-      <SectionHeader title="Canvas Size" />
+      <SectionHeader title="Canvas size" scope="View" />
       <p className="text-[10px] text-neutral-600 -mt-1">Independent for this view.</p>
       <Row label="Width">
         <NumberField
@@ -340,7 +340,7 @@ function ViewInspector({ view }: { view: View }) {
         />
       </Row>
 
-      <SectionHeader title="Grid" />
+      <SectionHeader title="Grid" scope="Project" />
       <CheckToggle
         checked={grid.enabled}
         onChange={(enabled) => setEditorState({ grid: { ...grid, enabled } })}
@@ -355,7 +355,7 @@ function ViewInspector({ view }: { view: View }) {
         />
       </Row>
 
-      <SectionHeader title="Content Template" />
+      <SectionHeader title="Advanced: HTML template" scope="Project" />
       <p className="text-[10px] text-neutral-600 -mt-1">
         HTML with {"{{name}}"}, {"{{id}}"}, {"{{viewName}}"}, or {"{{metadata.key}}"} variables.
       </p>
@@ -368,7 +368,7 @@ function ViewInspector({ view }: { view: View }) {
         className="w-full resize-y rounded border border-neutral-700 bg-neutral-800 px-1.5 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
       />
 
-      <SectionHeader title="Area Labels" />
+      <SectionHeader title="Area labels" scope="Project" />
       <CheckToggle
         checked={project.settings.areaLabels?.enabled ?? false}
         onChange={(enabled) => updateSettings({
@@ -405,7 +405,7 @@ function ViewInspector({ view }: { view: View }) {
         label="Hide labels that do not fit"
       />
 
-      <SectionHeader title="Place Directory" />
+      <SectionHeader title="Place directory" scope="Project" />
       <p className="text-[10px] text-neutral-600 -mt-1">
         Adds searchable, keyboard-friendly place discovery to Preview and exports. Hidden layers stay private; disabled places are listed as unavailable.
       </p>
@@ -459,7 +459,7 @@ function ViewInspector({ view }: { view: View }) {
         />
       </label>
 
-      <SectionHeader title="Scene Switcher" />
+      <SectionHeader title="Scene switcher" scope="Project" />
       <CheckToggle
         checked={project.settings.sceneSwitcher?.enabled ?? false}
         onChange={(enabled) => updateSettings({
@@ -510,10 +510,10 @@ function ViewInspector({ view }: { view: View }) {
         </select>
       </Row>
 
-      <SectionHeader title="Viewport" />
+      <SectionHeader title="Advanced: camera" scope="View" />
       <ViewportEditor viewport={view.viewport} viewId={view.id} />
 
-      <SectionHeader title="Renderer Controls" />
+      <SectionHeader title="Visitor controls" scope="Project" />
       <CheckToggle
         checked={project.settings.zoomControls?.enabled ?? false}
         onChange={(enabled) => updateSettings({
@@ -675,7 +675,7 @@ function LayerInspector() {
 
   return (
     <div className="space-y-3">
-      <SectionHeader title="Layer" />
+      <SectionHeader title="Basics" scope="Layer" />
 
       <Row label="Name">
         <TextField
@@ -1367,7 +1367,7 @@ function AreaInspector() {
 
   return (
     <div className="space-y-3">
-      <SectionHeader title="Area" />
+      <SectionHeader title="Basics" scope="Area" />
 
       <Row label="Name">
         <TextField
@@ -1379,10 +1379,10 @@ function AreaInspector() {
         <TextField defaultValue={a.id} readOnly />
       </Row>
 
-      <SectionHeader title="Geometry" />
+      <SectionHeader title="Geometry" scope="Area" />
       <GeometryEditor areaId={a.id} geometry={a.geometry as unknown as { type: string }} />
 
-      <SectionHeader title="Style" />
+      <SectionHeader title="Style" scope="Area" />
       <StyleStateEditor
         label="Default"
         styleState={style.default}
@@ -1404,22 +1404,22 @@ function AreaInspector() {
         onChange={(s) => updateStyleState("disabled", s)}
       />
 
-      <SectionHeader title="Interaction" />
+      <SectionHeader title="Interaction" scope="Area" />
       <InteractionEditor areaId={a.id} area={a} />
 
-      <SectionHeader title="Image region" />
+      <SectionHeader title="Image region" scope="Area" />
       <ImageRegionEditor area={a} />
 
-      <SectionHeader title="Label" />
+      <SectionHeader title="Label" scope="Area" />
       <LabelEditor areaId={a.id} label={a.label} />
 
-      <SectionHeader title="Metadata" />
+      <SectionHeader title="Advanced: metadata" scope="Area" />
       <MetadataEditor areaId={a.id} metadata={a.metadata} />
 
-      <SectionHeader title="Tooltip" />
+      <SectionHeader title="Details" scope="Area" />
       <TooltipEditor areaId={a.id} tooltip={tooltip} />
 
-      <SectionHeader title="Action" />
+      <SectionHeader title="Action" scope="Area" />
       <ActionEditor key={`${a.id}-${a.action.type}`} areaId={a.id} action={a.action} />
     </div>
   );

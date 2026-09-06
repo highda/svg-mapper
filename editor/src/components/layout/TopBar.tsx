@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { projectSnapshot, useStore, type Screen } from "../../store";
+import { createStarterProject, STARTER_PROJECTS } from "../../lib/starter-projects";
 
 const SCREENS: { id: Screen; label: string }[] = [
   { id: "design", label: "Design" },
@@ -31,6 +32,7 @@ export function TopBar({
 
   const [editingName, setEditingName] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [starterOpen, setStarterOpen] = useState(false);
   const [nameValue, setNameValue] = useState("");
   const [pendingAction, setPendingAction] = useState<
     null | { kind: "new" } | { kind: "open"; json: string }
@@ -49,6 +51,7 @@ export function TopBar({
   }
 
   function handleOpen() {
+    setStarterOpen(false);
     fileInputRef.current?.click();
   }
 
@@ -167,6 +170,12 @@ export function TopBar({
           New
         </button>
         <button
+          onClick={() => setStarterOpen(true)}
+          className="rounded px-2 py-0.5 text-xs text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200"
+        >
+          Samples
+        </button>
+        <button
           onClick={handleOpen}
           className="rounded px-2 py-0.5 text-xs text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200"
         >
@@ -225,8 +234,9 @@ export function TopBar({
               Rename
             </button>
           </div>
-          <div className="grid grid-cols-3 gap-2">
-            <button className="min-h-11 rounded bg-neutral-800 text-sm hover:bg-neutral-700" onClick={() => requestReplacement({ kind: "new" })}>New</button>
+          <div className="grid grid-cols-2 gap-2">
+            <button className="min-h-11 rounded bg-neutral-800 text-sm hover:bg-neutral-700" onClick={() => { requestReplacement({ kind: "new" }); setMobileMenuOpen(false); }}>New</button>
+            <button className="min-h-11 rounded bg-neutral-800 text-sm hover:bg-neutral-700" onClick={() => { setStarterOpen(true); setMobileMenuOpen(false); }}>Samples</button>
             <button className="min-h-11 rounded bg-neutral-800 text-sm hover:bg-neutral-700" onClick={handleOpen}>Open</button>
             <button className="min-h-11 rounded bg-blue-600 text-sm font-medium text-white hover:bg-blue-500" onClick={() => { saveProject(); setMobileMenuOpen(false); }}>Save</button>
           </div>
@@ -234,6 +244,30 @@ export function TopBar({
             {isDirty ? "Unsaved changes" : "Downloaded version"}
           </p>
         </section>
+      )}
+      {starterOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="starter-title">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-neutral-600 bg-neutral-900 p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div><h2 id="starter-title" className="text-lg font-semibold text-white">Start a map</h2><p className="mt-1 text-sm text-neutral-400">Everything here stays editable and uses the same Preview and Export as your own project.</p></div>
+              <button autoFocus type="button" aria-label="Close starter" className="ml-auto rounded px-2 py-1 text-neutral-400 hover:bg-neutral-800" onClick={() => setStarterOpen(false)}>✕</button>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <button type="button" className="rounded-lg border border-neutral-700 p-4 text-left hover:border-blue-500 hover:bg-neutral-800" onClick={() => { requestReplacement({ kind: "new" }); setStarterOpen(false); }}>
+                <strong className="text-white">Blank map</strong><span className="mt-1 block text-xs text-neutral-400">Import your own plan and draw from scratch.</span>
+              </button>
+              <button type="button" className="rounded-lg border border-neutral-700 p-4 text-left hover:border-blue-500 hover:bg-neutral-800" onClick={handleOpen}>
+                <strong className="text-white">Open project</strong><span className="mt-1 block text-xs text-neutral-400">Continue from an editable JSON file.</span>
+              </button>
+              {STARTER_PROJECTS.map((starter) => (
+                <button key={starter.id} type="button" className="rounded-lg border border-neutral-700 p-4 text-left hover:border-blue-500 hover:bg-neutral-800" onClick={() => { requestReplacement({ kind: "open", json: JSON.stringify(createStarterProject(starter.id)) }); setStarterOpen(false); }}>
+                  <strong className="text-white">{starter.name}</strong><span className="mt-1 block text-xs text-neutral-400">{starter.description}</span>
+                </button>
+              ))}
+            </div>
+            <p className="mt-4 text-xs text-neutral-500">Tip: pick a sample, select a highlighted place, change its details or action, then open Preview.</p>
+          </div>
+        </div>
       )}
       {pendingAction && (
         <div
