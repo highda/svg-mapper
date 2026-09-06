@@ -25,6 +25,12 @@ export class Emitter {
   }
 
   emit(event: ClickMapEvent): void {
-    this.m.get(event.type)?.forEach((cb) => cb(event));
+    this.m.get(event.type)?.forEach((cb) => {
+      try {
+        cb(event);
+      } catch (error) {
+        console.error(`[ClickMapRenderer] ${event.type} hook failed`, error);
+      }
+    });
   }
 }

@@ -32,9 +32,22 @@ describe("generateExportPackage", () => {
     expect(names).toContain("map.json");
     expect(names).toContain("clickmap-renderer.js");
     expect(names).toContain("clickmap-renderer.css");
+    expect(names).toContain("hooks.js");
     expect(names).toContain("index.html");
     expect(names).toContain("embed.html");
     expect(names).toContain("README.txt");
+  });
+
+  it("exports an editable lifecycle hook scaffold with attach and detach wiring", () => {
+    const { pkg } = makePackage();
+    const files = unzipSync(pkg.zip);
+    const hooks = strFromU8(files["hooks.js"]!);
+    const embed = strFromU8(files["embed.html"]!);
+    expect(hooks).toContain("function attachClickMapHooks(map)");
+    expect(hooks).toContain("map.off(name, subscriptions[name])");
+    expect(hooks).toContain('"popup:close"');
+    expect(embed).toContain('src="/maps/my-map/hooks.js"');
+    expect(embed).toContain("attachClickMapHooks(map)");
   });
 
   it("map.json contains the definition without editor fields", () => {

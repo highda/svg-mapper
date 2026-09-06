@@ -1655,6 +1655,7 @@ class Renderer implements ClickMapInstance {
     this.popoverEl.setAttribute("aria-hidden", "false");
     this.popoverEl.classList.add("clickmap-popover--visible");
     this.openPopoverId = area.id;
+    this.emitter.emit({ type: "popup:open", popupId: area.id });
 
     // Aria live announcement
     this.ariaLiveEl.textContent = templatedBody === null ? (content.title ?? "Popup opened") : area.name;
@@ -1725,12 +1726,14 @@ class Renderer implements ClickMapInstance {
 
   private closePopover() {
     if (this.openPopoverId === null) return;
+    const popupId = this.openPopoverId;
     this.openPopoverId = null;
     this.popoverEl.setAttribute("aria-hidden", "true");
     this.popoverEl.classList.remove("clickmap-popover--visible");
     this.popoverEl.innerHTML = "";
     if (this.popoverReturnFocus?.isConnected) this.popoverReturnFocus.focus();
     this.popoverReturnFocus = null;
+    this.emitter.emit({ type: "popup:close", popupId });
   }
 
   private getActiveElement(): Element | null {
