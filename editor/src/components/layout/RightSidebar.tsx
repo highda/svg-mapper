@@ -1342,7 +1342,7 @@ function LabelEditor({ areaId, label }: { areaId: string; label: AreaLabel | und
 }
 
 function AreaInspector() {
-  const { selectedAreaId, project, renameArea, updateAreaStyle } = useStore();
+  const { selectedAreaId, selectedAreaIds, project, renameArea, updateAreaStyle, updateAreas } = useStore();
 
   if (!selectedAreaId) return null;
 
@@ -1360,6 +1360,11 @@ function AreaInspector() {
   const style = a.style as AreaStyle;
   const disabledStyle = style.disabled ?? { ...style.default, fill: "#9ca3af", stroke: "#6b7280" };
   const tooltip = a.tooltip as Tooltip | undefined;
+  const selectedAreas = project.views.flatMap((view) =>
+    view.layers.flatMap((layer) => layer.areas.filter((candidate) => selectedAreaIds.includes(candidate.id))),
+  );
+  const hasMixedStyles = selectedAreas.some((candidate) => JSON.stringify(candidate.style) !== JSON.stringify(a.style));
+  const hasMixedActions = selectedAreas.some((candidate) => JSON.stringify(candidate.action) !== JSON.stringify(a.action));
 
   function updateStyleState(stateKey: keyof AreaStyle, styleState: AreaStyleState) {
     updateAreaStyle(a.id, { ...style, [stateKey]: styleState });
@@ -1383,6 +1388,18 @@ function AreaInspector() {
       <GeometryEditor areaId={a.id} geometry={a.geometry as unknown as { type: string }} />
 
       <SectionHeader title="Style" scope="Area" />
+      {selectedAreas.length > 1 && (
+        <div className="rounded border border-neutral-700 bg-neutral-800/60 p-2 text-[10px] text-neutral-400">
+          <p>{hasMixedStyles ? "Mixed styles. Controls show the primary area." : "All selected areas share this style."}</p>
+          <button
+            type="button"
+            onClick={() => updateAreas(selectedAreaIds, { style })}
+            className="mt-1 w-full rounded bg-blue-700 px-2 py-1 text-xs text-white hover:bg-blue-600"
+          >
+            Apply primary style to {selectedAreas.length} areas
+          </button>
+        </div>
+      )}
       <StyleStateEditor
         label="Default"
         styleState={style.default}
@@ -1420,6 +1437,18 @@ function AreaInspector() {
       <TooltipEditor areaId={a.id} tooltip={tooltip} />
 
       <SectionHeader title="Action" scope="Area" />
+      {selectedAreas.length > 1 && (
+        <div className="rounded border border-neutral-700 bg-neutral-800/60 p-2 text-[10px] text-neutral-400">
+          <p>{hasMixedActions ? "Mixed actions. Controls show the primary area." : "All selected areas share this action."}</p>
+          <button
+            type="button"
+            onClick={() => updateAreas(selectedAreaIds, { action: a.action })}
+            className="mt-1 w-full rounded bg-blue-700 px-2 py-1 text-xs text-white hover:bg-blue-600"
+          >
+            Apply primary action to {selectedAreas.length} areas
+          </button>
+        </div>
+      )}
       <ActionEditor key={`${a.id}-${a.action.type}`} areaId={a.id} action={a.action} />
     </div>
   );

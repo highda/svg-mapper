@@ -111,6 +111,7 @@ export interface AppState {
   updateAreaGeometry: (areaId: string, geometry: Area["geometry"]) => void;
   renameArea: (areaId: string, name: string) => void;
   updateAreaStyle: (areaId: string, style: AreaStyle) => void;
+  updateAreas: (areaIds: string[], patch: { style?: AreaStyle; action?: Action }) => void;
   updateAreaTooltip: (areaId: string, tooltip: Tooltip | undefined) => void;
   updateAreaAction: (areaId: string, action: Action) => void;
   updateAreaMetadata: (areaId: string, metadata: Record<string, unknown>) => void;
@@ -867,6 +868,25 @@ export const useStore = create<AppState>()(
         pushHistory(s);
         s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx].style =
           style as unknown as (typeof s.project.views)[0]["layers"][0]["areas"][0]["style"];
+      });
+    },
+
+    updateAreas(areaIds: string[], patch: { style?: AreaStyle; action?: Action }) {
+      set((s) => {
+        const locations = [...new Set(areaIds)]
+          .map((areaId) => findAreaLocation(s.project.views as unknown as View[], areaId))
+          .filter((location): location is NonNullable<typeof location> => location !== null);
+        if (locations.length === 0 || (patch.style === undefined && patch.action === undefined)) return;
+        pushHistory(s);
+        for (const location of locations) {
+          const area = s.project.views[location.viewIdx].layers[location.layerIdx].areas[location.areaIdx];
+          if (patch.style !== undefined) {
+            area.style = patch.style as unknown as typeof area.style;
+          }
+          if (patch.action !== undefined) {
+            area.action = patch.action as typeof area.action;
+          }
+        }
       });
     },
 

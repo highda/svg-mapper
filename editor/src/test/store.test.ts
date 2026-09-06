@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useStore } from "../store";
 import { serializeProjectFile, createNewProject } from "../lib/project";
+import { createRectArea } from "../lib/area-utils";
 
 function resetStore() {
-  useStore.setState({ project: createNewProject(), openError: null, screen: "design", selectedAreaId: null, selectedAreaIds: [] });
+  const project = createNewProject();
+  useStore.setState({ project, activeViewId: project.views[0]!.id, openError: null, screen: "design", selectedAreaId: null, selectedAreaIds: [] });
 }
 
 describe("store: multi-selection", () => {
@@ -36,6 +38,31 @@ describe("store: multi-selection", () => {
 
     useStore.getState().setSelectedAreaIds([]);
     expect(useStore.getState().selectedAreaId).toBeNull();
+  });
+
+  it("applies common style and action fields to many areas as one undo step", () => {
+    const first = createRectArea(10, 20, 80, 60);
+    const second = createRectArea(100, 120, 80, 60);
+    second.name = "Second";
+    second.metadata = { seat: "B2" };
+    useStore.getState().addArea(first);
+    useStore.getState().addArea(second);
+    useStore.setState({ past: [], future: [] });
+
+    const style = { ...first.style, default: { ...first.style.default, fill: "#ff0000" } };
+    const action = { type: "customEvent", eventName: "seat:selected" } as const;
+    useStore.getState().updateAreas([first.id, second.id, second.id], { style, action });
+
+    const areas = useStore.getState().project.views[0]!.layers[0]!.areas;
+    expect(areas.map((area) => area.style.default.fill)).toEqual(["#ff0000", "#ff0000"]);
+    expect(areas.map((area) => area.action)).toEqual([action, action]);
+    expect(areas[1]!.name).toBe("Second");
+    expect(areas[1]!.geometry).toEqual({ type: "rect", x: 100, y: 120, width: 80, height: 60 });
+    expect(areas[1]!.metadata).toEqual({ seat: "B2" });
+    expect(useStore.getState().past).toHaveLength(1);
+
+    useStore.getState().undo();
+    expect(useStore.getState().project.views[0]!.layers[0]!.areas[1]!.style.default.fill).not.toBe("#ff0000");
   });
 });
 

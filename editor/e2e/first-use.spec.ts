@@ -44,3 +44,23 @@ test("tree supports pointer ranges and keyboard selection", async ({ page }) => 
   await expect(first).toBeFocused();
   await expect(second).toHaveAttribute("aria-selected", "false");
 });
+
+test("multi-selection exposes mixed values and batches style changes", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Samples", exact: true }).click();
+  await page.getByRole("button", { name: /Property floors/ }).click();
+  await page.getByRole("button", { name: "Tree", exact: true }).click();
+
+  const first = page.getByRole("treeitem", { name: /Available suite/ }).first();
+  const second = page.getByRole("treeitem", { name: /Meeting room/ }).first();
+  await first.click();
+  const fill = page.getByLabel("Default fill CSS color");
+  await fill.fill("#ff0000");
+  await fill.press("Enter");
+  await second.click({ modifiers: ["Shift"] });
+
+  const inspector = page.getByRole("complementary", { name: "Inspector" });
+  await expect(inspector).toContainText("Mixed styles");
+  await page.getByRole("button", { name: "Apply primary style to 2 areas" }).click();
+  await expect(inspector).toContainText("All selected areas share this style");
+});
