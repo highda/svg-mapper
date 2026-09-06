@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #130 — expose configurable JavaScript hooks for map, view and area lifecycle
+Branch:       feat/130-javascript-hooks
+Started:      2026-09-06
+Last commit:  d957dbe  chore: hand off #126 — done
+
+### What's done
+- Claimed the task and confirmed prerequisite #122 is complete.
+
+### What's next
+- Define the hooks contract, implement runtime/export/editor wiring, and add coverage.
+
+### Notes / gotchas
+- Author-authored code must never auto-run in the editor origin; Preview needs an explicit trusted-code run control.
 
 ---
 
