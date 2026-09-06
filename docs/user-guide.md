@@ -8,6 +8,8 @@ Rename the project by clicking its title. In **Design**, drag a PNG, JPEG, WebP,
 
 Use **New** to reset, **Open** to load a previously saved project JSON, and **Save** to download the editable project. The header distinguishes the last downloaded version from unsaved work and local-draft state. New and Open offer Save, Discard, and Cancel before replacing changed work; an unreadable or structurally malformed file leaves the current project, selection, and undo history intact and reports the failing JSON path. Repairable link errors, such as an action targeting a missing view, can still be opened and are reported on Export. Closing or reloading warns when changes have not yet reached local recovery storage. Exported `map.json` is structurally loadable, but it does not contain editor-only state.
 
+On phones and tablets, open **Project** for the same rename, New, Open, and Save operations. In Design, **Views & layers** switches to the full-width hierarchy while **Inspector** opens the selected item's settings in a dismissible sheet; closing either panel preserves the current selection and returns the canvas to the full available width. These controls are sized for touch and do not require hover or keyboard shortcuts.
+
 ## 2. Organize views and layers
 
 The left panel holds views, layers, and areas. Add, rename, duplicate, or remove views; duplicated views, layers, and areas receive new IDs. Add and rename layers, toggle visibility/locking, and drag layers to change paint order. Select a view or layer to edit its settings in the right sidebar.

@@ -1353,7 +1353,7 @@ function AreaInspector() {
 // RightSidebar
 // ---------------------------------------------------------------------------
 
-export function RightSidebar() {
+export function RightSidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: boolean; onMobileClose?: () => void }) {
   const { selectedAreaId, selectedLayerId, project, activeViewId, historyVersion, screen } = useStore();
 
   const activeView = project.views.find((v) => v.id === activeViewId);
@@ -1379,10 +1379,11 @@ export function RightSidebar() {
   return (
     <aside
       aria-label="Inspector"
-      className={`${screen === "export" ? "hidden md:flex" : "flex"} w-56 shrink-0 flex-col border-l border-neutral-700 bg-neutral-900 sm:w-64`}
+      className={`${screen === "export" ? "hidden lg:flex" : mobileOpen ? "fixed inset-y-0 right-0 z-50 flex w-[min(20rem,90vw)]" : "hidden lg:flex"} w-56 shrink-0 flex-col border-l border-neutral-700 bg-neutral-900 sm:w-64`}
     >
-      <div className="border-b border-neutral-700 px-3 py-1.5">
+      <div className="flex min-h-11 items-center border-b border-neutral-700 px-3 py-1.5">
         <span className="text-xs font-semibold text-neutral-300">Inspector</span>
+        <button type="button" onClick={onMobileClose} className="ml-auto min-h-10 rounded px-3 text-sm text-neutral-300 hover:bg-neutral-800 lg:hidden" aria-label="Close inspector">Close</button>
       </div>
       <div className="flex-1 overflow-y-auto px-3 py-2">{content}</div>
     </aside>

@@ -30,6 +30,7 @@ export function TopBar({
   } = useStore();
 
   const [editingName, setEditingName] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [nameValue, setNameValue] = useState("");
   const [pendingAction, setPendingAction] = useState<
     null | { kind: "new" } | { kind: "open"; json: string }
@@ -78,7 +79,7 @@ export function TopBar({
   }
 
   return (
-    <header className="flex h-10 items-center gap-2 border-b border-neutral-700 bg-neutral-900 px-3 text-sm text-neutral-200">
+    <header className="relative flex min-h-10 flex-wrap items-center gap-1 border-b border-neutral-700 bg-neutral-900 px-2 py-1 text-sm text-neutral-200 lg:flex-nowrap lg:gap-2 lg:px-3 lg:py-0">
       {/* Project name */}
       <div className="hidden min-w-0 flex-1 items-center gap-2 lg:flex">
         {editingName ? (
@@ -104,14 +105,27 @@ export function TopBar({
         )}
       </div>
 
+      <button
+        type="button"
+        aria-expanded={mobileMenuOpen}
+        aria-controls="mobile-project-menu"
+        onClick={() => setMobileMenuOpen((open) => {
+          if (!open) setNameValue(project.project.name);
+          return !open;
+        })}
+        className="min-h-9 rounded border border-neutral-700 px-3 text-xs font-medium text-neutral-200 hover:bg-neutral-800 lg:hidden"
+      >
+        Project
+      </button>
+
       {/* Screen tabs */}
-      <nav className="flex gap-0.5">
+      <nav aria-label="Editor screens" className="order-3 flex w-full justify-between gap-0.5 lg:order-none lg:w-auto lg:justify-start">
         {SCREENS.map((s) => (
           <button
             key={s.id}
             onClick={() => setScreen(s.id)}
             aria-current={screen === s.id ? "page" : undefined}
-            className={`rounded px-2.5 py-0.5 text-xs font-medium transition-colors ${
+            className={`min-h-9 rounded px-2.5 py-1 text-xs font-medium transition-colors lg:min-h-0 lg:py-0.5 ${
               screen === s.id
                 ? "bg-blue-600 text-white"
                 : "text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200"
@@ -123,12 +137,13 @@ export function TopBar({
       </nav>
 
       {/* Undo / redo */}
-      <div className="flex items-center gap-0.5">
+      <div className="ml-auto flex items-center gap-0.5 lg:ml-0">
         <button
           onClick={undo}
           disabled={past.length === 0}
           title="Undo (Cmd+Z)"
-          className="rounded px-2 py-0.5 text-xs text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200 disabled:cursor-not-allowed disabled:opacity-30"
+          aria-label="Undo"
+          className="min-h-9 min-w-9 rounded px-2 py-0.5 text-xs text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200 disabled:cursor-not-allowed disabled:opacity-30 lg:min-h-0 lg:min-w-0"
         >
           ↩
         </button>
@@ -136,7 +151,8 @@ export function TopBar({
           onClick={redo}
           disabled={future.length === 0}
           title="Redo (Cmd+Shift+Z)"
-          className="rounded px-2 py-0.5 text-xs text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200 disabled:cursor-not-allowed disabled:opacity-30"
+          aria-label="Redo"
+          className="min-h-9 min-w-9 rounded px-2 py-0.5 text-xs text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200 disabled:cursor-not-allowed disabled:opacity-30 lg:min-h-0 lg:min-w-0"
         >
           ↪
         </button>
@@ -184,6 +200,41 @@ export function TopBar({
                 : "Unsaved changes"
           : "Downloaded version"}
       </span>
+      {mobileMenuOpen && (
+        <section
+          id="mobile-project-menu"
+          aria-label="Project operations"
+          className="absolute left-2 right-2 top-12 z-40 rounded-lg border border-neutral-600 bg-neutral-900 p-3 shadow-2xl lg:hidden"
+        >
+          <div className="mb-3 flex min-w-0 items-center gap-2">
+            <input
+              aria-label="Project name"
+              className="min-h-11 min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-800 px-3 text-sm text-white outline-none focus:border-blue-500"
+              value={nameValue}
+              onChange={(event) => setNameValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") commitName();
+                if (event.key === "Escape") setNameValue(project.project.name);
+              }}
+            />
+            <button
+              type="button"
+              className="min-h-11 rounded px-3 text-sm text-blue-300 hover:bg-neutral-800"
+              onClick={commitName}
+            >
+              Rename
+            </button>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <button className="min-h-11 rounded bg-neutral-800 text-sm hover:bg-neutral-700" onClick={() => requestReplacement({ kind: "new" })}>New</button>
+            <button className="min-h-11 rounded bg-neutral-800 text-sm hover:bg-neutral-700" onClick={handleOpen}>Open</button>
+            <button className="min-h-11 rounded bg-blue-600 text-sm font-medium text-white hover:bg-blue-500" onClick={() => { saveProject(); setMobileMenuOpen(false); }}>Save</button>
+          </div>
+          <p className={`mt-2 text-xs ${isDirty ? "text-amber-300" : "text-neutral-500"}`}>
+            {isDirty ? "Unsaved changes" : "Downloaded version"}
+          </p>
+        </section>
+      )}
       {pendingAction && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"

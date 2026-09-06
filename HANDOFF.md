@@ -7,16 +7,18 @@
 Issue:        #118 — fix(editor): keep project operations and canvas usable on mobile
 Branch:       fix/118-mobile-project-operations
 Started:      2026-09-06
-Last commit:  (claim checkpoint pending)
+Last commit:  fed5ff9  chore: claim #118 — mobile project operations
 
 ### What's done
-- Claimed the highest-priority oldest ready issue and confirmed its mobile acceptance criteria.
+- Added touch-sized mobile project operations, full-width hierarchy access, and a dismissible Inspector sheet.
+- Added responsive tests, user documentation, and 390px/768px browser validation.
 
 ### What's next
-- Add mobile project operations and dismissible narrow-screen panels, then test touch-sized flows.
+- Open and merge the completed pull request, then clear the handoff.
 
 ### Notes / gotchas
 - The host task brief points to already-closed #127; live lock and backlog state selected #118.
+- Browser artifacts and the downloaded tablet project remain ignored under `.codex/runtime/`.
 
 ---
 

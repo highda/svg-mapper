@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { App } from "../App";
 import { createNewProject } from "../lib/project";
 import { useStore } from "../store";
@@ -87,8 +88,44 @@ describe("primary editor navigation", () => {
     useStore.getState().setScreen("export");
     render(<App />);
 
-    expect(screen.getByRole("complementary", { name: "Inspector" })).toHaveClass("hidden", "md:flex");
+    expect(screen.getByRole("complementary", { name: "Inspector" })).toHaveClass("hidden", "lg:flex");
     expect(screen.getByTestId("export-screen").firstElementChild).toHaveClass("min-w-0", "p-4", "sm:p-6");
     expect(screen.getByRole("button", { name: "Download ZIP" }).parentElement?.parentElement).toHaveClass("flex-wrap");
+  });
+
+  it("exposes guarded project operations in the compact menu", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Project" }));
+    const menu = screen.getByRole("region", { name: "Project operations" });
+    expect(within(menu).getByRole("button", { name: "New" })).toBeVisible();
+    expect(within(menu).getByRole("button", { name: "Open" })).toBeVisible();
+    expect(within(menu).getByRole("button", { name: "Save" })).toBeVisible();
+
+    await user.clear(screen.getByRole("textbox", { name: "Project name" }));
+    await user.type(screen.getByRole("textbox", { name: "Project name" }), "Pocket map");
+    await user.click(within(menu).getByRole("button", { name: "Rename" }));
+    expect(useStore.getState().project.project.name).toBe("Pocket map");
+
+    await user.click(screen.getAllByRole("button", { name: "New" })[1]);
+    expect(screen.getByRole("dialog", { name: "Save changes first?" })).toBeVisible();
+  });
+
+  it("lets narrow-screen authors switch to the tree and dismiss the inspector", () => {
+    const area = createRectArea(0, 0, 20, 20);
+    useStore.getState().addArea(area);
+    useStore.getState().setSelectedAreaId(area.id);
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Inspector" }));
+    expect(screen.getByRole("complementary", { name: "Inspector" })).toHaveClass("fixed");
+    fireEvent.click(screen.getByRole("button", { name: "Close inspector" }));
+    expect(screen.getByRole("complementary", { name: "Inspector" })).toHaveClass("hidden");
+    expect(useStore.getState().selectedAreaId).toBe(area.id);
+
+    fireEvent.click(screen.getByRole("button", { name: "Views & layers" }));
+    expect(screen.getByRole("main", { name: "Views and layers workspace" })).toBeVisible();
+    expect(useStore.getState().selectedAreaId).toBe(area.id);
   });
 });
