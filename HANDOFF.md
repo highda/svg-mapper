@@ -7,7 +7,7 @@
 Issue:        #119 — fix(editor): make the initial view selectable and preserve navigation on view edits
 Branch:       feat/119-initial-view-navigation
 Started:      2026-09-06
-Last commit:  1f68334  chore: claim #119 — initial view navigation
+Last commit:  ac64a28  fix: preserve initial navigation during view edits
 
 ### What's done
 - Added an undoable initial-view setter and automatic valid replacement when the initial view is deleted.
