@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #118 — fix(editor): keep project operations and canvas usable on mobile
+Branch:       fix/118-mobile-project-operations
+Started:      2026-09-06
+Last commit:  (claim checkpoint pending)
+
+### What's done
+- Claimed the highest-priority oldest ready issue and confirmed its mobile acceptance criteria.
+
+### What's next
+- Add mobile project operations and dismissible narrow-screen panels, then test touch-sized flows.
+
+### Notes / gotchas
+- The host task brief points to already-closed #127; live lock and backlog state selected #118.
 
 ---
 
