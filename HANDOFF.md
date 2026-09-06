@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #115 — fix(export): prevent missing files when packaging external and raw SVG assets
-Branch:       feat/115-package-assets
-Started:      2026-09-06
-Last commit:  3ef7e4e  chore: hand off #114 — done
-
-### What's done
-- Claimed the issue and reviewed its acceptance criteria.
-
-### What's next
-- Audit export asset classification and implement reliable inline/external packaging.
-
-### Notes / gotchas
-- The host task brief referenced already-completed issue #127, so the loop selected the highest-priority ready task.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-06 — closed #115 — packaged embedded image/SVG bytes safely while preserving and disclosing external asset dependencies; PR #141.
 - 2026-09-06 — closed #114 — made hosted background and foreground assets resolve from fetched map URLs with explicit inline-base overrides; PR #140.
 - 2026-09-05 — closed #127 — added accessible cross-view place search, category filters, area reveal/focus, editor setup, and 1000-area coverage; PR #139.
 - 2026-09-05 — closed #137 — parked external blockers now release the serial lock so the autonomous loop continues.
