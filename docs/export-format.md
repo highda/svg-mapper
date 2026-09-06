@@ -18,7 +18,7 @@ The Export screen validates the current project before packaging it. Errors disa
 
 **Inline assets** is the default. Asset data stays in `map.json`, making it larger but easy to move. `index.html` always embeds its definition and therefore opens directly with `file://`. The screen estimates the uncompressed package and source-asset sizes and states whether a separate `assets/` directory is required; ZIP compression means the downloaded byte count can differ.
 
-With inlining disabled, `map.json` uses generated relative paths under `assets/`. Upload the complete extracted directory without renaming files. Filenames are sanitized and deduplicated. The editor can also copy the current `map.json` or embed snippet without downloading a ZIP.
+With inlining disabled, `map.json` uses generated relative paths under `assets/`. The renderer resolves them from the effective `map.json` response URL, including redirects, so the host page may live elsewhere. Upload the complete extracted directory without renaming files. Filenames are sanitized and deduplicated. The editor can also copy the current `map.json` or embed snippet without downloading a ZIP.
 
 Every export includes the optimized production renderer automatically. There is no separate development renderer to choose or deploy.
 
