@@ -356,6 +356,94 @@ describe("renderer interaction model", () => {
     expect(document.querySelector<HTMLElement>(".clickmap-view")?.style.opacity).toBe("");
   });
 
+  it("owns browser history per instance while preserving host state", () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '<div id="map-a"></div><div id="map-b"></div>';
+    window.history.replaceState({ host: "kept" }, "", window.location.pathname);
+    const project = createNewProject();
+    project.views.push({ ...structuredClone(project.views[0]), id: "view_second", name: "Second", slug: "second" });
+    const first = create({ container: "#map-a", definition: toDefinition(project) });
+    const second = create({ container: "#map-b", definition: toDefinition(project) });
+    const initialState = structuredClone(window.history.state);
+
+    first.goToView("view_second");
+    const firstNavigationState = structuredClone(window.history.state);
+    second.goToView("view_second");
+
+    expect(window.history.state.host).toBe("kept");
+    window.dispatchEvent(new PopStateEvent("popstate", { state: firstNavigationState }));
+    expect(first.getCurrentView()).toBe("view_second");
+    expect(second.getCurrentView()).toBe(project.settings.initialViewId);
+    window.dispatchEvent(new PopStateEvent("popstate", { state: initialState }));
+    expect(first.getCurrentView()).toBe(project.settings.initialViewId);
+    expect(second.getCurrentView()).toBe(project.settings.initialViewId);
+
+    first.destroy();
+    second.destroy();
+    vi.useRealTimers();
+  });
+
+  it("does not touch browser history when history and deep links are disabled", () => {
+    const project = createNewProject();
+    project.settings.enableHistory = false;
+    project.views.push({ ...structuredClone(project.views[0]), id: "view_second", name: "Second", slug: "second" });
+    window.history.replaceState({ host: "only" }, "", window.location.pathname);
+    const push = vi.spyOn(window.history, "pushState");
+    const replace = vi.spyOn(window.history, "replaceState");
+    const instance = create({ container: "#map", definition: toDefinition(project) });
+
+    instance.goToView("view_second");
+
+    expect(push).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("cancels stale fades and honors action transition none", () => {
+    vi.useFakeTimers();
+    const project = createNewProject();
+    const first = project.views[0];
+    const second = { ...structuredClone(first), id: "view_second", name: "Second", slug: "second", layers: [] };
+    const third = { ...structuredClone(first), id: "view_third", name: "Third", slug: "third", layers: [] };
+    const link = createRectArea(0, 0, 10, 10);
+    link.action = { type: "goToView", targetViewId: second.id, transition: "none" };
+    first.layers = [{ id: "links", name: "Links", visible: true, locked: false, opacity: 1, areas: [link] }];
+    project.views.push(second, third);
+    const instance = create({ container: "#map", definition: toDefinition(project) });
+
+    areaElement(link.id).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(document.querySelector<HTMLElement>(".clickmap-view")?.style.opacity).toBe("");
+    expect(instance.getCurrentView()).toBe(second.id);
+    instance.goToView(third.id);
+    instance.reset();
+    vi.runAllTimers();
+
+    expect(instance.getCurrentView()).toBe(first.id);
+    expect(areaElement(link.id)).toBeInTheDocument();
+    instance.goToView(second.id);
+    instance.destroy();
+    vi.runAllTimers();
+    expect(document.querySelector(".clickmap-root")).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it("rejects invalid view targets before changing state", () => {
+    const project = createNewProject();
+    const instance = create({ container: "#map", definition: toDefinition(project) });
+    const error = vi.fn();
+    instance.on("error", error);
+    const before = structuredClone(window.history.state);
+
+    instance.goToView("missing");
+
+    expect(instance.getCurrentView()).toBe(project.settings.initialViewId);
+    expect(window.history.state).toEqual(before);
+    expect(error).toHaveBeenCalledWith({
+      type: "error",
+      code: "VIEW_NOT_FOUND",
+      message: 'View "missing" not found',
+    });
+  });
+
   it("switches sizing and map coordinates with each view", async () => {
     const project = createNewProject();
     project.settings.sizingMode = "fixed";

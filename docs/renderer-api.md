@@ -57,6 +57,20 @@ Normal custom CSS overrides inspector-authored SVG presentation attributes. Runt
 
 Use the identical callback reference with `off`.
 
+When `settings.enableHistory` is true, view navigation adds browser-history
+entries and Back/Forward restores the view. Each renderer stores its view under
+an instance-specific key inside a namespaced state object, preserving other
+properties in the host page's history state and allowing multiple maps to
+coexist. Entries without state for that instance are left to the host page.
+When disabled, the renderer neither adds entries nor listens to `popstate`;
+explicit deep-link configuration may still replace the URL hash.
+
+`goToView` uses the default fade. Authored `goToView` actions can set
+`transition: "none"` for an immediate change. A newer navigation, `reset()`, or
+`destroy()` cancels any pending fade so stale callbacks cannot repaint the map.
+Unknown target IDs leave the current view and history untouched and emit a
+`VIEW_NOT_FOUND` error.
+
 ## Events
 
 ```js
