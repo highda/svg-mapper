@@ -290,6 +290,7 @@ function ViewSection({ view, isActive, onMoveMessage }: { view: View; isActive: 
     activeViewId,
     setActiveViewId,
     renameView,
+    setInitialView,
     duplicateView,
     deleteView,
     addLayer,
@@ -301,6 +302,7 @@ function ViewSection({ view, isActive, onMoveMessage }: { view: View; isActive: 
   const [expanded, setExpanded] = useState(true);
   const dragFromIdx = useRef<number | null>(null);
   const canDelete = project.views.length > 1;
+  const isInitial = project.settings.initialViewId === view.id;
 
   function handleViewClick(e: React.MouseEvent) {
     e.stopPropagation();
@@ -356,6 +358,20 @@ function ViewSection({ view, isActive, onMoveMessage }: { view: View; isActive: 
           >
             {view.name}
           </span>
+        )}
+
+        {isInitial ? (
+          <span className="rounded bg-blue-950 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-blue-300" title="This view opens first">
+            Initial
+          </span>
+        ) : (
+          <button
+            onClick={(e) => { e.stopPropagation(); setInitialView(view.id); }}
+            title={`Set ${view.name} as initial view`}
+            className="text-[10px] text-neutral-600 hover:text-blue-300"
+          >
+            ☆
+          </button>
         )}
 
         {/* Duplicate view */}

@@ -61,6 +61,15 @@ describe("store: renameView", () => {
     useStore.getState().undo();
     expect(useStore.getState().project.views[0].name).toBe(original);
   });
+
+  it("generates unique nonempty slugs for duplicate names", () => {
+    const firstId = useStore.getState().project.views[0].id;
+    useStore.getState().renameView(firstId, "!!!");
+    useStore.getState().addView();
+    const secondId = useStore.getState().activeViewId;
+    useStore.getState().renameView(secondId, "!!!");
+    expect(useStore.getState().project.views.map((view) => view.slug)).toEqual(["view", "view-2"]);
+  });
 });
 
 describe("store: deleteView", () => {
@@ -86,6 +95,26 @@ describe("store: deleteView", () => {
     useStore.getState().deleteView(activeViewId);
     const { activeViewId: newId, project: p } = useStore.getState();
     expect(p.views.some((v) => v.id === newId)).toBe(true);
+  });
+
+  it("replaces a deleted initial view and restores it on undo", () => {
+    const initialId = useStore.getState().project.settings.initialViewId;
+    useStore.getState().addView();
+    const replacementId = useStore.getState().activeViewId;
+    useStore.getState().deleteView(initialId);
+    expect(useStore.getState().project.settings.initialViewId).toBe(replacementId);
+    useStore.getState().undo();
+    expect(useStore.getState().project.settings.initialViewId).toBe(initialId);
+  });
+
+  it("sets the initial view and makes the setting undoable", () => {
+    const initialId = useStore.getState().project.settings.initialViewId;
+    useStore.getState().addView();
+    const nextId = useStore.getState().activeViewId;
+    useStore.getState().setInitialView(nextId);
+    expect(useStore.getState().project.settings.initialViewId).toBe(nextId);
+    useStore.getState().undo();
+    expect(useStore.getState().project.settings.initialViewId).toBe(initialId);
   });
 });
 

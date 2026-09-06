@@ -7,16 +7,22 @@
 Issue:        #119 — fix(editor): make the initial view selectable and preserve navigation on view edits
 Branch:       feat/119-initial-view-navigation
 Started:      2026-09-06
-Last commit:  (claim pending)
+Last commit:  1f68334  chore: claim #119 — initial view navigation
 
 ### What's done
-- Claimed the task after confirming the host-selected #127 was already closed and merged.
+- Added an undoable initial-view setter and automatic valid replacement when the initial view is deleted.
+- Added collision-safe nonempty view slugs plus duplicate-slug validation.
+- View duplication now remaps self-view and internal-layer actions through fresh ID maps.
+- Marked the initial view in the tree and exposed a per-view Set as initial control.
+- Added regression coverage; editor typecheck, 243 tests, and lint pass.
 
 ### What's next
-- Implement initial-view controls, collision-safe slugs, and navigation-aware view CRUD.
+- Add inbound-link visibility and an explicit retarget workflow before deleting a referenced view.
+- Add component/browser coverage for the tree control, then update product/API documentation and exercise Preview/export.
 
 ### Notes / gotchas
-- Preserve inbound broken-link diagnostics unless the author explicitly retargets them.
+- Browser validation remains pending because this session has no callable Playwright MCP surface.
+- Existing broken inbound links remain diagnosed rather than being silently rewritten.
 
 ---
 

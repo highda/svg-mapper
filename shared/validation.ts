@@ -188,6 +188,18 @@ export function validateProject(project: ClickMapDefinition): ValidationResult[]
     );
   }
 
+  const slugOwners = new Map<string, string>();
+  for (const view of views) {
+    const slug = view.slug.trim();
+    if (!slug) {
+      err("EMPTY_VIEW_SLUG", `View "${view.name}" has an empty URL slug.`, { viewId: view.id });
+    } else if (slugOwners.has(slug)) {
+      err("DUPLICATE_VIEW_SLUG", `View URL slug "${slug}" is duplicated.`, { viewId: view.id });
+    } else {
+      slugOwners.set(slug, view.id);
+    }
+  }
+
   const directory = project.settings.directory;
   if (directory?.enabled) {
     if (directory.categories?.length && !directory.categoryKey?.trim()) {
