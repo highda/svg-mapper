@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #126 — feat(editor): add multi-selection and reusable styles for repeated map regions
+Branch:       feat/126-multi-selection-styles
+Started:      2026-09-06
+Last commit:  13b660d  chore: hand off #125 — done
+
+### What's done
+- Claimed the task and established its implementation branch.
+
+### What's next
+- Inspect the selection, history, schema, and inspector architecture; implement a coherent first slice of multi-selection.
+
+### Notes / gotchas
+- Preserve single-area behavior while evolving selection state; issue scope spans multiple checkpoints.
 
 ---
 
