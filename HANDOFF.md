@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #117 — fix(editor): validate project structure before replacing the current document
-Branch:       feat/117-validate-project-import
-Started:      2026-09-06
-Last commit:  ddf2d32  chore: hand off #116 — done
-
-### What's done
-- Claimed the task and confirmed the current document must survive structurally invalid imports.
-
-### What's next
-- Add a strict unknown-JSON decoder with field-path errors, integrate it before store mutation, and cover failure cases.
-
-### Notes / gotchas
-- Structural validation must remain distinct from repairable semantic validation.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-06 — closed #117 — added path-specific structural project decoding that preserves editor state on invalid and unreadable imports; PR #143.
 - 2026-09-06 — closed #116 — protected unsaved projects with guarded replacement, honest download/draft status, IndexedDB recovery, and unload warnings; PR #142.
 - 2026-09-06 — closed #115 — packaged embedded image/SVG bytes safely while preserving and disclosing external asset dependencies; PR #141.
 - 2026-09-06 — closed #114 — made hosted background and foreground assets resolve from fetched map URLs with explicit inline-base overrides; PR #140.
