@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #121 — fix(renderer): expose tooltip content and navigation state to keyboard users
+Branch:       fix/121-keyboard-tooltip-focus
+Started:      2026-09-06
+Last commit:  6145e61  chore: hand off #120 — done
+
+### What's done
+- Claimed the issue and reviewed its accessibility acceptance criteria.
+
+### What's next
+- Implement and test keyboard tooltip/details access, navigation focus handoff, and announcements.
+
+### Notes / gotchas
+- The host task brief still points to already-closed #127; the live lock and backlog identify #121 as the highest-priority ready task.
 
 ---
 

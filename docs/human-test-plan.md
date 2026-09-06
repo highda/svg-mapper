@@ -58,7 +58,7 @@ generation; JPEG/SVG retain a clearly described rectangular hit area.
 
 ## Access and device matrix
 
-1. Keyboard only: reach every interactive area and chrome control, see focus, activate with Enter/Space, close popovers with Escape, and navigate back.
+1. Keyboard only: reach every interactive area and chrome control, see focus, hear tooltip/details content and view destinations, activate with Enter/Space, close popovers with Escape and confirm focus returns to the trigger, and navigate back. Repeat with hidden and disabled areas and a hover-only tooltip; then verify the same focus tracking in Shadow DOM.
 2. Touch emulation or a touch device at 390×844: confirm controls have a usable touch target, no task depends on hover, and horizontal overflow does not hide actions.
 3. Enable `prefers-reduced-motion: reduce`: confirm navigation and overlays remain understandable without required animation.
 4. Repeat the gallery path with Shadow DOM enabled and an opinionated host stylesheet.

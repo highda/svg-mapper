@@ -36,7 +36,7 @@ Transparent holes remain non-clickable, while keyboard focus retains the visible
 
 **Tree** gives a hierarchical project overview. **Flow** shows `goToView` connections and calls out orphan views. Use both to catch organization and navigation mistakes.
 
-**Preview** runs the exported renderer in a sandboxed iframe. Exercise the golden path: hover and keyboard-focus areas, follow every view link, go back, open and close popups, test URLs, zoom and pan, and switch among full, tablet, and mobile widths. Preview can block external URL navigation while you test.
+**Preview** runs the exported renderer in a sandboxed iframe. Exercise the golden path: hover and keyboard-focus areas, confirm tooltip details are exposed on focus, follow every view link and hear the destination, go back, open and close popups while checking trigger focus restoration, test URLs, zoom and pan, and switch among full, tablet, and mobile widths. Hover-only tooltips can be pinned with a tap and dismissed by tapping elsewhere. Preview can block external URL navigation while you test.
 
 To help visitors find places by text, select the view and enable **Place Directory** in the project inspector. Area names are always searched; add comma-separated metadata fields such as `amenity, address` for richer matching. A category field (for example `category`) plus `value = Visitor label` lines creates filter chips and a text legend. Preview uses the real published directory: verify search counts and empty states, keyboard through filters and results, and choose results in several views. Hidden layers never appear; disabled areas are visibly listed as unavailable.
 

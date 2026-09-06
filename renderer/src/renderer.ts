@@ -195,6 +195,8 @@ class Renderer implements ClickMapInstance {
   private viewW = 1;
   private viewH = 1;
   private hoveredId: string | null = null;
+  private focusedId: string | null = null;
+  private pinnedTooltipId: string | null = null;
   private alphaMaskBytes = new Map<string, string>();
   /** Per-view runtime overrides. They survive navigation, while reset clears them. */
   private layerVisibility = new Map<string, Map<string, boolean>>();
@@ -211,12 +213,21 @@ class Renderer implements ClickMapInstance {
 
   // Popover state
   private openPopoverId: string | null = null;
-  private popoverReturnFocus: HTMLElement | null = null;
+  private popoverReturnFocus: HTMLElement | SVGElement | null = null;
 
   private onDocumentClick = (e: MouseEvent) => {
-    if (this.openPopoverId === null || this.popoverEl.contains(e.target as Node)) return;
+    const path = e.composedPath();
+    const targetArea = path.find((target): target is Element =>
+      target instanceof Element && target.hasAttribute("data-area-id")
+    );
 
-    const targetArea = (e.target as Element | null)?.closest?.("[data-area-id]");
+    if (this.pinnedTooltipId !== null && targetArea?.getAttribute("data-area-id") !== this.pinnedTooltipId) {
+      this.pinnedTooltipId = null;
+      if (this.focusedId === null && this.hoveredId === null) this.hideTooltip();
+    }
+
+    if (this.openPopoverId === null || path.includes(this.popoverEl)) return;
+
     if (targetArea?.getAttribute("data-area-id") === this.openPopoverId) return;
     this.closePopover();
   };
@@ -243,13 +254,14 @@ class Renderer implements ClickMapInstance {
 
     const first = focusable[0]!;
     const last = focusable[focusable.length - 1]!;
-    if (e.shiftKey && document.activeElement === first) {
+    const active = this.getActiveElement();
+    if (e.shiftKey && active === first) {
       e.preventDefault();
       last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
+    } else if (!e.shiftKey && active === last) {
       e.preventDefault();
       first.focus();
-    } else if (!this.popoverEl.contains(document.activeElement)) {
+    } else if (!active || !this.popoverEl.contains(active)) {
       e.preventDefault();
       first.focus();
     }
@@ -326,6 +338,7 @@ class Renderer implements ClickMapInstance {
 
     this.tooltipEl = document.createElement("div");
     this.tooltipEl.className = "clickmap-tooltip";
+    this.tooltipEl.id = `${this.instanceId}-tooltip`;
     this.tooltipEl.setAttribute("role", "tooltip");
     this.tooltipEl.setAttribute("aria-hidden", "true");
 
@@ -377,6 +390,8 @@ class Renderer implements ClickMapInstance {
     this.svgEl.addEventListener("pointermove", (e) => this.onPointerMove(e));
     this.svgEl.addEventListener("click", (e) => this.onClick(e));
     this.svgEl.addEventListener("keydown", (e) => this.onKeyDown(e));
+    this.svgEl.addEventListener("focusin", (e) => this.onFocusIn(e));
+    this.svgEl.addEventListener("focusout", (e) => this.onFocusOut(e));
     this.svgEl.addEventListener("wheel", this.onWheel, { passive: false });
 
     // Spacebar pan (issue #27 G3)
@@ -522,6 +537,8 @@ class Renderer implements ClickMapInstance {
     }
 
     this.hoveredId = null;
+    this.focusedId = null;
+    this.pinnedTooltipId = null;
     this.hideTooltip();
     this.closePopover();
     this.viewW = view.canvas.width;
@@ -1080,6 +1097,9 @@ class Renderer implements ClickMapInstance {
         "aria-label",
         area.accessibility?.ariaLabel ?? area.name
       );
+      if (area.tooltip?.enabled) {
+        shape.setAttribute("aria-describedby", this.tooltipEl.id);
+      }
       const trigger = area.trigger ?? "both";
       const clickable = trigger === "click" || trigger === "both";
       shape.style.cursor = (area.action.type !== "none" && clickable) ? "pointer" : "default";
@@ -1330,12 +1350,12 @@ class Renderer implements ClickMapInstance {
 
     const prev = this.findAreaInCurrentView(this.hoveredId);
     const prevEl = this.findAreaEl(this.hoveredId);
-    if (prev && prevEl) {
+    if (prev && prevEl && this.focusedId !== prev.id) {
       this.applyRestingStyle(prev, prevEl);
     }
 
     this.hoveredId = null;
-    this.hideTooltip();
+    if (this.focusedId === null && this.pinnedTooltipId === null) this.hideTooltip();
   }
 
   private onPointerMove(e: PointerEvent) {
@@ -1348,7 +1368,20 @@ class Renderer implements ClickMapInstance {
     const { area } = hit;
 
     const trigger = area.trigger ?? "both";
-    if (trigger === "hover") return; // hover-only: no click action
+    if (trigger === "hover") {
+      // Touch has no durable hover state. Tapping a hover-only area toggles its
+      // authored tooltip without dispatching the click action.
+      if (!area.tooltip?.enabled) return;
+      if (this.pinnedTooltipId === area.id) {
+        this.pinnedTooltipId = null;
+        if (this.focusedId === null && this.hoveredId === null) this.hideTooltip();
+      } else {
+        this.pinnedTooltipId = area.id;
+        this.showTooltip(area);
+        this.positionTooltipForArea(area);
+      }
+      return;
+    }
 
     this.emitter.emit({
       type: "area:click",
@@ -1367,7 +1400,14 @@ class Renderer implements ClickMapInstance {
     if (!hit) return;
     e.preventDefault();
     const trigger = hit.area.trigger ?? "both";
-    if (trigger === "hover") return;
+    if (trigger === "hover") {
+      if (hit.area.tooltip?.enabled) {
+        this.showTooltip(hit.area);
+        this.positionTooltipForArea(hit.area);
+        this.ariaLiveEl.textContent = this.tooltipEl.textContent?.trim() || hit.area.name;
+      }
+      return;
+    }
     this.emitter.emit({
       type: "area:click",
       areaId: hit.area.id,
@@ -1377,6 +1417,28 @@ class Renderer implements ClickMapInstance {
     });
     this.updateDeepLinkHash(this.currentViewId, hit.area.id);
     this.dispatchAction(hit.area.action, hit.area);
+  }
+
+  private onFocusIn(e: FocusEvent) {
+    const hit = this.getAreaFromEvent(e);
+    if (!hit) return;
+    this.focusedId = hit.area.id;
+    this.applyStyle(hit.el, hit.area.style.hover);
+    if (hit.area.tooltip?.enabled) {
+      this.showTooltip(hit.area);
+      this.positionTooltipForArea(hit.area);
+    }
+  }
+
+  private onFocusOut(e: FocusEvent) {
+    if (!this.focusedId) return;
+    const related = e.relatedTarget as Element | null;
+    if (related?.closest?.(`[data-area-id="${escId(this.focusedId)}"]`)) return;
+    const area = this.findAreaInCurrentView(this.focusedId);
+    const el = this.findAreaEl(this.focusedId);
+    if (area && el && this.hoveredId !== area.id) this.applyRestingStyle(area, el);
+    this.focusedId = null;
+    if (this.hoveredId === null && this.pinnedTooltipId === null) this.hideTooltip();
   }
 
   private dispatchAction(action: Action, area: Area) {
@@ -1506,6 +1568,13 @@ class Renderer implements ClickMapInstance {
     this.tooltipEl.style.top = `${clientY - rect.top + 14}px`;
   }
 
+  private positionTooltipForArea(area: Area) {
+    const el = this.findAreaEl(area.id);
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    this.positionTooltip(rect.left + rect.width / 2, rect.top + rect.height / 2);
+  }
+
   // -------------------------------------------------------------------------
   // Popover (issue #23 B1)
   // -------------------------------------------------------------------------
@@ -1513,8 +1582,9 @@ class Renderer implements ClickMapInstance {
   private openPopover(action: import("../../shared/types.js").PopupAction, area: Area) {
     const content = action.content;
     const templatedBody = this.resolveAreaTemplate(area);
-    this.popoverReturnFocus = document.activeElement instanceof HTMLElement
-      ? document.activeElement
+    const active = this.getActiveElement();
+    this.popoverReturnFocus = active instanceof HTMLElement || active instanceof SVGElement
+      ? active
       : null;
     this.popoverEl.innerHTML = "";
 
@@ -1646,6 +1716,10 @@ class Renderer implements ClickMapInstance {
     this.popoverReturnFocus = null;
   }
 
+  private getActiveElement(): Element | null {
+    return this.shadowRoot?.activeElement ?? document.activeElement;
+  }
+
   // -------------------------------------------------------------------------
   // Responsive scaling
   // -------------------------------------------------------------------------
@@ -1689,6 +1763,19 @@ class Renderer implements ClickMapInstance {
     }, 150);
   }
 
+  private focusNavigationDestination(viewId: string, preserveFocus: boolean) {
+    const view = this.def.views.find((candidate) => candidate.id === viewId);
+    if (!view) return;
+    this.ariaLiveEl.textContent = `${view.name} view.`;
+    if (!preserveFocus) return;
+
+    const sceneControl = this.sceneSwitcherEl?.querySelector<HTMLElement>(
+      `[data-view-id="${escId(viewId)}"]`
+    ) ?? this.sceneSwitcherEl?.querySelector<HTMLElement>("select");
+    const destination = sceneControl ?? this.svgEl.querySelector<SVGElement>('[tabindex="0"]') ?? this.backBtn;
+    destination?.focus();
+  }
+
   // -------------------------------------------------------------------------
   // Deep linking (issue #25 D1)
   // -------------------------------------------------------------------------
@@ -1729,10 +1816,19 @@ class Renderer implements ClickMapInstance {
 
   goToView(viewId: string) {
     if (viewId === this.currentViewId) return;
+    if (!this.def.views.some((view) => view.id === viewId)) {
+      this.emitter.emit({ type: "error", code: "VIEW_NOT_FOUND", message: `View "${viewId}" not found` });
+      return;
+    }
+    const active = this.getActiveElement();
+    const preserveFocus = Boolean(active && (this.root.contains(active) || this.shadowRoot?.contains(active)));
     const prev = this.currentViewId;
     this.history.push(this.currentViewId);
     this.currentViewId = viewId;
-    this.fade(() => this.renderView(viewId));
+    this.fade(() => {
+      this.renderView(viewId);
+      this.focusNavigationDestination(viewId, preserveFocus);
+    });
     this.emitter.emit({
       type: "view:change",
       previousViewId: prev,
@@ -1744,9 +1840,14 @@ class Renderer implements ClickMapInstance {
   goBack() {
     const prev = this.history.pop();
     if (prev === undefined) return;
+    const active = this.getActiveElement();
+    const preserveFocus = Boolean(active && (this.root.contains(active) || this.shadowRoot?.contains(active)));
     const from = this.currentViewId;
     this.currentViewId = prev;
-    this.fade(() => this.renderView(prev));
+    this.fade(() => {
+      this.renderView(prev);
+      this.focusNavigationDestination(prev, preserveFocus);
+    });
     this.emitter.emit({
       type: "view:change",
       previousViewId: from,
