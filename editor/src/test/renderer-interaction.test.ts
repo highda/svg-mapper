@@ -721,6 +721,79 @@ describe("renderer interaction model", () => {
     expect(tooltip.querySelector("script")).toBeNull();
   });
 
+  it("exposes tooltip content on keyboard focus and keeps hover-only details available to touch", () => {
+    const area = createRectArea(0, 0, 10, 10);
+    area.name = "Accessible toilets";
+    area.tooltip = { enabled: true, title: "Facilities", body: "Step-free access" };
+    area.trigger = "hover";
+    renderAreas(area);
+
+    const target = areaElement(area.id);
+    const tooltip = document.querySelector<HTMLElement>(".clickmap-tooltip")!;
+    expect(target).toHaveAttribute("aria-describedby", tooltip.id);
+
+    target.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+    expect(tooltip).toHaveAttribute("aria-hidden", "false");
+    expect(tooltip).toHaveTextContent("Facilities");
+    expect(tooltip).toHaveTextContent("Step-free access");
+
+    target.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: document.body }));
+    expect(tooltip).toHaveAttribute("aria-hidden", "true");
+
+    target.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    target.dispatchEvent(new PointerEvent("pointerout", { bubbles: true, relatedTarget: document.body }));
+    expect(tooltip).toHaveAttribute("aria-hidden", "false");
+    document.body.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(tooltip).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("moves focus into navigated views and announces the destination", () => {
+    vi.useFakeTimers();
+    const project = createNewProject();
+    const link = createRectArea(0, 0, 10, 10);
+    const destination = createRectArea(20, 0, 10, 10);
+    destination.name = "Reception desk";
+    const second = {
+      ...project.views[0],
+      id: "view_second",
+      name: "Upper floor",
+      layers: [{ id: "upper", name: "Upper", visible: true, locked: false, opacity: 1, areas: [destination] }],
+    };
+    link.action = { type: "goToView", targetViewId: second.id };
+    project.views[0].layers = [{ id: "ground", name: "Ground", visible: true, locked: false, opacity: 1, areas: [link] }];
+    project.views.push(second);
+    create({ container: "#map", definition: toDefinition(project) });
+
+    areaElement(link.id).focus();
+    areaElement(link.id).dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    vi.runAllTimers();
+
+    expect(document.activeElement).toBe(areaElement(destination.id));
+    expect(document.querySelector(".clickmap-aria-live")).toHaveTextContent("Upper floor view");
+    vi.useRealTimers();
+  });
+
+  it("tracks popover focus and restores its trigger inside Shadow DOM", () => {
+    vi.useFakeTimers();
+    const area = createRectArea(0, 0, 10, 10);
+    area.action = { type: "popup", content: { title: "Visitor details", linkHref: "/details" } };
+    const project = createNewProject();
+    project.views[0].layers = [{ id: "layer", name: "Layer", visible: true, locked: false, opacity: 1, areas: [area] }];
+    const host = document.querySelector<HTMLElement>("#map")!;
+    create({ container: host, definition: toDefinition(project), shadowDom: true });
+    const root = host.shadowRoot!;
+    const trigger = root.querySelector<SVGElement>(`[data-area-id="${area.id}"]`)!;
+
+    trigger.focus();
+    trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    vi.runAllTimers();
+    expect(root.activeElement).toBe(root.querySelector(".clickmap-popover button"));
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(root.activeElement).toBe(trigger);
+    vi.useRealTimers();
+  });
+
   it("renders escaped area data through the project content template", () => {
     const area = createRectArea(0, 0, 10, 10);
     area.name = "Cafe & Shop";
