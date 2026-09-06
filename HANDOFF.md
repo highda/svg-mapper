@@ -4,25 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #118 — fix(editor): keep project operations and canvas usable on mobile
-Branch:       fix/118-mobile-project-operations
-Started:      2026-09-06
-Last commit:  fed5ff9  chore: claim #118 — mobile project operations
-
-### What's done
-- Added touch-sized mobile project operations, full-width hierarchy access, and a dismissible Inspector sheet.
-- Added responsive tests, user documentation, and 390px/768px browser validation.
-
-### What's next
-- Open and merge the completed pull request, then clear the handoff.
-
-### Notes / gotchas
-- The host task brief points to already-closed #127; live lock and backlog state selected #118.
-- Browser artifacts and the downloaded tablet project remain ignored under `.codex/runtime/`.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-06 — closed #118 — kept project operations, hierarchy access, and the canvas usable across mobile and tablet layouts; PR #144.
 - 2026-09-06 — closed #117 — added path-specific structural project decoding that preserves editor state on invalid and unreadable imports; PR #143.
 - 2026-09-06 — closed #116 — protected unsaved projects with guarded replacement, honest download/draft status, IndexedDB recovery, and unload warnings; PR #142.
 - 2026-09-06 — closed #115 — packaged embedded image/SVG bytes safely while preserving and disclosing external asset dependencies; PR #141.
