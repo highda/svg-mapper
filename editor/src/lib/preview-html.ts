@@ -68,13 +68,10 @@ html, body { margin: 0; height: 100%; background: #262626; }
   };
 
   var map = ClickMapRenderer.create({ container: "#map", definition: DEFINITION });
-  ["view:change", "area:hover", "area:click", "popup:open", "popup:close", "error"]
+  ["ready", "view:change", "area:hover", "area:click", "popup:open", "popup:close", "error"]
     .forEach(function (t) {
       map.on(t, function (e) { post({ kind: "event", event: e }); });
     });
-  // The renderer emits "ready" synchronously inside create(), before any
-  // listener can attach — synthesize it here instead.
-  post({ kind: "event", event: { type: "ready", currentViewId: map.getCurrentView() } });
 })();
 </script>
 </body>
