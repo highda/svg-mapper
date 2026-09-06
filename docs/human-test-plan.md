@@ -6,6 +6,21 @@ downloaded export. Copy the record and result tables into the tracking issue.
 Screenshots belong in `.codex/runtime/` during agent runs or as issue
 attachments; they are never repository files.
 
+## Pull-request gates and release-only checks
+
+Branch protection should require the stable `static-checks` and
+`export-browser` job names from `.github/workflows/checks.yml`. The first uses
+locked npm dependencies for every workspace typecheck, editor lint/unit tests,
+production builds, and the documented `< 30 KB` renderer gzip budget. The
+second drives the production editor and a downloaded, extracted, separately
+hosted export in Chromium; failures upload traces, screenshots, and video for
+seven days without adding them to Git.
+
+Browser emulation is regression evidence, not a physical-device pass. Before a
+release, still complete and record Safari on macOS/iOS, at least one physical
+touch device, and the exported `index.html` over `file://`. Those environments
+remain manual because CI Chromium cannot establish their platform behavior.
+
 ## Test record
 
 | Field | Value |

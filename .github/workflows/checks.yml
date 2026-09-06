@@ -1,0 +1,72 @@
+name: Required checks
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-checks:
+    name: static-checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            shared/package-lock.json
+            renderer/package-lock.json
+            editor/package-lock.json
+      - run: npm ci --prefix shared
+      - run: npm ci --prefix renderer
+      - run: npm ci --prefix editor
+      - run: npm run typecheck --prefix shared
+      - run: npm run typecheck --prefix renderer
+      - run: npm run typecheck --prefix editor
+      - run: npm run lint --prefix editor
+      - run: npm run build --prefix renderer
+      - run: npm run test --prefix editor
+      - run: npm run check:size --prefix renderer
+      - run: npm run build --prefix editor
+        env:
+          VITE_BASE_PATH: ./
+
+  export-browser:
+    name: export-browser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            shared/package-lock.json
+            renderer/package-lock.json
+            editor/package-lock.json
+      - run: npm ci --prefix shared
+      - run: npm ci --prefix renderer
+      - run: npm ci --prefix editor
+      - run: npx --prefix editor playwright install --with-deps chromium
+      - run: npm run build --prefix editor
+        env:
+          VITE_BASE_PATH: ./
+      - run: npm run test:e2e --prefix editor
+      - name: Upload browser failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: export-browser-artifacts
+          path: |
+            .codex/runtime/playwright-results
+            .codex/runtime/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
