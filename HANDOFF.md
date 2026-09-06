@@ -7,15 +7,16 @@
 Issue:        #126 — feat(editor): add multi-selection and reusable styles for repeated map regions
 Branch:       feat/126-multi-selection-styles
 Started:      2026-09-06
-Last commit:  c792d4b  feat: add additive area selection foundation
+Last commit:  ea0f5c5  feat: add canvas marquee selection
 
 ### What's done
 - Added synchronized multi-area selection state with Shift toggling in the canvas and tree.
 - Rendered all selected outlines and surfaced the selection count in the Inspector.
+- Added replacement and Shift-additive canvas marquee selection across visible areas.
 - Added unit coverage and browser-validated a two-area selection with a clean console.
 
 ### What's next
-- Add marquee selection and tree keyboard/range selection.
+- Add tree keyboard/range selection.
 - Add mixed inspector values and batch style/action edits as single undo steps.
 - Add named style presets, align/distribute, and group move/duplicate; finish 100-region and persistence/export coverage.
 
