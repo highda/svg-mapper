@@ -35,8 +35,20 @@ describe("store: loadProject", () => {
   });
 
   it("sets openError on missing required fields", () => {
+    const before = useStore.getState();
+    before.setProjectName("Keep me");
+    before.setSelectedAreaId("selection");
+    useStore.setState({
+      past: [createNewProject("History")],
+      future: [createNewProject("Future")],
+    });
     useStore.getState().loadProject('{"foo":"bar"}');
-    expect(useStore.getState().openError).toBeTruthy();
+    const after = useStore.getState();
+    expect(after.openError).toContain("$.schemaVersion");
+    expect(after.project.project.name).toBe("Keep me");
+    expect(after.selectedAreaId).toBe("selection");
+    expect(after.past).toHaveLength(1);
+    expect(after.future).toHaveLength(1);
   });
 });
 
@@ -57,5 +69,12 @@ describe("store: clearOpenError", () => {
     expect(useStore.getState().openError).toBeTruthy();
     useStore.getState().clearOpenError();
     expect(useStore.getState().openError).toBeNull();
+  });
+
+  it("reports file read failures without replacing the document", () => {
+    const project = useStore.getState().project;
+    useStore.getState().reportOpenError("Could not read the selected project file.");
+    expect(useStore.getState().openError).toBe("Could not read the selected project file.");
+    expect(useStore.getState().project).toBe(project);
   });
 });

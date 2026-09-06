@@ -7,7 +7,7 @@ There are two related JSON shapes:
 - `ProjectFile` is downloaded by the editor's **Save** action. It includes optional editor-only selection, pan, zoom, grid, guide, and history state.
 - `ClickMapDefinition` is exported as `map.json`. Export removes the top-level `editor` property; this is the renderer's input.
 
-The editor validates only a small structural minimum when opening JSON (`schemaVersion`, `project`, and `views`). Use the Export screen for full reference and link validation.
+When opening JSON, the editor decodes the complete `1.0.0` structure before replacing the current document. Errors identify the failing JSON path; wrong or missing nested fields, unsupported discriminators, invalid numeric bounds, and malformed embedded data URIs are rejected. Cross-reference problems such as a missing action target remain loadable and are reported by the Export screen, where authors can repair them.
 
 ## Top-level definition
 

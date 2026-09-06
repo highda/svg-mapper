@@ -65,6 +65,7 @@ export interface AppState {
   setProjectName: (name: string) => void;
   setEditorState: (patch: Partial<EditorState>) => void;
   setScreen: (screen: Screen) => void;
+  reportOpenError: (message: string) => void;
   clearOpenError: () => void;
 
   // ── Design screen ────────────────────────────────────────────────────────
@@ -108,13 +109,20 @@ export interface AppState {
   updateAreaTooltip: (areaId: string, tooltip: Tooltip | undefined) => void;
   updateAreaAction: (areaId: string, action: Action) => void;
   updateAreaMetadata: (areaId: string, metadata: Record<string, unknown>) => void;
-  updateAreaInteraction: (areaId: string, patch: { trigger?: AreaTrigger; alwaysHighlight?: boolean; disabled?: boolean }) => void;
+  updateAreaInteraction: (
+    areaId: string,
+    patch: { trigger?: AreaTrigger; alwaysHighlight?: boolean; disabled?: boolean },
+  ) => void;
   updateAreaLabel: (areaId: string, label: AreaLabel | undefined) => void;
   updateAreaImage: (areaId: string, image: Area["image"]) => void;
   deleteArea: (areaId: string) => void;
   duplicateArea: (areaId: string) => void;
   reorderArea: (areaId: string, direction: -1 | 1) => void;
-  moveAreaToLayer: (areaId: string, targetLayerId: string, targetIndex?: number) => "moved" | "locked" | "invalid";
+  moveAreaToLayer: (
+    areaId: string,
+    targetLayerId: string,
+    targetIndex?: number,
+  ) => "moved" | "locked" | "invalid";
 
   // ── Settings ──────────────────────────────────────────────────────────────
   updateSettings: (patch: Partial<Settings>) => void;
@@ -333,6 +341,12 @@ export const useStore = create<AppState>()(
       });
     },
 
+    reportOpenError(message: string) {
+      set((s) => {
+        s.openError = message;
+      });
+    },
+
     // ── Design screen ──────────────────────────────────────────────────────
 
     setActiveTool(tool: Tool) {
@@ -418,7 +432,8 @@ export const useStore = create<AppState>()(
           x: Math.max(0, Math.min(1, position.x)),
           y: Math.max(0, Math.min(1, position.y)),
         };
-        if (view.background.position?.x === next.x && view.background.position?.y === next.y) return;
+        if (view.background.position?.x === next.x && view.background.position?.y === next.y)
+          return;
         pushHistory(s);
         view.background.position = next;
       });
@@ -430,8 +445,19 @@ export const useStore = create<AppState>()(
         const asset = s.project.assets.find((candidate) => candidate.id === assetId);
         if (!view || !asset) return;
         pushHistory(s);
-        if (view.layers.length === 0) view.layers.push({ id: `layer_${Math.random().toString(36).slice(2, 10)}`, name: "Layer 1", visible: true, locked: false, opacity: 1, areas: [] });
-        const layer = (s.selectedLayerId && view.layers.find((candidate) => candidate.id === s.selectedLayerId)) || view.layers[0];
+        if (view.layers.length === 0)
+          view.layers.push({
+            id: `layer_${Math.random().toString(36).slice(2, 10)}`,
+            name: "Layer 1",
+            visible: true,
+            locked: false,
+            opacity: 1,
+            areas: [],
+          });
+        const layer =
+          (s.selectedLayerId &&
+            view.layers.find((candidate) => candidate.id === s.selectedLayerId)) ||
+          view.layers[0];
         const maxWidth = Math.min(view.canvas.width * 0.5, asset.width || 240);
         const ratio = asset.width > 0 ? asset.height / asset.width : 1;
         const width = Math.max(24, maxWidth);
@@ -440,14 +466,27 @@ export const useStore = create<AppState>()(
         layer.areas.push({
           id,
           name: asset.name,
-          geometry: { type: "rect", x: (view.canvas.width - width) / 2, y: (view.canvas.height - height) / 2, width, height },
+          geometry: {
+            type: "rect",
+            x: (view.canvas.width - width) / 2,
+            y: (view.canvas.height - height) / 2,
+            width,
+            height,
+          },
           style: {
             default: { fill: "transparent", stroke: "transparent", strokeWidth: 0 },
             hover: { fill: "transparent", stroke: "transparent", strokeWidth: 0 },
             active: { fill: "transparent", stroke: "transparent", strokeWidth: 0 },
           },
           action: { type: "none" },
-          image: { assetId, fit: "contain", opacity: 1, rotation: 0, decorative: true, visible: true },
+          image: {
+            assetId,
+            fit: "contain",
+            opacity: 1,
+            rotation: 0,
+            decorative: true,
+            visible: true,
+          },
         });
         s.selectedAreaId = id;
         s.selectedLayerId = null;
@@ -460,7 +499,9 @@ export const useStore = create<AppState>()(
     addView() {
       set((s) => {
         pushHistory(s);
-        const activeCanvas = s.project.views.find((candidate) => candidate.id === s.activeViewId)?.canvas;
+        const activeCanvas = s.project.views.find(
+          (candidate) => candidate.id === s.activeViewId,
+        )?.canvas;
         const view = createDefaultView(activeCanvas);
         view.name = `View ${s.project.views.length + 1}`;
         view.slug = view.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
@@ -492,7 +533,7 @@ export const useStore = create<AppState>()(
             })),
           })),
         };
-        s.project.views.splice(idx + 1, 0, copy as typeof s.project.views[0]);
+        s.project.views.splice(idx + 1, 0, copy as (typeof s.project.views)[0]);
         s.activeViewId = copy.id;
         s.selectedAreaId = null;
         s.selectedLayerId = null;
@@ -586,11 +627,16 @@ export const useStore = create<AppState>()(
         copy.areas = copy.areas.map((area) => ({
           ...area,
           id: uniqueProjectId(usedIds, "area"),
-          action: area.action.type === "toggleLayer" && area.action.targetLayerId === original.id
-            ? { ...area.action, targetLayerId: copy.id }
-            : area.action,
+          action:
+            area.action.type === "toggleLayer" && area.action.targetLayerId === original.id
+              ? { ...area.action, targetLayerId: copy.id }
+              : area.action,
         }));
-        s.project.views[loc.viewIdx].layers.splice(loc.layerIdx + 1, 0, copy as typeof s.project.views[0]["layers"][0]);
+        s.project.views[loc.viewIdx].layers.splice(
+          loc.layerIdx + 1,
+          0,
+          copy as (typeof s.project.views)[0]["layers"][0],
+        );
         s.activeViewId = s.project.views[loc.viewIdx].id;
         s.selectedLayerId = copy.id;
         s.selectedAreaId = null;
@@ -696,7 +742,11 @@ export const useStore = create<AppState>()(
         if (!loc) return;
         pushHistory(s);
         const area = s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx];
-        area.geometry = moveGeometry(area.geometry as Area["geometry"], dx, dy) as typeof area.geometry;
+        area.geometry = moveGeometry(
+          area.geometry as Area["geometry"],
+          dx,
+          dy,
+        ) as typeof area.geometry;
       });
     },
 
@@ -725,7 +775,7 @@ export const useStore = create<AppState>()(
         if (!loc) return;
         pushHistory(s);
         s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx].style =
-          style as unknown as typeof s.project.views[0]["layers"][0]["areas"][0]["style"];
+          style as unknown as (typeof s.project.views)[0]["layers"][0]["areas"][0]["style"];
       });
     },
 
@@ -735,7 +785,7 @@ export const useStore = create<AppState>()(
         if (!loc) return;
         pushHistory(s);
         s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx].tooltip =
-          tooltip as typeof s.project.views[0]["layers"][0]["areas"][0]["tooltip"];
+          tooltip as (typeof s.project.views)[0]["layers"][0]["areas"][0]["tooltip"];
       });
     },
 
@@ -745,7 +795,7 @@ export const useStore = create<AppState>()(
         if (!loc) return;
         pushHistory(s);
         s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx].action =
-          action as typeof s.project.views[0]["layers"][0]["areas"][0]["action"];
+          action as (typeof s.project.views)[0]["layers"][0]["areas"][0]["action"];
       });
     },
 
@@ -755,18 +805,22 @@ export const useStore = create<AppState>()(
         if (!loc) return;
         pushHistory(s);
         s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx].metadata =
-          metadata as typeof s.project.views[0]["layers"][0]["areas"][0]["metadata"];
+          metadata as (typeof s.project.views)[0]["layers"][0]["areas"][0]["metadata"];
       });
     },
 
-    updateAreaInteraction(areaId: string, patch: { trigger?: AreaTrigger; alwaysHighlight?: boolean; disabled?: boolean }) {
+    updateAreaInteraction(
+      areaId: string,
+      patch: { trigger?: AreaTrigger; alwaysHighlight?: boolean; disabled?: boolean },
+    ) {
       set((s) => {
         const loc = findAreaLocation(s.project.views as unknown as View[], areaId);
         if (!loc) return;
         pushHistory(s);
         const area = s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx];
         if (patch.trigger !== undefined) (area as Area).trigger = patch.trigger;
-        if (patch.alwaysHighlight !== undefined) (area as Area).alwaysHighlight = patch.alwaysHighlight;
+        if (patch.alwaysHighlight !== undefined)
+          (area as Area).alwaysHighlight = patch.alwaysHighlight;
         if (patch.disabled !== undefined) (area as Area).disabled = patch.disabled;
       });
     },
@@ -777,7 +831,7 @@ export const useStore = create<AppState>()(
         if (!loc) return;
         pushHistory(s);
         (s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx] as Area).label =
-          label as typeof s.project.views[0]["layers"][0]["areas"][0]["label"];
+          label as (typeof s.project.views)[0]["layers"][0]["areas"][0]["label"];
       });
     },
 
@@ -786,7 +840,8 @@ export const useStore = create<AppState>()(
         const loc = findAreaLocation(s.project.views as unknown as View[], areaId);
         if (!loc) return;
         pushHistory(s);
-        (s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx] as Area).image = image;
+        (s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx] as Area).image =
+          image;
       });
     },
 
@@ -819,11 +874,7 @@ export const useStore = create<AppState>()(
               : original.geometry,
         };
         pushHistory(s);
-        s.project.views[loc.viewIdx].layers[loc.layerIdx].areas.splice(
-          loc.areaIdx + 1,
-          0,
-          duped,
-        );
+        s.project.views[loc.viewIdx].layers[loc.layerIdx].areas.splice(loc.areaIdx + 1, 0, duped);
         s.selectedAreaId = duped.id;
         s.selectedLayerId = null;
       });
@@ -898,7 +949,11 @@ export const useStore = create<AppState>()(
           name: original.name + " copy",
           geometry:
             original.geometry.type === "rect"
-              ? { ...original.geometry, x: (original.geometry as { x: number }).x + 10, y: (original.geometry as { y: number }).y + 10 }
+              ? {
+                  ...original.geometry,
+                  x: (original.geometry as { x: number }).x + 10,
+                  y: (original.geometry as { y: number }).y + 10,
+                }
               : original.geometry,
         };
         const viewIdx = s.project.views.findIndex((v) => v.id === s.activeViewId);
@@ -906,7 +961,7 @@ export const useStore = create<AppState>()(
         const layers = s.project.views[viewIdx].layers;
         if (layers.length === 0) return;
         pushHistory(s);
-        layers[0].areas.push(pasted as typeof layers[0]["areas"][0]);
+        layers[0].areas.push(pasted as (typeof layers)[0]["areas"][0]);
         s.selectedAreaId = pasted.id;
         s.selectedLayerId = null;
       });
@@ -950,7 +1005,9 @@ export const useStore = create<AppState>()(
     },
 
     dismissCanvasSizeSuggestion() {
-      set((s) => { s.canvasSizeSuggestion = null; });
+      set((s) => {
+        s.canvasSizeSuggestion = null;
+      });
     },
 
     // ── Validation ───────────────────────────────────────────────────────────

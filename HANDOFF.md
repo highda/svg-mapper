@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #117 — fix(editor): validate project structure before replacing the current document
+Branch:       feat/117-validate-project-import
+Started:      2026-09-06
+Last commit:  ddf2d32  chore: hand off #116 — done
+
+### What's done
+- Claimed the task and confirmed the current document must survive structurally invalid imports.
+
+### What's next
+- Add a strict unknown-JSON decoder with field-path errors, integrate it before store mutation, and cover failure cases.
+
+### Notes / gotchas
+- Structural validation must remain distinct from repairable semantic validation.
 
 ---
 

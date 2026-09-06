@@ -6,7 +6,7 @@ SVG Mapper runs entirely in the browser. While you edit, it keeps a debounced re
 
 Rename the project by clicking its title. In **Design**, drag a PNG, JPEG, WebP, or SVG onto the empty canvas, or choose **Import background**. SVG imports are sanitized. When the artwork suggests different canvas dimensions, choose whether to resize the view, fit the image into it, or keep intrinsic placement. The right sidebar controls background fit and exact canvas size.
 
-Use **New** to reset, **Open** to load a previously saved project JSON, and **Save** to download the editable project. The header distinguishes the last downloaded version from unsaved work and local-draft state. New and Open offer Save, Discard, and Cancel before replacing changed work; a malformed opened file leaves the current project intact. Closing or reloading warns when changes have not yet reached local recovery storage. Exported `map.json` is structurally loadable, but it does not contain editor-only state.
+Use **New** to reset, **Open** to load a previously saved project JSON, and **Save** to download the editable project. The header distinguishes the last downloaded version from unsaved work and local-draft state. New and Open offer Save, Discard, and Cancel before replacing changed work; an unreadable or structurally malformed file leaves the current project, selection, and undo history intact and reports the failing JSON path. Repairable link errors, such as an action targeting a missing view, can still be opened and are reported on Export. Closing or reloading warns when changes have not yet reached local recovery storage. Exported `map.json` is structurally loadable, but it does not contain editor-only state.
 
 ## 2. Organize views and layers
 
