@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #123 — fix(renderer): honor browser history and cancel stale view transitions
-Branch:       fix/123-history-transitions
-Started:      2026-09-06
-Last commit:  a7ed2d1  chore: hand off #122 — done
-
-### What's done
-- Claimed the issue and reviewed its acceptance criteria.
-
-### What's next
-- Implement history ownership, transition cancellation, validation, and coverage.
-
-### Notes / gotchas
-- Preserve unrelated host history state and independent renderer instances.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-06 — closed #123 — synchronized independent browser history and made renderer transitions cancellable; PR #150.
 - 2026-09-06 — closed #122 — made inline and fetched readiness observable exactly once with abortable loading and lifecycle coverage; PR #149.
 - 2026-09-06 — closed #124 — added stable PR gates, production exported-package browser tests, failure artifacts, and renderer size enforcement; PR #148.
 - 2026-09-06 — closed #121 — exposed sanitized details on focus/touch, preserved navigation focus, and restored popup triggers across light and Shadow DOM; PR #147.
