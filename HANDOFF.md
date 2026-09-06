@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #121 — fix(renderer): expose tooltip content and navigation state to keyboard users
-Branch:       fix/121-keyboard-tooltip-focus
-Started:      2026-09-06
-Last commit:  6145e61  chore: hand off #120 — done
-
-### What's done
-- Claimed the issue and reviewed its accessibility acceptance criteria.
-
-### What's next
-- Implement and test keyboard tooltip/details access, navigation focus handoff, and announcements.
-
-### Notes / gotchas
-- The host task brief still points to already-closed #127; the live lock and backlog identify #121 as the highest-priority ready task.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-06 — closed #121 — exposed sanitized details on focus/touch, preserved navigation focus, and restored popup triggers across light and Shadow DOM; PR #147.
 - 2026-09-06 — closed #120 — completed toggle-layer runtime behavior and accessible custom-event authoring with validated payloads; PR #146.
 - 2026-09-06 — closed #119 — preserved valid initial navigation, collision-safe view identity, duplicate-local links, and explicit inbound retargeting; PR #145.
 - 2026-09-06 — closed #118 — kept project operations, hierarchy access, and the canvas usable across mobile and tablet layouts; PR #144.
