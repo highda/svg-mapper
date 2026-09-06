@@ -14,6 +14,7 @@ import type {
   Layer,
   ProjectFile,
   Settings,
+  SharedStyle,
   Tooltip,
   ValidationRef,
   View,
@@ -39,6 +40,7 @@ interface HistorySnapshot {
   views: View[];
   assets: Asset[];
   settings: Settings;
+  sharedStyles: Record<string, SharedStyle>;
 }
 
 export interface AppState {
@@ -112,6 +114,9 @@ export interface AppState {
   renameArea: (areaId: string, name: string) => void;
   updateAreaStyle: (areaId: string, style: AreaStyle) => void;
   updateAreas: (areaIds: string[], patch: { style?: AreaStyle; action?: Action }) => void;
+  createSharedStyle: (name: string, style: AreaStyle) => string;
+  updateSharedStyle: (id: string, name: string, style: AreaStyle) => void;
+  applySharedStyle: (areaIds: string[], id: string, linked: boolean) => void;
   updateAreaTooltip: (areaId: string, tooltip: Tooltip | undefined) => void;
   updateAreaAction: (areaId: string, action: Action) => void;
   updateAreaMetadata: (areaId: string, metadata: Record<string, unknown>) => void;
@@ -161,6 +166,7 @@ function snapshot(state: AppState): HistorySnapshot {
     views: current(state.project.views) as View[],
     assets: current(state.project.assets) as Asset[],
     settings: current(state.project.settings) as Settings,
+    sharedStyles: current(state.project.sharedStyles) as Record<string, SharedStyle>,
   };
 }
 
@@ -868,6 +874,43 @@ export const useStore = create<AppState>()(
         pushHistory(s);
         s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx].style =
           style as unknown as (typeof s.project.views)[0]["layers"][0]["areas"][0]["style"];
+        s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx].sharedStyleId = undefined;
+      });
+    },
+
+    createSharedStyle(name: string, style: AreaStyle) {
+      const id = `style_${Math.random().toString(36).slice(2, 10)}`;
+      set((s) => {
+        pushHistory(s);
+        s.project.sharedStyles[id] = { name, style } as typeof s.project.sharedStyles[string];
+      });
+      return id;
+    },
+
+    updateSharedStyle(id: string, name: string, style: AreaStyle) {
+      set((s) => {
+        if (!s.project.sharedStyles[id]) return;
+        pushHistory(s);
+        s.project.sharedStyles[id] = { name, style } as typeof s.project.sharedStyles[string];
+        for (const view of s.project.views) for (const layer of view.layers) for (const area of layer.areas) {
+          if (area.sharedStyleId === id) area.style = style as typeof area.style;
+        }
+      });
+    },
+
+    applySharedStyle(areaIds: string[], id: string, linked: boolean) {
+      set((s) => {
+        const preset = s.project.sharedStyles[id];
+        if (!preset) return;
+        const wanted = new Set(areaIds);
+        const areas = s.project.views.flatMap((view) => view.layers.flatMap((layer) => layer.areas))
+          .filter((area) => wanted.has(area.id));
+        if (areas.length === 0) return;
+        pushHistory(s);
+        for (const area of areas) {
+          area.style = preset.style as typeof area.style;
+          area.sharedStyleId = linked ? id : undefined;
+        }
       });
     },
 
@@ -1092,6 +1135,7 @@ export const useStore = create<AppState>()(
         s.project.views = prev.views as typeof s.project.views;
         s.project.assets = prev.assets;
         s.project.settings = prev.settings as typeof s.project.settings;
+        s.project.sharedStyles = prev.sharedStyles as typeof s.project.sharedStyles;
         s.selectedAreaId = null;
         s.selectedAreaIds = [];
         s.selectedLayerId = null;
@@ -1107,6 +1151,7 @@ export const useStore = create<AppState>()(
         s.project.views = next.views as typeof s.project.views;
         s.project.assets = next.assets;
         s.project.settings = next.settings as typeof s.project.settings;
+        s.project.sharedStyles = next.sharedStyles as typeof s.project.sharedStyles;
         s.selectedAreaId = null;
         s.selectedAreaIds = [];
         s.selectedLayerId = null;

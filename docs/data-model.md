@@ -19,7 +19,7 @@ When opening JSON, the editor decodes the complete `1.0.0` structure before repl
 | `assets` | `Asset[]` | Reusable background and foreground images or SVG markup |
 | `views` | `View[]` | Scenes containing ordered layers and areas |
 | `popups` | `Popup[]` | Legacy popup records; new popup content belongs on an area's action |
-| `sharedStyles` | object | Reserved shared-style data |
+| `sharedStyles` | object | Named `{ name, style }` presets. Applying once copies a style; linked areas also store `sharedStyleId` and follow preset updates. |
 | `customEvents` | `string[]` | Declared custom event names |
 
 ## Settings

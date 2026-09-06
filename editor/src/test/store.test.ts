@@ -64,6 +64,33 @@ describe("store: multi-selection", () => {
     useStore.getState().undo();
     expect(useStore.getState().project.views[0]!.layers[0]!.areas[1]!.style.default.fill).not.toBe("#ff0000");
   });
+
+  it("applies named styles once or keeps areas linked to preset updates", () => {
+    const first = createRectArea(10, 20, 80, 60);
+    const second = createRectArea(100, 120, 80, 60);
+    useStore.getState().addArea(first);
+    useStore.getState().addArea(second);
+    useStore.setState({ past: [], future: [] });
+
+    const blue = { ...first.style, default: { ...first.style.default, fill: "#2563eb" } };
+    const id = useStore.getState().createSharedStyle("Seats", blue);
+    useStore.getState().applySharedStyle([first.id], id, false);
+    useStore.getState().applySharedStyle([second.id], id, true);
+
+    let areas = useStore.getState().project.views[0]!.layers[0]!.areas;
+    expect(areas[0]!.sharedStyleId).toBeUndefined();
+    expect(areas[1]!.sharedStyleId).toBe(id);
+
+    const red = { ...blue, default: { ...blue.default, fill: "#dc2626" } };
+    useStore.getState().updateSharedStyle(id, "Priority seats", red);
+    areas = useStore.getState().project.views[0]!.layers[0]!.areas;
+    expect(areas[0]!.style.default.fill).toBe("#2563eb");
+    expect(areas[1]!.style.default.fill).toBe("#dc2626");
+
+    useStore.getState().undo();
+    expect(useStore.getState().project.sharedStyles[id]!.name).toBe("Seats");
+    expect(useStore.getState().project.views[0]!.layers[0]!.areas[1]!.style.default.fill).toBe("#2563eb");
+  });
 });
 
 describe("store: newProject", () => {

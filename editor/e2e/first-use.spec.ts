@@ -63,4 +63,12 @@ test("multi-selection exposes mixed values and batches style changes", async ({ 
   await expect(inspector).toContainText("Mixed styles");
   await page.getByRole("button", { name: "Apply primary style to 2 areas" }).click();
   await expect(inspector).toContainText("All selected areas share this style");
+
+  await page.getByLabel("New style preset name").fill("Availability");
+  await inspector.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByLabel("Named style preset").selectOption({ label: "Availability" });
+  await expect(page.getByLabel("Named style preset")).toHaveValue(/style_/);
+  await page.getByRole("button", { name: "Apply linked" }).click();
+  await expect(inspector).toContainText("Linked to Availability");
+  await page.getByRole("button", { name: "Update preset" }).click();
 });

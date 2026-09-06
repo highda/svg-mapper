@@ -96,6 +96,12 @@ export interface AreaStyle {
   disabled?: AreaStyleState;
 }
 
+/** A named style that can be copied once or kept linked to areas in the editor. */
+export interface SharedStyle {
+  name: string;
+  style: AreaStyle;
+}
+
 // ---------------------------------------------------------------------------
 // Action
 // ---------------------------------------------------------------------------
@@ -215,6 +221,8 @@ export interface Area {
   name: string;
   geometry: Geometry;
   style: AreaStyle;
+  /** When set, editor updates to this shared style are propagated to the area. */
+  sharedStyleId?: string;
   tooltip?: Tooltip;
   action: Action;
   accessibility?: AreaAccessibility;
@@ -425,7 +433,7 @@ export interface ClickMapDefinition {
   assets: Asset[];
   views: View[];
   popups: Popup[];
-  sharedStyles: Record<string, unknown>;
+  sharedStyles: Record<string, SharedStyle>;
   customEvents: string[];
 }
 

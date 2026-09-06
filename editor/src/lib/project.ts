@@ -151,6 +151,7 @@ function validateArea(value: unknown, path: string): void {
   validateStyleState(style.hover, `${path}.style.hover`);
   validateStyleState(style.active, `${path}.style.active`);
   optional(style.disabled, (item) => validateStyleState(item, `${path}.style.disabled`));
+  optional(area.sharedStyleId, (item) => string(item, `${path}.sharedStyleId`));
   validateAction(area.action, `${path}.action`);
   optional(area.tooltip, (item) => {
     const tooltip = object(item, `${path}.tooltip`);
@@ -358,7 +359,17 @@ function validateProjectFile(value: unknown): asserts value is ProjectFile {
     optional(popup.body, (entry) => string(entry, `${path}.body`));
     optional(popup.allowHtml, (entry) => boolean(entry, `${path}.allowHtml`));
   });
-  record(root.sharedStyles, "$.sharedStyles");
+  const sharedStyles = record(root.sharedStyles, "$.sharedStyles");
+  for (const [id, value] of Object.entries(sharedStyles)) {
+    const path = `$.sharedStyles.${id}`;
+    const preset = object(value, path);
+    string(preset.name, `${path}.name`);
+    const style = object(preset.style, `${path}.style`);
+    validateStyleState(style.default, `${path}.style.default`);
+    validateStyleState(style.hover, `${path}.style.hover`);
+    validateStyleState(style.active, `${path}.style.active`);
+    optional(style.disabled, (item) => validateStyleState(item, `${path}.style.disabled`));
+  }
   array(root.customEvents, "$.customEvents").forEach((item, index) =>
     string(item, `$.customEvents[${index}]`),
   );

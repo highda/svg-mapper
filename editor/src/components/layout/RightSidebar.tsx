@@ -1342,7 +1342,12 @@ function LabelEditor({ areaId, label }: { areaId: string; label: AreaLabel | und
 }
 
 function AreaInspector() {
-  const { selectedAreaId, selectedAreaIds, project, renameArea, updateAreaStyle, updateAreas } = useStore();
+  const { selectedAreaId, selectedAreaIds, project, renameArea, updateAreaStyle, updateAreas,
+    createSharedStyle, updateSharedStyle, applySharedStyle } = useStore();
+  const [presetName, setPresetName] = useState("");
+  const [presetId, setPresetId] = useState(() => project.views
+    .flatMap((view) => view.layers.flatMap((layer) => layer.areas))
+    .find((candidate) => candidate.id === selectedAreaId)?.sharedStyleId ?? "");
 
   if (!selectedAreaId) return null;
 
@@ -1388,6 +1393,42 @@ function AreaInspector() {
       <GeometryEditor areaId={a.id} geometry={a.geometry as unknown as { type: string }} />
 
       <SectionHeader title="Style" scope="Area" />
+      <div className="space-y-1 rounded border border-neutral-700 bg-neutral-800/60 p-2">
+        <label className="block text-[10px] text-neutral-400" htmlFor="shared-style-select">Named style preset</label>
+        <select
+          id="shared-style-select"
+          value={presetId}
+          onChange={(event) => setPresetId(event.target.value)}
+          className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-1 text-xs text-neutral-200"
+        >
+          <option value="">Choose a preset…</option>
+          {Object.entries(project.sharedStyles).map(([id, preset]) => (
+            <option key={id} value={id}>{preset.name}</option>
+          ))}
+        </select>
+        <div className="flex gap-1">
+          <input
+            aria-label="New style preset name"
+            value={presetName}
+            onChange={(event) => setPresetName(event.target.value)}
+            placeholder="Preset name"
+            className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-800 px-1.5 py-1 text-xs text-neutral-200"
+          />
+          <button type="button" disabled={!presetName.trim()} onClick={() => {
+            const id = createSharedStyle(presetName.trim(), style);
+            setPresetId(id);
+            setPresetName("");
+          }} className="rounded bg-neutral-700 px-2 text-xs text-neutral-100 disabled:opacity-40">Save</button>
+        </div>
+        {presetId && project.sharedStyles[presetId] && (
+          <div className="grid grid-cols-3 gap-1">
+            <button type="button" onClick={() => applySharedStyle(selectedAreaIds, presetId, false)} className="rounded bg-neutral-700 px-1 py-1 text-[10px] text-white">Apply once</button>
+            <button type="button" onClick={() => applySharedStyle(selectedAreaIds, presetId, true)} className="rounded bg-blue-700 px-1 py-1 text-[10px] text-white">Apply linked</button>
+            <button type="button" onClick={() => updateSharedStyle(presetId, project.sharedStyles[presetId]!.name, style)} className="rounded bg-neutral-700 px-1 py-1 text-[10px] text-white">Update preset</button>
+          </div>
+        )}
+        {a.sharedStyleId && <p className="text-[10px] text-blue-300">Linked to {project.sharedStyles[a.sharedStyleId]?.name ?? a.sharedStyleId}. Editing directly unlinks it.</p>}
+      </div>
       {selectedAreas.length > 1 && (
         <div className="rounded border border-neutral-700 bg-neutral-800/60 p-2 text-[10px] text-neutral-400">
           <p>{hasMixedStyles ? "Mixed styles. Controls show the primary area." : "All selected areas share this style."}</p>

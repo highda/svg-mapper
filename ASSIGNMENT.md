@@ -111,7 +111,9 @@ The same JSON shape is the editor's persistence format **and** the renderer's in
   "assets": [ /* Asset[] */ ],
   "views":  [ /* View[]  */ ],
   "popups": [ /* Popup[] */ ],
-  "sharedStyles": {},
+  "sharedStyles": {
+    "style_accessible": { "name": "Accessible", "style": { "default": { "fill": "#2563eb", "stroke": "#ffffff", "strokeWidth": 2 }, "hover": { "fill": "#1d4ed8", "stroke": "#ffffff", "strokeWidth": 2 }, "active": { "fill": "#1e40af", "stroke": "#ffffff", "strokeWidth": 3 } } }
+  },
   "customEvents": []
 }
 ```
