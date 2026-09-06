@@ -129,6 +129,7 @@ describe("primary editor navigation", () => {
     await user.click(screen.getByRole("button", { name: "Project" }));
     const menu = screen.getByRole("region", { name: "Project operations" });
     expect(within(menu).getByRole("button", { name: "New" })).toBeVisible();
+    expect(within(menu).getByRole("button", { name: "Samples" })).toBeVisible();
     expect(within(menu).getByRole("button", { name: "Open" })).toBeVisible();
     expect(within(menu).getByRole("button", { name: "Save" })).toBeVisible();
 
@@ -137,8 +138,29 @@ describe("primary editor navigation", () => {
     await user.click(within(menu).getByRole("button", { name: "Rename" }));
     expect(useStore.getState().project.project.name).toBe("Pocket map");
 
-    await user.click(screen.getAllByRole("button", { name: "New" })[1]);
+    await user.click(within(menu).getByRole("button", { name: "New" }));
     expect(screen.getByRole("dialog", { name: "Save changes first?" })).toBeVisible();
+  });
+
+  it("starts with an editable sample and guides the author through preview and export", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Samples" }));
+    await user.click(screen.getByRole("button", { name: /Property floors/ }));
+    if (screen.queryByRole("dialog", { name: "Save changes first?" })) {
+      await user.click(screen.getByRole("button", { name: "Discard changes" }));
+    }
+    expect(useStore.getState().project.views).toHaveLength(3);
+    expect(useStore.getState().project.views[0].layers[0].areas[0].action.type).toBe("goToView");
+    expect(screen.getByLabelText("First map checklist")).toHaveTextContent("3/5 steps");
+
+    await user.click(screen.getByRole("button", { name: "Preview" }));
+    expect(screen.getByLabelText("First map checklist")).toHaveTextContent("4/5 steps");
+    await user.click(screen.getByRole("button", { name: "Export" }));
+    expect(screen.getByLabelText("First map checklist")).toHaveTextContent("5/5 steps");
+    await user.click(screen.getByRole("button", { name: "Skip guide" }));
+    expect(screen.queryByLabelText("First map checklist")).not.toBeInTheDocument();
   });
 
   it("lets narrow-screen authors switch to the tree and dismiss the inspector", () => {

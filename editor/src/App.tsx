@@ -9,6 +9,7 @@ import { ErrorBanner } from "./components/ui/ErrorBanner";
 import { ShortcutsHelp } from "./components/ui/ShortcutsHelp";
 import { readDraft, removeDraft, type StoredDraft, writeDraft } from "./lib/draft-storage";
 import { projectSnapshot } from "./store";
+import { FirstUseGuide } from "./components/ui/FirstUseGuide";
 
 function storageError(error: unknown, fallback: string): string {
   return typeof error === "object" && error !== null && "message" in error && typeof error.message === "string"
@@ -99,6 +100,7 @@ export function App() {
   return (
     <div className="flex h-screen flex-col bg-neutral-900 text-neutral-200">
       <TopBar draftState={draftState} />
+      <FirstUseGuide />
       {draftError && (
         <div role="alert" className="bg-amber-950 px-3 py-1 text-xs text-amber-200">
           Local recovery unavailable: {draftError} Download the project to protect your work.

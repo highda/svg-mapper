@@ -57,6 +57,7 @@ generation; JPEG/SVG retain a clearly described rectangular hit area.
 
 ## Authoring and gallery path
 
+0. From **Samples**, open each bundled sample. At desktop and 390×844, edit a hotspot, test its details and cross-view navigation in Preview, return to edit, save JSON, reach Export, and dismiss the first-map checklist. Confirm no console errors.
 1. Open the QA gallery; exercise both fixtures in wide, narrow, and tall hosts.
 2. For every fit view, confirm crop/letterbox/distortion/intrinsic sizing and pointer alignment match the fixture.
 3. Exercise every geometry and action; verify the event log and console, including intentional broken/missing assets.
