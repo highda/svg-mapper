@@ -4,8 +4,20 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #124 — test: gate pull requests with checks and exported-package browser tests
+Branch:       feat/124-pr-browser-gates
+Started:      2026-09-06
+Last commit:  3f1e6f1  chore: hand off #121 — done
+
+### What's done
+- Claimed the highest-priority ready release-gating task.
+
+### What's next
+- Audit existing CI, browser fixtures, export helpers, and documented release checks.
+- Add PR checks and production exported-package browser coverage.
+
+### Notes / gotchas
+- The runtime task brief still names already-closed #127; GitHub and HANDOFF confirm no active lock, so #124 is the next p1 ready task.
 
 ---
 
