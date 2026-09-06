@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #114 — fix(renderer): resolve relative assets against the fetched definition URL
-Branch:       fix/114-relative-asset-base
-Started:      2026-09-06
-Last commit:  5338243  chore: hand off #127 — done
-
-### What's done
-- Claimed the task and confirmed the reported relative-asset base gap.
-
-### What's next
-- Define asset-base semantics, implement consistent resolution, and add renderer/export regression coverage and docs.
-
-### Notes / gotchas
-- `.codex/runtime/task-brief.md` still describes already-closed #127; GitHub and HANDOFF agree that no task was active, so the next highest-priority feasible ready task was claimed.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-06 — closed #114 — made hosted background and foreground assets resolve from fetched map URLs with explicit inline-base overrides; PR #140.
 - 2026-09-05 — closed #127 — added accessible cross-view place search, category filters, area reveal/focus, editor setup, and 1000-area coverage; PR #139.
 - 2026-09-05 — closed #137 — parked external blockers now release the serial lock so the autonomous loop continues.
 - 2026-09-05 — closed #112 — delivered bounded fitted-camera zoom, configurable controls/reset/step, and cursor-anchored modifier wheel gestures; PR #136.
