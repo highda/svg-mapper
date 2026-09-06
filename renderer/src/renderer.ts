@@ -160,6 +160,10 @@ function getInlinedCSS(): string {
 
 const managedShadowRoots = new WeakMap<HTMLElement, ShadowRoot>();
 let rendererSequence = 0;
+const HISTORY_STATE_KEY = "__clickmapViews";
+
+type ClickMapHistoryEntry = { viewId: string; stack: string[] };
+type ClickMapHistoryState = Record<string, ClickMapHistoryEntry>;
 
 // ---------------------------------------------------------------------------
 // Core renderer
@@ -170,7 +174,7 @@ class Renderer implements ClickMapInstance {
   private container: HTMLElement;
   private emitter = new Emitter();
   private destroyed = false;
-  private history: string[] = [];
+  private navigationStack: string[] = [];
   private currentViewId: string;
   private options: RendererOptions;
   private assetBaseUrl: string;
@@ -190,6 +194,7 @@ class Renderer implements ClickMapInstance {
   private shadowRoot: ShadowRoot | null = null;
   private viewStyleEl: HTMLStyleElement | null = null;
   private readonly instanceId = `clickmap-${++rendererSequence}`;
+  private transitionTimer: ReturnType<typeof setTimeout> | null = null;
 
   private ro!: ResizeObserver;
   private roTimer: ReturnType<typeof setTimeout> | null = null;
@@ -307,6 +312,10 @@ class Renderer implements ClickMapInstance {
     // Deep linking: restore from hash on load
     if (options.deepLink?.enabled) {
       this.initDeepLink();
+    }
+    if (def.settings.enableHistory) {
+      window.addEventListener("popstate", this.onPopState);
+      this.replaceOwnedHistoryState(this.currentViewId);
     }
 
     this.ro = new ResizeObserver(() => {
@@ -746,7 +755,7 @@ class Renderer implements ClickMapInstance {
     this.backBtn?.remove();
     this.backBtn = null;
 
-    if (!view.ui.showBackButton || this.history.length === 0) return;
+    if (!view.ui.showBackButton || this.navigationStack.length === 0) return;
 
     const btn = document.createElement("button");
     btn.className = "clickmap-back-btn";
@@ -1454,7 +1463,10 @@ class Renderer implements ClickMapInstance {
         if (validateActionUrl(action.href).valid) window.open(action.href, action.target);
         break;
       case "goToView":
-        this.goToView(action.targetViewId);
+        this.navigateToView(action.targetViewId, {
+          transition: action.transition ?? "fade",
+          historyMode: "push",
+        });
         break;
       case "customEvent": {
         const init: CustomEventInit = action.payload !== undefined
@@ -1752,17 +1764,31 @@ class Renderer implements ClickMapInstance {
   // Fade transition
   // -------------------------------------------------------------------------
 
-  private fade(render: () => void) {
+  private cancelTransition() {
+    if (this.transitionTimer !== null) {
+      clearTimeout(this.transitionTimer);
+      this.transitionTimer = null;
+    }
+    if (this.viewEl) {
+      this.viewEl.style.removeProperty("transition");
+      this.viewEl.style.removeProperty("opacity");
+    }
+  }
+
+  private fade(render: () => void, transition: "fade" | "none" = "fade") {
+    this.cancelTransition();
     const reduced = window.matchMedia?.(
       "(prefers-reduced-motion: reduce)"
     ).matches ?? false;
-    if (reduced) {
+    if (reduced || transition === "none") {
       render();
       return;
     }
     this.viewEl.style.transition = "opacity 0.15s ease";
     this.viewEl.style.opacity = "0";
-    setTimeout(() => {
+    this.transitionTimer = setTimeout(() => {
+      this.transitionTimer = null;
+      if (this.destroyed) return;
       render();
       this.viewEl.style.opacity = "1";
     }, 150);
@@ -1806,20 +1832,62 @@ class Renderer implements ClickMapInstance {
   }
 
   private updateDeepLinkHash(viewId: string, areaId?: string) {
-    if (!this.options.deepLink?.enabled) return;
+    const url = this.deepLinkUrl(viewId, areaId);
+    if (!url) return;
+    history.replaceState(history.state, "", url);
+  }
+
+  private deepLinkUrl(viewId: string, areaId?: string): string | null {
+    if (!this.options.deepLink?.enabled) return null;
     const view = this.def.views.find((v) => v.id === viewId);
-    if (!view) return;
+    if (!view) return null;
     const useSlug = this.options.deepLink.useSlug !== false;
     const viewSlug = (useSlug && view.slug) ? view.slug : view.id;
     const hash = areaId ? `${viewSlug}/${areaId}` : viewSlug;
-    history.replaceState(null, "", `#${hash}`);
+    return `#${hash}`;
   }
 
-  // -------------------------------------------------------------------------
-  // ClickMapInstance public API
-  // -------------------------------------------------------------------------
+  private getOwnedHistoryState(state: unknown = history.state): ClickMapHistoryState {
+    if (!state || typeof state !== "object") return {};
+    const owned = (state as Record<string, unknown>)[HISTORY_STATE_KEY];
+    if (!owned || typeof owned !== "object" || Array.isArray(owned)) return {};
+    return { ...(owned as ClickMapHistoryState) };
+  }
 
-  goToView(viewId: string) {
+  private historyStateWithView(viewId: string): Record<string, unknown> {
+    const hostState = history.state && typeof history.state === "object" && !Array.isArray(history.state)
+      ? { ...history.state as Record<string, unknown> }
+      : {};
+    return {
+      ...hostState,
+      [HISTORY_STATE_KEY]: {
+        ...this.getOwnedHistoryState(),
+        [this.instanceId]: { viewId, stack: [...this.navigationStack] },
+      },
+    };
+  }
+
+  private replaceOwnedHistoryState(viewId: string) {
+    history.replaceState(this.historyStateWithView(viewId), "", window.location.href);
+  }
+
+  private pushOwnedHistoryState(viewId: string) {
+    history.pushState(this.historyStateWithView(viewId), "", this.deepLinkUrl(viewId) ?? window.location.href);
+  }
+
+  private onPopState = (event: PopStateEvent) => {
+    if (this.destroyed || !this.def.settings.enableHistory) return;
+    const target = this.getOwnedHistoryState(event.state)[this.instanceId];
+    if (!target || !Array.isArray(target.stack)) return;
+    this.navigationStack = [...target.stack];
+    if (target.viewId === this.currentViewId) return;
+    this.navigateToView(target.viewId, { transition: "none", historyMode: "browser" });
+  };
+
+  private navigateToView(
+    viewId: string,
+    options: { transition?: "fade" | "none"; historyMode: "push" | "browser" | "none" },
+  ) {
     if (viewId === this.currentViewId) return;
     if (!this.def.views.some((view) => view.id === viewId)) {
       this.emitter.emit({ type: "error", code: "VIEW_NOT_FOUND", message: `View "${viewId}" not found` });
@@ -1828,22 +1896,30 @@ class Renderer implements ClickMapInstance {
     const active = this.getActiveElement();
     const preserveFocus = Boolean(active && (this.root.contains(active) || this.shadowRoot?.contains(active)));
     const prev = this.currentViewId;
-    this.history.push(this.currentViewId);
+    if (options.historyMode !== "browser") this.navigationStack.push(prev);
     this.currentViewId = viewId;
     this.fade(() => {
       this.renderView(viewId);
       this.focusNavigationDestination(viewId, preserveFocus);
-    });
-    this.emitter.emit({
-      type: "view:change",
-      previousViewId: prev,
-      currentViewId: viewId,
-    });
-    this.updateDeepLinkHash(viewId);
+    }, options.transition);
+    this.emitter.emit({ type: "view:change", previousViewId: prev, currentViewId: viewId });
+    if (this.def.settings.enableHistory && options.historyMode === "push") {
+      this.pushOwnedHistoryState(viewId);
+    } else if (options.historyMode !== "browser") {
+      this.updateDeepLinkHash(viewId);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // ClickMapInstance public API
+  // -------------------------------------------------------------------------
+
+  goToView(viewId: string) {
+    this.navigateToView(viewId, { transition: "fade", historyMode: "push" });
   }
 
   goBack() {
-    const prev = this.history.pop();
+    const prev = this.navigationStack.pop();
     if (prev === undefined) return;
     const active = this.getActiveElement();
     const preserveFocus = Boolean(active && (this.root.contains(active) || this.shadowRoot?.contains(active)));
@@ -1858,15 +1934,18 @@ class Renderer implements ClickMapInstance {
       previousViewId: from,
       currentViewId: prev,
     });
-    this.updateDeepLinkHash(prev);
+    if (this.def.settings.enableHistory) this.pushOwnedHistoryState(prev);
+    else this.updateDeepLinkHash(prev);
   }
 
   reset() {
-    this.history = [];
+    this.cancelTransition();
+    this.navigationStack = [];
     this.layerVisibility.clear();
     this.currentViewId = this.def.settings.initialViewId;
     this.renderView(this.currentViewId);
     this.updateDeepLinkHash(this.currentViewId);
+    if (this.def.settings.enableHistory) this.replaceOwnedHistoryState(this.currentViewId);
   }
 
   getCurrentView() {
@@ -1880,12 +1959,14 @@ class Renderer implements ClickMapInstance {
   destroy() {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.cancelTransition();
     if (this.roTimer !== null) clearTimeout(this.roTimer);
     this.ro.disconnect();
     window.removeEventListener("keydown", this.onWindowKeyDown);
     window.removeEventListener("keyup", this.onWindowKeyUp);
     window.removeEventListener("pointermove", this.onWindowPointerMove);
     window.removeEventListener("pointerup", this.onWindowPointerUp);
+    window.removeEventListener("popstate", this.onPopState);
     document.removeEventListener("click", this.onDocumentClick);
     document.removeEventListener("keydown", this.onDocumentKeyDown);
     this.svgEl.removeEventListener("wheel", this.onWheel);
