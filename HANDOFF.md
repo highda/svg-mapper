@@ -4,8 +4,20 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #125 — guide first-time authors from sample map to working export
+Branch:       feat/125-first-use-guidance
+Started:      2026-09-06
+Last commit:  ec66229  chore: hand off #123 — done
+
+### What's done
+- Claimed the task and confirmed its first-use acceptance criteria.
+
+### What's next
+- Inspect the editor's project creation, sample assets, inspector, and documentation.
+- Implement and browser-test the guided first-use flow.
+
+### Notes / gotchas
+- Keep sample projects on normal editor/import/export paths; no special renderer format.
 
 ---
 
