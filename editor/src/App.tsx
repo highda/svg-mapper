@@ -25,6 +25,7 @@ export function App() {
   const restoreDraft = useStore((s) => s.restoreDraft);
   const showChrome = screen !== "preview";
   const [showHelp, setShowHelp] = useState(false);
+  const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
   const [recoverableDraft, setRecoverableDraft] = useState<StoredDraft | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [draftState, setDraftState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -104,11 +105,19 @@ export function App() {
         </div>
       )}
       <ErrorBanner />
+      {showChrome && screen === "design" && (
+        <div className="flex min-h-11 items-center gap-2 border-b border-neutral-700 bg-neutral-900 px-2 lg:hidden" aria-label="Mobile workspace controls">
+          <button type="button" className="min-h-9 rounded bg-blue-600 px-3 text-xs font-medium text-white" aria-current="page">Canvas</button>
+          <button type="button" className="min-h-9 rounded px-3 text-xs text-neutral-300 hover:bg-neutral-800" onClick={() => setScreen("tree")}>Views &amp; layers</button>
+          <button type="button" className="ml-auto min-h-9 rounded px-3 text-xs text-neutral-300 hover:bg-neutral-800" onClick={() => setMobileInspectorOpen(true)}>Inspector</button>
+        </div>
+      )}
       <div className="flex min-h-0 flex-1">
         {showChrome && screen !== "tree" && <LeftPanel />}
         <Workspace />
-        {showChrome && <RightSidebar />}
+        {showChrome && <RightSidebar mobileOpen={mobileInspectorOpen} onMobileClose={() => setMobileInspectorOpen(false)} />}
       </div>
+      {mobileInspectorOpen && <button type="button" aria-label="Close inspector overlay" className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={() => setMobileInspectorOpen(false)} />}
       <BottomBar />
       {showHelp && <ShortcutsHelp onClose={() => setShowHelp(false)} />}
       {recoverableDraft && (
