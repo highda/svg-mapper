@@ -169,6 +169,7 @@ class Renderer implements ClickMapInstance {
   private def: ClickMapDefinition;
   private container: HTMLElement;
   private emitter = new Emitter();
+  private destroyed = false;
   private history: string[] = [];
   private currentViewId: string;
   private options: RendererOptions;
@@ -314,7 +315,11 @@ class Renderer implements ClickMapInstance {
     });
     this.ro.observe(this.container);
 
-    this.emitter.emit({ type: "ready", definition: def });
+    // Defer readiness until create() has returned so callers can subscribe on
+    // the immediately returned instance. A same-turn destroy cancels it.
+    queueMicrotask(() => {
+      if (!this.destroyed) this.emitter.emit({ type: "ready", definition: def });
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -1873,6 +1878,8 @@ class Renderer implements ClickMapInstance {
   }
 
   destroy() {
+    if (this.destroyed) return;
+    this.destroyed = true;
     if (this.roTimer !== null) clearTimeout(this.roTimer);
     this.ro.disconnect();
     window.removeEventListener("keydown", this.onWindowKeyDown);
@@ -1924,9 +1931,10 @@ class DeferredRenderer implements ClickMapInstance {
   private queue: QueuedOp[] = [];
   private emitter = new Emitter();
   private destroyed = false;
+  private abortController = new AbortController();
 
   constructor(options: RendererOptions) {
-    fetch(options.definitionUrl!)
+    fetch(options.definitionUrl!, { signal: this.abortController.signal })
       .then((r) => {
         if (!r.ok)
           throw new Error(`HTTP ${r.status} loading definition`);
@@ -1954,6 +1962,7 @@ class DeferredRenderer implements ClickMapInstance {
         this.queue = [];
       })
       .catch((err: Error) => {
+        if (this.destroyed) return;
         this.emitter.emit({
           type: "error",
           code: "LOAD_FAILED",
@@ -1982,8 +1991,11 @@ class DeferredRenderer implements ClickMapInstance {
     this.inner ? this.inner.setChoroplethData(data) : this.queue.push({ kind: "setChoroplethData", data });
   }
   destroy() {
+    if (this.destroyed) return;
     this.destroyed = true;
-    this.inner ? this.inner.destroy() : this.queue.push({ kind: "destroy" });
+    this.abortController.abort();
+    this.inner?.destroy();
+    this.queue = [];
   }
   on<T extends ClickMapEventType>(
     eventName: T,

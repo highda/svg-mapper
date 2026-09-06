@@ -45,6 +45,87 @@ function areaElement(id: string): SVGElement {
 }
 
 describe("renderer interaction model", () => {
+  it("emits inline readiness once after immediate subscription", async () => {
+    const definition = toDefinition(createNewProject());
+    const instance = create({ container: "#map", definition });
+    const ready = vi.fn();
+    instance.on("ready", ready);
+
+    expect(ready).not.toHaveBeenCalled();
+    await Promise.resolve();
+    expect(ready).toHaveBeenCalledOnce();
+    expect(ready).toHaveBeenCalledWith({ type: "ready", definition });
+    await Promise.resolve();
+    expect(ready).toHaveBeenCalledOnce();
+  });
+
+  it("honors ready unsubscription and same-turn destruction", async () => {
+    const definition = toDefinition(createNewProject());
+    const unsubscribed = vi.fn();
+    const first = create({ container: "#map", definition });
+    first.on("ready", unsubscribed);
+    first.off("ready", unsubscribed);
+
+    const destroyed = vi.fn();
+    const second = create({ container: "#map", definition });
+    second.on("ready", destroyed);
+    second.destroy();
+    await Promise.resolve();
+
+    expect(unsubscribed).not.toHaveBeenCalled();
+    expect(destroyed).not.toHaveBeenCalled();
+  });
+
+  it("emits fetched readiness after delayed loading and can be destroyed afterward", async () => {
+    const definition = toDefinition(createNewProject());
+    let resolveFetch!: (response: Response) => void;
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => { resolveFetch = resolve; })));
+    const instance = create({ container: "#map", definitionUrl: "/map.json" });
+    const ready = vi.fn();
+    instance.on("ready", ready);
+
+    resolveFetch(new Response(JSON.stringify(definition), { status: 200 }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(ready).toHaveBeenCalledOnce();
+    expect(instance.getDefinition()).toBeTruthy();
+    instance.destroy();
+    expect(document.querySelector(".clickmap-root")).toBeNull();
+  });
+
+  it("reports fetch failures to immediate subscribers", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("nope", { status: 503 })));
+    const instance = create({ container: "#map", definitionUrl: "/map.json" });
+    const error = vi.fn();
+    instance.on("error", error);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(error).toHaveBeenCalledWith({
+      type: "error",
+      code: "LOAD_FAILED",
+      message: "HTTP 503 loading definition",
+    });
+  });
+
+  it("aborts loading without construction or events when destroyed", async () => {
+    let capturedSignal: AbortSignal | undefined;
+    vi.stubGlobal("fetch", vi.fn((_url: string, init?: RequestInit) => {
+      capturedSignal = init?.signal ?? undefined;
+      return new Promise<Response>(() => {});
+    }));
+    const instance = create({ container: "#map", definitionUrl: "/map.json" });
+    const ready = vi.fn();
+    const error = vi.fn();
+    instance.on("ready", ready);
+    instance.on("error", error);
+    instance.destroy();
+    await Promise.resolve();
+
+    expect(capturedSignal?.aborted).toBe(true);
+    expect(ready).not.toHaveBeenCalled();
+    expect(error).not.toHaveBeenCalled();
+    expect(document.querySelector(".clickmap-root")).toBeNull();
+  });
+
   it("toggles same-view layers for pointer and keyboard users and reset restores authored visibility", () => {
     const project = createNewProject();
     const trigger = createRectArea(0, 0, 20, 20);

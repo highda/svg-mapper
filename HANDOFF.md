@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #122 — fix(renderer): make ready events observable for inline and fetched definitions
+Branch:       fix/122-observable-ready
+Started:      2026-09-06
+Last commit:  (claim pending)
+
+### What's done
+- Claimed the task and confirmed the readiness acceptance criteria.
+
+### What's next
+- Implement deferred, exactly-once readiness and lifecycle cancellation with tests and docs.
+
+### Notes / gotchas
+- Remove Preview's synthetic ready event after the renderer contract is reliable.
 
 ---
 
