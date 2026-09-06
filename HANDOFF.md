@@ -4,24 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #116 — feat(editor): protect unsaved work and recover local drafts
-Branch:       feat/116-draft-recovery
-Started:      2026-09-06
-Last commit:  dc7ef86  chore: claim #116 — draft recovery
-
-### What's done
-- Added dirty/download status, guarded New/Open replacement, IndexedDB draft recovery, quota/unavailable warnings, and unload protection.
-- Added recovery tests and local-only storage documentation; desktop and 390px browser paths pass.
-
-### What's next
-- Commit, push, open the PR, and merge after checks.
-
-### Notes / gotchas
-- Browser validation confirmed IndexedDB persistence, cancel retention, reload recovery, mobile dialog fit, and no console errors.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-06 — closed #116 — protected unsaved projects with guarded replacement, honest download/draft status, IndexedDB recovery, and unload warnings; PR #142.
 - 2026-09-06 — closed #115 — packaged embedded image/SVG bytes safely while preserving and disclosing external asset dependencies; PR #141.
 - 2026-09-06 — closed #114 — made hosted background and foreground assets resolve from fetched map URLs with explicit inline-base overrides; PR #140.
 - 2026-09-05 — closed #127 — added accessible cross-view place search, category filters, area reveal/focus, editor setup, and 1000-area coverage; PR #139.
