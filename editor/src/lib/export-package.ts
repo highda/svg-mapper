@@ -59,7 +59,10 @@ function attachClickMapHooks(map) {
   var subscriptions = {
     ready: function (event) { console.debug("[clickmap] ready", event); },
     error: function (event) { console.error("[clickmap] error", event); },
+    "view:leave": function (event) { console.debug("[clickmap] view left", event); },
+    "view:enter": function (event) { console.debug("[clickmap] view entered", event); },
     "view:change": function (event) { console.debug("[clickmap] view changed", event); },
+    "camera:change": function (event) { console.debug("[clickmap] camera changed", event); },
     "area:hover": function (event) { console.debug("[clickmap] area hovered", event); },
     "area:click": function (event) { console.debug("[clickmap] area clicked", event); },
     "popup:open": function (event) { console.debug("[clickmap] popup opened", event); },

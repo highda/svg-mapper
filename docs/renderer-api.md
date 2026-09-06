@@ -84,7 +84,10 @@ map.on("area:click", selected);
 | Name | Payload beyond `type` |
 | --- | --- |
 | `ready` | `definition` |
+| `view:leave` | `instanceId`, `viewId`, `nextViewId` |
+| `view:enter` | `instanceId`, `viewId` |
 | `view:change` | `previousViewId`, `currentViewId` |
+| `camera:change` | `instanceId`, `viewId`, `reason`, `viewBox: {x,y,width,height}`, `zoom` |
 | `area:hover` | `areaId`, `areaName`, optional `metadata` |
 | `area:click` | `areaId`, `areaName`, `action`, optional `metadata` |
 | `popup:open` / `popup:close` | `popupId` (the triggering area ID for inline popups) |
@@ -96,12 +99,23 @@ after `create()` and retain an unsubscribe function. Edit this trusted host-side
 file for analytics, availability panels, or other integrations; JavaScript is
 never stored in `map.json` or automatically executed from an opened editor
 project. For initial load, subscribe immediately after `create()`; `ready` fires
-once after rendering. On navigation, `view:change` fires after the current view
-ID changes. Area click fires before its action, popup open fires after the popup
+once after rendering. On navigation, `view:leave` fires before the current view
+changes, then `view:enter` and `view:change` fire after the destination has rendered.
+Lifecycle callbacks cannot synchronously start another navigation, preventing
+reentrant loops; later host actions can navigate normally. Camera changes fire
+after zoom, pan, reset, or directory reveal has updated both SVG view boxes.
+Each renderer has a stable, distinct `instanceId`; destroying it clears all
+subscriptions. Area click fires before its action, popup open fires after the popup
 is visible, and popup close fires after it is hidden and trigger focus is
 restored. A throwing callback is logged and cannot prevent other callbacks or
 renderer behavior. Call the scaffold's detach function and `destroy()` when a
 host removes an instance.
+
+Preview's **Advanced: trusted hooks** panel accepts session-only JavaScript with
+`map` and `log` arguments. Nothing runs until **Run trusted hooks** is pressed,
+and the source is neither written to the project nor executed in the editor
+document. Logs and synchronous setup errors appear in the Preview toolbar. The
+iframe remains sandboxed, but authors should still run only code they trust.
 
 A `customEvent` area action additionally dispatches a native `CustomEvent` on `window`; its configured JSON-object payload is `event.detail`. A `toggleLayer` action changes a layer in the current view and announces whether it was shown or hidden. Visibility changes survive view navigation, while `reset()` restores authored visibility; hidden layer content is absent from pointer and keyboard interaction.
 

@@ -46,6 +46,9 @@ describe("generateExportPackage", () => {
     expect(hooks).toContain("function attachClickMapHooks(map)");
     expect(hooks).toContain("map.off(name, subscriptions[name])");
     expect(hooks).toContain('"popup:close"');
+    expect(hooks).toContain('"view:enter"');
+    expect(hooks).toContain('"view:leave"');
+    expect(hooks).toContain('"camera:change"');
     expect(embed).toContain('src="/maps/my-map/hooks.js"');
     expect(embed).toContain("attachClickMapHooks(map)");
   });

@@ -511,6 +511,28 @@ export interface ClickMapViewChangeEvent {
   currentViewId: string;
 }
 
+export interface ClickMapViewEnterEvent {
+  type: "view:enter";
+  instanceId: string;
+  viewId: string;
+}
+
+export interface ClickMapViewLeaveEvent {
+  type: "view:leave";
+  instanceId: string;
+  viewId: string;
+  nextViewId: string;
+}
+
+export interface ClickMapCameraChangeEvent {
+  type: "camera:change";
+  instanceId: string;
+  viewId: string;
+  reason: "zoom" | "pan" | "reset" | "reveal";
+  viewBox: { x: number; y: number; width: number; height: number };
+  zoom: number;
+}
+
 export interface ClickMapAreaHoverEvent {
   type: "area:hover";
   areaId: string;
@@ -545,6 +567,9 @@ export interface ClickMapErrorEvent {
 export type ClickMapEvent =
   | ClickMapReadyEvent
   | ClickMapViewChangeEvent
+  | ClickMapViewEnterEvent
+  | ClickMapViewLeaveEvent
+  | ClickMapCameraChangeEvent
   | ClickMapAreaHoverEvent
   | ClickMapAreaClickEvent
   | ClickMapPopupOpenEvent

@@ -33,4 +33,8 @@ export class Emitter {
       }
     });
   }
+
+  clear(): void {
+    this.m.clear();
+  }
 }

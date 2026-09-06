@@ -216,6 +216,7 @@ class Renderer implements ClickMapInstance {
   private panStart: { x: number; y: number } | null = null;
   private panStartViewBox: { x: number; y: number; w: number; h: number } | null = null;
   private currentViewBox: { x: number; y: number; w: number; h: number } | null = null;
+  private navigationInProgress = false;
 
   // Popover state
   private openPopoverId: string | null = null;
@@ -525,6 +526,7 @@ class Renderer implements ClickMapInstance {
       const height = base.h / targetZoom;
       this.currentViewBox = { x: bounds.x + bounds.w / 2 - width / 2, y: bounds.y + bounds.h / 2 - height / 2, w: width, h: height };
       this.applyViewBox();
+      this.emitCameraChange("reveal");
       el.focus();
       this.ariaLiveEl.textContent = `${area.name}, ${view.name}`;
       this.updateDeepLinkHash(view.id, area.id);
@@ -886,6 +888,7 @@ class Renderer implements ClickMapInstance {
       h: newH,
     };
     this.applyViewBox();
+    this.emitCameraChange("zoom");
   }
 
   private resetZoom() {
@@ -897,6 +900,7 @@ class Renderer implements ClickMapInstance {
       : this.getZoomLimits(view).initial;
     this.currentViewBox = this.zoomedViewBox(base, zoom);
     this.applyViewBox();
+    this.emitCameraChange("reset");
   }
 
   private getZoomStep() {
@@ -1016,6 +1020,7 @@ class Renderer implements ClickMapInstance {
       y: this.panStartViewBox.y - dy,
     };
     this.applyViewBox();
+    this.emitCameraChange("pan");
   }
 
   private onPanEnd() {
@@ -1029,6 +1034,22 @@ class Renderer implements ClickMapInstance {
     if (!view) return false;
     const base = this.getBaseViewBox(view);
     return this.currentViewBox.w < base.w || this.currentViewBox.h < base.h;
+  }
+
+  private emitCameraChange(reason: "zoom" | "pan" | "reset" | "reveal") {
+    if (!this.currentViewBox) return;
+    const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
+    if (!view) return;
+    const base = this.getBaseViewBox(view);
+    const { x, y, w, h } = this.currentViewBox;
+    this.emitter.emit({
+      type: "camera:change",
+      instanceId: this.instanceId,
+      viewId: view.id,
+      reason,
+      viewBox: { x, y, width: w, height: h },
+      zoom: base.w / w,
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -1891,7 +1912,7 @@ class Renderer implements ClickMapInstance {
     viewId: string,
     options: { transition?: "fade" | "none"; historyMode: "push" | "browser" | "none" },
   ) {
-    if (viewId === this.currentViewId) return;
+    if (viewId === this.currentViewId || this.navigationInProgress) return;
     if (!this.def.views.some((view) => view.id === viewId)) {
       this.emitter.emit({ type: "error", code: "VIEW_NOT_FOUND", message: `View "${viewId}" not found` });
       return;
@@ -1899,13 +1920,19 @@ class Renderer implements ClickMapInstance {
     const active = this.getActiveElement();
     const preserveFocus = Boolean(active && (this.root.contains(active) || this.shadowRoot?.contains(active)));
     const prev = this.currentViewId;
+    this.navigationInProgress = true;
+    this.emitter.emit({ type: "view:leave", instanceId: this.instanceId, viewId: prev, nextViewId: viewId });
+    this.navigationInProgress = false;
     if (options.historyMode !== "browser") this.navigationStack.push(prev);
     this.currentViewId = viewId;
     this.fade(() => {
       this.renderView(viewId);
       this.focusNavigationDestination(viewId, preserveFocus);
+      this.navigationInProgress = true;
+      this.emitter.emit({ type: "view:enter", instanceId: this.instanceId, viewId });
+      this.emitter.emit({ type: "view:change", previousViewId: prev, currentViewId: viewId });
+      this.navigationInProgress = false;
     }, options.transition);
-    this.emitter.emit({ type: "view:change", previousViewId: prev, currentViewId: viewId });
     if (this.def.settings.enableHistory && options.historyMode === "push") {
       this.pushOwnedHistoryState(viewId);
     } else if (options.historyMode !== "browser") {
@@ -1922,20 +1949,23 @@ class Renderer implements ClickMapInstance {
   }
 
   goBack() {
+    if (this.navigationInProgress) return;
     const prev = this.navigationStack.pop();
     if (prev === undefined) return;
     const active = this.getActiveElement();
     const preserveFocus = Boolean(active && (this.root.contains(active) || this.shadowRoot?.contains(active)));
     const from = this.currentViewId;
+    this.navigationInProgress = true;
+    this.emitter.emit({ type: "view:leave", instanceId: this.instanceId, viewId: from, nextViewId: prev });
+    this.navigationInProgress = false;
     this.currentViewId = prev;
     this.fade(() => {
       this.renderView(prev);
       this.focusNavigationDestination(prev, preserveFocus);
-    });
-    this.emitter.emit({
-      type: "view:change",
-      previousViewId: from,
-      currentViewId: prev,
+      this.navigationInProgress = true;
+      this.emitter.emit({ type: "view:enter", instanceId: this.instanceId, viewId: prev });
+      this.emitter.emit({ type: "view:change", previousViewId: from, currentViewId: prev });
+      this.navigationInProgress = false;
     });
     if (this.def.settings.enableHistory) this.pushOwnedHistoryState(prev);
     else this.updateDeepLinkHash(prev);
@@ -1943,10 +1973,21 @@ class Renderer implements ClickMapInstance {
 
   reset() {
     this.cancelTransition();
+    const from = this.currentViewId;
+    const to = this.def.settings.initialViewId;
+    if (this.navigationInProgress) return;
+    this.navigationInProgress = true;
+    if (from !== to) this.emitter.emit({ type: "view:leave", instanceId: this.instanceId, viewId: from, nextViewId: to });
     this.navigationStack = [];
     this.layerVisibility.clear();
     this.currentViewId = this.def.settings.initialViewId;
     this.renderView(this.currentViewId);
+    if (from !== to) {
+      this.emitter.emit({ type: "view:enter", instanceId: this.instanceId, viewId: to });
+      this.emitter.emit({ type: "view:change", previousViewId: from, currentViewId: to });
+    }
+    this.emitCameraChange("reset");
+    this.navigationInProgress = false;
     this.updateDeepLinkHash(this.currentViewId);
     if (this.def.settings.enableHistory) this.replaceOwnedHistoryState(this.currentViewId);
   }
@@ -1962,6 +2003,7 @@ class Renderer implements ClickMapInstance {
   destroy() {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.navigationInProgress = false;
     this.cancelTransition();
     if (this.roTimer !== null) clearTimeout(this.roTimer);
     this.ro.disconnect();
@@ -1973,6 +2015,7 @@ class Renderer implements ClickMapInstance {
     document.removeEventListener("click", this.onDocumentClick);
     document.removeEventListener("keydown", this.onDocumentKeyDown);
     this.svgEl.removeEventListener("wheel", this.onWheel);
+    this.emitter.clear();
     if (this.shadowRoot) {
       // Shadow roots cannot be detached; clear all renderer-owned contents.
       this.shadowRoot.replaceChildren();
