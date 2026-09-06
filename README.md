@@ -2,7 +2,7 @@
 
 SVG Mapper is a browser-only editor for turning a floor plan, diagram, or map image into an accessible interactive map. Import PNG, JPEG, WebP, or SVG artwork; draw clickable areas; connect views; preview the real renderer; then download a static package that needs no application server or JavaScript framework.
 
-The editor keeps projects in memory and saves them as JSON files. It has no accounts, database, or server-side storage.
+The editor keeps a recoverable local browser draft and saves portable projects as downloaded JSON files. Drafts use IndexedDB on the current device and browser profile; they are not cloud backups. The app has no accounts or server-side storage.
 
 Try the hosted editor at **https://highda.github.io/svg-mapper/**. Every push to
 `main` deploys the project site; version tags publish downloadable editor and

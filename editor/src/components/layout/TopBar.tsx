@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { useStore, type Screen } from "../../store";
+import { projectSnapshot, useStore, type Screen } from "../../store";
 
 const SCREENS: { id: Screen; label: string }[] = [
   { id: "design", label: "Design" },
@@ -9,12 +9,13 @@ const SCREENS: { id: Screen; label: string }[] = [
   { id: "export", label: "Export" },
 ];
 
-export function TopBar() {
+export function TopBar({ draftState = "idle" }: { draftState?: "idle" | "saving" | "saved" | "error" }) {
   const { project, screen, newProject, loadProject, saveProject, setProjectName, setScreen, undo, redo, past, future } =
     useStore();
 
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
+  const [pendingAction, setPendingAction] = useState<null | { kind: "new" } | { kind: "open"; json: string }>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleNameClick() {
@@ -32,13 +33,25 @@ export function TopBar() {
     fileInputRef.current?.click();
   }
 
+  const isDirty = projectSnapshot(project) !== useStore((state) => state.savedSnapshot);
+
+  function replaceProject(action: { kind: "new" } | { kind: "open"; json: string }) {
+    if (action.kind === "new") newProject();
+    else loadProject(action.json);
+  }
+
+  function requestReplacement(action: { kind: "new" } | { kind: "open"; json: string }) {
+    if (isDirty) setPendingAction(action);
+    else replaceProject(action);
+  }
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result;
-      if (typeof text === "string") loadProject(text);
+      if (typeof text === "string") requestReplacement({ kind: "open", json: text });
     };
     reader.readAsText(file);
     e.target.value = "";
@@ -112,7 +125,7 @@ export function TopBar() {
       {/* Actions */}
       <div className="hidden items-center gap-1 lg:flex">
         <button
-          onClick={newProject}
+          onClick={() => requestReplacement({ kind: "new" })}
           className="rounded px-2 py-0.5 text-xs text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200"
         >
           New
@@ -138,6 +151,37 @@ export function TopBar() {
         className="hidden"
         onChange={handleFileChange}
       />
+      <span className={`hidden text-[10px] xl:inline ${isDirty ? "text-amber-300" : "text-neutral-500"}`}>
+        {isDirty
+          ? draftState === "saved"
+            ? "Unsaved changes · local draft saved"
+            : draftState === "saving"
+              ? "Unsaved changes · saving draft…"
+              : draftState === "error"
+                ? "Unsaved changes · draft failed"
+                : "Unsaved changes"
+          : "Downloaded version"}
+      </span>
+      {pendingAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="replace-title">
+          <div className="max-w-sm rounded-lg border border-neutral-600 bg-neutral-900 p-5 shadow-xl">
+            <h2 id="replace-title" className="font-semibold text-white">Save changes first?</h2>
+            <p className="mt-2 text-sm text-neutral-300">This will replace the current project. Your local recovery draft is not a downloaded backup.</p>
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button autoFocus className="rounded px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700" onClick={() => setPendingAction(null)}>Cancel</button>
+              <button className="rounded px-3 py-1.5 text-sm text-red-300 hover:bg-neutral-700" onClick={() => {
+                replaceProject(pendingAction);
+                setPendingAction(null);
+              }}>Discard changes</button>
+              <button className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white" onClick={() => {
+                saveProject();
+                replaceProject(pendingAction);
+                setPendingAction(null);
+              }}>Save &amp; continue</button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

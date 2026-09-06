@@ -42,6 +42,7 @@ interface HistorySnapshot {
 
 export interface AppState {
   project: ProjectFile;
+  savedSnapshot: string;
   screen: Screen;
   openError: string | null;
 
@@ -59,6 +60,7 @@ export interface AppState {
   // ── Project lifecycle ────────────────────────────────────────────────────
   newProject: () => void;
   loadProject: (json: string) => void;
+  restoreDraft: (project: ProjectFile) => void;
   saveProject: () => void;
   setProjectName: (name: string) => void;
   setEditorState: (patch: Partial<EditorState>) => void;
@@ -210,9 +212,14 @@ function uniqueProjectId(used: Set<string>, prefix: "layer" | "area"): string {
 
 const initialProject = createNewProject();
 
+export function projectSnapshot(project: ProjectFile): string {
+  return JSON.stringify(project);
+}
+
 export const useStore = create<AppState>()(
   immer((set, get) => ({
     project: initialProject,
+    savedSnapshot: projectSnapshot(initialProject),
     screen: "design",
     openError: null,
     activeTool: "select",
@@ -231,6 +238,7 @@ export const useStore = create<AppState>()(
       const p = createNewProject();
       set((s) => {
         s.project = p;
+        s.savedSnapshot = projectSnapshot(p);
         s.activeViewId = deriveActiveViewId(p);
         s.selectedAreaId = null;
         s.selectedLayerId = null;
@@ -247,6 +255,7 @@ export const useStore = create<AppState>()(
         const parsed = parseProjectFile(json);
         set((s) => {
           s.project = parsed;
+          s.savedSnapshot = projectSnapshot(parsed);
           s.activeViewId = deriveActiveViewId(parsed);
           s.selectedAreaId = null;
           s.selectedLayerId = null;
@@ -264,6 +273,20 @@ export const useStore = create<AppState>()(
       }
     },
 
+    restoreDraft(project: ProjectFile) {
+      set((s) => {
+        s.project = project;
+        s.savedSnapshot = "";
+        s.activeViewId = deriveActiveViewId(project);
+        s.selectedAreaId = null;
+        s.selectedLayerId = null;
+        s.activeTool = "select";
+        s.past = [];
+        s.future = [];
+        s.openError = null;
+      });
+    },
+
     saveProject() {
       const { project } = get();
       const content = serializeProjectFile(project);
@@ -272,6 +295,9 @@ export const useStore = create<AppState>()(
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, "");
       downloadJson(`${slug || "map"}.json`, content);
+      set((s) => {
+        s.savedSnapshot = projectSnapshot(s.project);
+      });
     },
 
     setProjectName(name: string) {
