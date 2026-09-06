@@ -7,6 +7,7 @@ The Export screen validates the current project before packaging it. Errors disa
 | File | Purpose |
 | --- | --- |
 | `map.json` | Renderer-ready definition; editor-only state is removed |
+| `hooks.js` | Optional editable host-side lifecycle callback scaffold |
 | `clickmap-renderer.js` | Dependency-free IIFE exposing `ClickMapRenderer` |
 | `clickmap-renderer.css` | Default styles for light-DOM embeds |
 | `index.html` | Self-contained demonstration with definition, script, and CSS embedded |

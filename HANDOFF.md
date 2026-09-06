@@ -4,8 +4,22 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #130 — expose configurable JavaScript hooks for map, view and area lifecycle
+Branch:       feat/130-javascript-hooks
+Started:      2026-09-06
+Last commit:  2be751d  feat: scaffold trusted lifecycle hooks
+
+### What's done
+- Claimed the task and confirmed prerequisite #122 is complete.
+- Added an exported `hooks.js` scaffold, safe attach/detach wiring, callback exception isolation, and missing popup lifecycle emissions.
+- Documented event ordering and the trusted-code boundary; editor checks pass (276 tests).
+
+### What's next
+- Add view enter/leave and camera-change events with stable context.
+- Add explicit trusted-hook Preview controls/logging, teardown/two-instance coverage, and browser validation.
+
+### Notes / gotchas
+- Author-authored code must never auto-run in the editor origin; Preview needs an explicit trusted-code run control.
 
 ---
 

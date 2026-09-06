@@ -18,10 +18,11 @@ const WIDTHS: { id: PreviewWidth; label: string }[] = [
 
 interface PreviewMessage {
   source?: string;
-  kind?: "event" | "url";
+  kind?: "event" | "url" | "hook-log" | "hook-error";
   event?: { type: string; currentViewId?: string; areaName?: string; message?: string };
   href?: string;
   blocked?: boolean;
+  message?: string;
 }
 
 export function PreviewScreen() {
@@ -31,6 +32,10 @@ export function PreviewScreen() {
   const [blockUrls, setBlockUrls] = useState(true);
   const [currentViewId, setCurrentViewId] = useState<string | null>(null);
   const [lastEvent, setLastEvent] = useState<string>("—");
+  const [showHooks, setShowHooks] = useState(false);
+  const [hookCode, setHookCode] = useState('map.on("area:click", event => log(`Clicked ${event.areaName}`));');
+  const [activeHookCode, setActiveHookCode] = useState("");
+  const [hookLogs, setHookLogs] = useState<string[]>([]);
 
   const srcdoc = useMemo(
     () =>
@@ -39,15 +44,22 @@ export function PreviewScreen() {
         rendererJs,
         rendererCss,
         blockUrls,
+        hookCode: activeHookCode,
       }),
-    [project, blockUrls],
+    [project, blockUrls, activeHookCode],
   );
 
   useEffect(() => {
     function onMessage(e: MessageEvent) {
       const msg = e.data as PreviewMessage;
       if (!msg || msg.source !== PREVIEW_MESSAGE_SOURCE) return;
-      if (msg.kind === "url") {
+      if (msg.kind === "hook-log") {
+        setHookLogs((logs) => [...logs.slice(-4), msg.message ?? ""]);
+        setLastEvent(`hook: ${msg.message ?? ""}`);
+      } else if (msg.kind === "hook-error") {
+        setHookLogs((logs) => [...logs.slice(-4), `Error: ${msg.message ?? ""}`]);
+        setLastEvent(`hook error: ${msg.message ?? ""}`);
+      } else if (msg.kind === "url") {
         setLastEvent(
           msg.blocked ? `URL blocked: ${msg.href}` : `URL opened: ${msg.href}`,
         );
@@ -77,7 +89,7 @@ export function PreviewScreen() {
   return (
     <main className="flex min-w-0 flex-1 flex-col bg-neutral-800" data-testid="preview-screen">
       {/* Preview toolbar */}
-      <div className="flex items-center gap-3 border-b border-neutral-700 bg-neutral-900 px-3 py-1.5">
+      <div className="flex flex-wrap items-center gap-3 border-b border-neutral-700 bg-neutral-900 px-3 py-1.5">
         <div className="flex gap-0.5">
           {WIDTHS.map((w) => (
             <button
@@ -104,6 +116,15 @@ export function PreviewScreen() {
           Block outbound URLs
         </label>
 
+        <button
+          type="button"
+          onClick={() => setShowHooks((shown) => !shown)}
+          className="rounded px-2 py-0.5 text-xs text-neutral-300 hover:bg-neutral-700"
+          aria-expanded={showHooks}
+        >
+          Advanced: trusted hooks
+        </button>
+
         <div className="ml-auto flex items-center gap-3 text-xs text-neutral-500">
           <span>
             View: <span className="text-neutral-300">{viewName}</span>
@@ -113,6 +134,33 @@ export function PreviewScreen() {
           </span>
         </div>
       </div>
+
+      {showHooks && (
+        <div className="flex items-start gap-2 border-b border-amber-800/60 bg-neutral-900 px-3 py-2">
+          <label className="min-w-0 flex-1 text-xs text-amber-100">
+            Trusted JavaScript (Preview session only; never saved)
+            <textarea
+              value={hookCode}
+              onChange={(event) => setHookCode(event.target.value)}
+              rows={3}
+              spellCheck={false}
+              className="mt-1 block w-full resize-y rounded border border-neutral-700 bg-neutral-950 p-2 font-mono text-xs text-neutral-200"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => { setHookLogs([]); setActiveHookCode(hookCode); }}
+            className="mt-5 rounded bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-500"
+          >
+            Run trusted hooks
+          </button>
+        </div>
+      )}
+      {showHooks && hookLogs.length > 0 && (
+        <div className="border-b border-neutral-700 bg-neutral-950 px-3 py-1 font-mono text-xs text-neutral-300" role="log" aria-label="Hook log">
+          {hookLogs.map((entry, index) => <div key={`${index}-${entry}`}>{entry}</div>)}
+        </div>
+      )}
 
       {/* Iframe stage */}
       <div className="flex min-h-0 flex-1 justify-center overflow-auto p-4">

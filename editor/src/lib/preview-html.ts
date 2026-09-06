@@ -13,6 +13,8 @@ export interface PreviewHtmlOptions {
   rendererJs: string;
   rendererCss: string;
   blockUrls: boolean;
+  /** Explicitly trusted, session-only JavaScript. Never sourced from project JSON. */
+  hookCode?: string;
 }
 
 export function buildPreviewHtml(opts: PreviewHtmlOptions): string {
@@ -43,6 +45,7 @@ html, body { margin: 0; height: 100%; background: #262626; }
 (function () {
   var DEFINITION = ${serializeJsonForScript(opts.definition)};
   var BLOCK_URLS = ${opts.blockUrls ? "true" : "false"};
+  var TRUSTED_HOOK_CODE = ${serializeJsonForScript(opts.hookCode ?? "")};
 
   function post(payload) {
     parent.postMessage(Object.assign({ source: "${PREVIEW_MESSAGE_SOURCE}" }, payload), "*");
@@ -68,10 +71,19 @@ html, body { margin: 0; height: 100%; background: #262626; }
   };
 
   var map = ClickMapRenderer.create({ container: "#map", definition: DEFINITION });
-  ["ready", "view:change", "area:hover", "area:click", "popup:open", "popup:close", "error"]
+  ["ready", "view:leave", "view:enter", "view:change", "camera:change", "area:hover", "area:click", "popup:open", "popup:close", "error"]
     .forEach(function (t) {
       map.on(t, function (e) { post({ kind: "event", event: e }); });
     });
+  if (TRUSTED_HOOK_CODE) {
+    try {
+      Function("map", "log", '"use strict";\\n' + TRUSTED_HOOK_CODE)(map, function (message) {
+        post({ kind: "hook-log", message: String(message) });
+      });
+    } catch (error) {
+      post({ kind: "hook-error", message: error && error.message ? error.message : String(error) });
+    }
+  }
 })();
 </script>
 </body>

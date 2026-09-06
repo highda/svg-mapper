@@ -356,6 +356,63 @@ describe("renderer interaction model", () => {
     expect(document.querySelector<HTMLElement>(".clickmap-view")?.style.opacity).toBe("");
   });
 
+  it("orders view lifecycle hooks, blocks reentrant navigation, and isolates instances", () => {
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true })));
+    document.body.innerHTML = '<div id="map-a"></div><div id="map-b"></div>';
+    const project = createNewProject();
+    const initial = project.views[0].id;
+    project.views.push({ ...structuredClone(project.views[0]), id: "view_second", name: "Second", slug: "second" });
+    const first = create({ container: "#map-a", definition: toDefinition(project) });
+    const second = create({ container: "#map-b", definition: toDefinition(project) });
+    const events: string[] = [];
+    const leave = vi.fn((event) => {
+      events.push(`${event.type}:${event.viewId}`);
+      first.goToView(initial);
+    });
+    const enter = vi.fn((event) => events.push(`${event.type}:${event.viewId}`));
+    const foreignEnter = vi.fn();
+    first.on("view:leave", leave);
+    first.on("view:enter", enter);
+    second.on("view:enter", foreignEnter);
+
+    first.goToView("view_second");
+
+    expect(events).toEqual([`view:leave:${initial}`, "view:enter:view_second"]);
+    expect(first.getCurrentView()).toBe("view_second");
+    expect(foreignEnter).not.toHaveBeenCalled();
+    expect(leave.mock.calls[0]?.[0].instanceId).toMatch(/^clickmap-/);
+    expect(enter.mock.calls[0]?.[0].instanceId).toBe(leave.mock.calls[0]?.[0].instanceId);
+    first.off("view:enter", enter);
+    first.goBack();
+    expect(enter).toHaveBeenCalledOnce();
+    first.destroy();
+    second.destroy();
+  });
+
+  it("emits stable camera payloads for zoom and reset", () => {
+    const project = createNewProject();
+    project.settings.zoomControls = { enabled: true, position: "top-right", step: 0.5, resetBehavior: "initial" };
+    project.views[0].viewport.zoomEnabled = true;
+    project.views[0].viewport.minZoom = 1;
+    project.views[0].viewport.maxZoom = 4;
+    const instance = create({ container: "#map", definition: toDefinition(project) });
+    const camera = vi.fn();
+    instance.on("camera:change", camera);
+
+    document.querySelector<HTMLButtonElement>(".clickmap-zoom-in")?.click();
+    document.querySelector<HTMLButtonElement>(".clickmap-zoom-reset")?.click();
+
+    expect(camera).toHaveBeenCalledTimes(2);
+    expect(camera.mock.calls[0]?.[0]).toMatchObject({
+      type: "camera:change",
+      viewId: project.views[0].id,
+      reason: "zoom",
+      zoom: 1.5,
+    });
+    expect(camera.mock.calls[0]?.[0].instanceId).toMatch(/^clickmap-/);
+    expect(camera.mock.calls[0]?.[0].viewBox).toEqual(expect.objectContaining({ width: expect.any(Number) }));
+  });
+
   it("owns browser history per instance while preserving host state", () => {
     vi.useFakeTimers();
     document.body.innerHTML = '<div id="map-a"></div><div id="map-b"></div>';

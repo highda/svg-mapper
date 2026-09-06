@@ -42,6 +42,21 @@ describe("buildPreviewHtml", () => {
     );
   });
 
+  it("runs only explicitly supplied session hooks and escapes their script context", () => {
+    const def = toDefinition(createNewProject());
+    const dormant = buildPreviewHtml({ ...base, definition: def, blockUrls: true });
+    expect(dormant).toContain('var TRUSTED_HOOK_CODE = ""');
+    const active = buildPreviewHtml({
+      ...base,
+      definition: def,
+      blockUrls: true,
+      hookCode: 'log("</script><script>bad()</script>")',
+    });
+    expect(active).not.toContain('</script><script>bad()');
+    expect(active).toContain('log(\\"\\u003c/script>\\u003cscript>bad()\\u003c/script>\\")');
+    expect(active).toContain('kind: "hook-error"');
+  });
+
   it("escapes every less-than character in script-context JSON", () => {
     const project = createNewProject();
     project.project.name = 'x</ScRiPt ><script>alert(1)</script><b>rich</b>';

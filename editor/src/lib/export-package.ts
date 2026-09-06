@@ -54,6 +54,27 @@ function serializeJsString(value: string): string {
   return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
+const HOOKS_SCAFFOLD = `/* Trusted host-side lifecycle hooks. */
+function attachClickMapHooks(map) {
+  var subscriptions = {
+    ready: function (event) { console.debug("[clickmap] ready", event); },
+    error: function (event) { console.error("[clickmap] error", event); },
+    "view:leave": function (event) { console.debug("[clickmap] view left", event); },
+    "view:enter": function (event) { console.debug("[clickmap] view entered", event); },
+    "view:change": function (event) { console.debug("[clickmap] view changed", event); },
+    "camera:change": function (event) { console.debug("[clickmap] camera changed", event); },
+    "area:hover": function (event) { console.debug("[clickmap] area hovered", event); },
+    "area:click": function (event) { console.debug("[clickmap] area clicked", event); },
+    "popup:open": function (event) { console.debug("[clickmap] popup opened", event); },
+    "popup:close": function (event) { console.debug("[clickmap] popup closed", event); }
+  };
+  Object.keys(subscriptions).forEach(function (name) { map.on(name, subscriptions[name]); });
+  return function detachClickMapHooks() {
+    Object.keys(subscriptions).forEach(function (name) { map.off(name, subscriptions[name]); });
+  };
+}
+`;
+
 // Derive a safe filename slug from an asset name, deduplicating with a counter map.
 function assetExtension(type: string): string {
   const mime = type.toLowerCase().split(";", 1)[0];
@@ -89,13 +110,15 @@ function buildEmbedSnippet(options: ReturnType<typeof resolvedOptions>): string 
 
 <link rel="stylesheet" href="${htmlBasePath}/clickmap-renderer.css">
 <script src="${htmlBasePath}/clickmap-renderer.js"></script>
+<script src="${htmlBasePath}/hooks.js"></script>
 <script>
-  ClickMapRenderer.create({
+  var map = ClickMapRenderer.create({
     container: ${selector},
     definitionUrl: ${serializeJsString(`${basePath}/map.json`)},
     // shadowDom: true, // Optional: isolate the map from host-page CSS.
     // css: ".clickmap-root { /* custom overrides */ }", // Shadow mode only.
   });
+  attachClickMapHooks(map); // Optional; edit hooks.js or remove this line.
 </script>`;
 }
 
@@ -128,8 +151,12 @@ ${rendererCss}
 ${rendererJs}
   </script>
   <script>
+${HOOKS_SCAFFOLD}
+  </script>
+  <script>
     var definition = ${safeJson};
-    ClickMapRenderer.create({ container: "#clickmap", definition: definition });
+    var map = ClickMapRenderer.create({ container: "#clickmap", definition: definition });
+    attachClickMapHooks(map);
   </script>
 </body>
 </html>`;
@@ -150,13 +177,15 @@ function buildEmbedHtml(options: ReturnType<typeof resolvedOptions>): string {
 
 <!-- Before </body>: -->
 <script src="${htmlBasePath}/clickmap-renderer.js"></script>
+<script src="${htmlBasePath}/hooks.js"></script>
 <script>
-  ClickMapRenderer.create({
+  var map = ClickMapRenderer.create({
     container: ${selector},
     definitionUrl: ${serializeJsString(`${basePath}/map.json`)},
     // shadowDom: true, // Optional: isolate the map from host-page CSS.
     // css: ".clickmap-root { /* custom overrides */ }", // Shadow mode only.
   });
+  attachClickMapHooks(map); // Optional; edit hooks.js or remove this line.
 </script>`;
 }
 
@@ -174,6 +203,7 @@ CONTENTS
   map.json             Map definition (do not rename)
   clickmap-renderer.js Renderer script (do not rename)
   clickmap-renderer.css Renderer styles (do not rename)
+  hooks.js             Editable trusted lifecycle hook scaffold
   assets/              Image and SVG files referenced by the map
 
 EXTERNAL ASSET DEPENDENCIES
@@ -210,6 +240,11 @@ Container has no height
 Multiple instances per page
   Call ClickMapRenderer.create() once per container. Each call returns an
   independent instance; they do not share state.
+
+Lifecycle hooks
+  Edit hooks.js to integrate analytics or host UI. Hook exceptions are isolated
+  by the renderer. Call its returned detach function before removing a long-lived
+  integration. Never paste untrusted project content into hooks.js.
 
 SUPPORTED BROWSERS
 ------------------
@@ -305,6 +340,7 @@ export function generateExportPackage(
   files["map.json"] = strToU8(mapJson);
   files["clickmap-renderer.js"] = strToU8(rendererJs);
   files["clickmap-renderer.css"] = strToU8(rendererCss);
+  files["hooks.js"] = strToU8(HOOKS_SCAFFOLD);
   files["embed.html"] = strToU8(buildEmbedHtml(resolved));
   files["index.html"] = strToU8(
     buildIndexHtml(exportedDefinition, rendererJs, rendererCss),
