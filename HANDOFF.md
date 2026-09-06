@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #120 — Complete toggle-layer and custom-event action authoring
+Branch:       feat/120-action-authoring
+Started:      2026-09-06
+Last commit:  (claim checkpoint pending)
+
+### What's done
+- Claimed the task after confirming the host task brief points to already-closed #127.
+
+### What's next
+- Implement and verify toggle-layer runtime behavior and both action-authoring variants.
+
+### Notes / gotchas
+- Preserve imported action variants faithfully and cover missing targets and invalid JSON.
 
 ---
 
