@@ -7,7 +7,7 @@
 Issue:        #126 — feat(editor): add multi-selection and reusable styles for repeated map regions
 Branch:       feat/126-multi-selection-styles
 Started:      2026-09-06
-Last commit:  142c01d  feat: add tree range and keyboard selection
+Last commit:  75d1c49  feat: batch selected area styles and actions
 
 ### What's done
 - Added synchronized multi-area selection state with Shift toggling in the canvas and tree.
@@ -16,10 +16,12 @@ Last commit:  142c01d  feat: add tree range and keyboard selection
 - Added unit coverage and browser-validated a two-area selection with a clean console.
 - Added contiguous Shift ranges plus arrow, Enter, Space, and modifier-key selection in the tree.
 - Covered tree selection with unit tests and a production-build Playwright golden path.
+- Surfaced mixed styles/actions and added one-step batch application from the primary area.
+- Covered preservation of names, geometry, and metadata plus undo and browser behavior.
 
 ### What's next
-- Add mixed inspector values and batch style/action edits as single undo steps.
-- Add named style presets, align/distribute, and group move/duplicate; finish 100-region and persistence/export coverage.
+- Add named style presets with apply-once and linked-update semantics.
+- Add align/distribute and group move/duplicate; finish 100-region and persistence/export coverage.
 
 ### Notes / gotchas
 - `selectedAreaId` remains the primary/last-selected compatibility field; `selectedAreaIds` is the ordered full selection.
