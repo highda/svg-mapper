@@ -72,8 +72,10 @@ export function Canvas() {
     activeViewId,
     activeTool,
     selectedAreaId,
+    selectedAreaIds,
     setActiveTool,
     setSelectedAreaId,
+    toggleSelectedAreaId,
     addArea,
     deleteArea,
     duplicateArea,
@@ -376,6 +378,10 @@ export function Canvas() {
     const sp = svgPoint(e, svg);
     const cp = toContent(sp);
 
+    if (e.shiftKey) {
+      toggleSelectedAreaId(areaId);
+      return;
+    }
     setSelectedAreaId(areaId);
 
     // Find the area geometry for drag baseline
@@ -700,7 +706,7 @@ export function Canvas() {
                   <AreaShape
                     key={area.id}
                     area={area}
-                    selected={selectedAreaId === area.id}
+                    selected={selectedAreaIds.includes(area.id)}
                     zoom={zoom}
                     onPointerDown={onAreaPointerDown}
                     onHandlePointerDown={onHandlePointerDown}

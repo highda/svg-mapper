@@ -50,6 +50,7 @@ export interface AppState {
   // Design screen
   activeTool: Tool;
   selectedAreaId: string | null;
+  selectedAreaIds: string[];
   selectedLayerId: string | null;
   activeViewId: string;
 
@@ -72,6 +73,7 @@ export interface AppState {
   // ── Design screen ────────────────────────────────────────────────────────
   setActiveTool: (tool: Tool) => void;
   setSelectedAreaId: (id: string | null) => void;
+  toggleSelectedAreaId: (id: string) => void;
   setSelectedLayerId: (id: string | null) => void;
   setActiveViewId: (id: string) => void;
 
@@ -248,6 +250,7 @@ export const useStore = create<AppState>()(
     openError: null,
     activeTool: "select",
     selectedAreaId: null,
+    selectedAreaIds: [],
     selectedLayerId: null,
     activeViewId: deriveActiveViewId(initialProject),
     past: [],
@@ -265,6 +268,7 @@ export const useStore = create<AppState>()(
         s.savedSnapshot = projectSnapshot(p);
         s.activeViewId = deriveActiveViewId(p);
         s.selectedAreaId = null;
+        s.selectedAreaIds = [];
         s.selectedLayerId = null;
         s.activeTool = "select";
         s.past = [];
@@ -282,6 +286,7 @@ export const useStore = create<AppState>()(
           s.savedSnapshot = projectSnapshot(parsed);
           s.activeViewId = deriveActiveViewId(parsed);
           s.selectedAreaId = null;
+          s.selectedAreaIds = [];
           s.selectedLayerId = null;
           s.activeTool = "select";
           s.past = [];
@@ -303,6 +308,7 @@ export const useStore = create<AppState>()(
         s.savedSnapshot = "";
         s.activeViewId = deriveActiveViewId(project);
         s.selectedAreaId = null;
+        s.selectedAreaIds = [];
         s.selectedLayerId = null;
         s.activeTool = "select";
         s.past = [];
@@ -368,21 +374,39 @@ export const useStore = create<AppState>()(
     setActiveTool(tool: Tool) {
       set((s) => {
         s.activeTool = tool;
-        if (tool !== "select") s.selectedAreaId = null;
+        if (tool !== "select") {
+          s.selectedAreaId = null;
+          s.selectedAreaIds = [];
+        }
       });
     },
 
     setSelectedAreaId(id: string | null) {
       set((s) => {
         s.selectedAreaId = id;
+        s.selectedAreaIds = id === null ? [] : [id];
         if (id !== null) s.selectedLayerId = null;
+      });
+    },
+
+    toggleSelectedAreaId(id: string) {
+      set((s) => {
+        const selected = s.selectedAreaIds.includes(id)
+          ? s.selectedAreaIds.filter((candidate) => candidate !== id)
+          : [...s.selectedAreaIds, id];
+        s.selectedAreaIds = selected;
+        s.selectedAreaId = selected.at(-1) ?? null;
+        if (selected.length > 0) s.selectedLayerId = null;
       });
     },
 
     setSelectedLayerId(id: string | null) {
       set((s) => {
         s.selectedLayerId = id;
-        if (id !== null) s.selectedAreaId = null;
+        if (id !== null) {
+          s.selectedAreaId = null;
+          s.selectedAreaIds = [];
+        }
       });
     },
 
@@ -390,6 +414,7 @@ export const useStore = create<AppState>()(
       set((s) => {
         s.activeViewId = id;
         s.selectedAreaId = null;
+        s.selectedAreaIds = [];
         s.selectedLayerId = null;
       });
     },
@@ -505,6 +530,7 @@ export const useStore = create<AppState>()(
           },
         });
         s.selectedAreaId = id;
+        s.selectedAreaIds = [id];
         s.selectedLayerId = null;
         s.activeTool = "select";
       });
@@ -524,6 +550,7 @@ export const useStore = create<AppState>()(
         s.project.views.push(view);
         s.activeViewId = view.id;
         s.selectedAreaId = null;
+        s.selectedAreaIds = [];
         s.selectedLayerId = null;
       });
     },
@@ -561,6 +588,7 @@ export const useStore = create<AppState>()(
         s.project.views.splice(idx + 1, 0, copy as (typeof s.project.views)[0]);
         s.activeViewId = copy.id;
         s.selectedAreaId = null;
+        s.selectedAreaIds = [];
         s.selectedLayerId = null;
       });
     },
@@ -621,6 +649,7 @@ export const useStore = create<AppState>()(
           s.activeViewId = nextView?.id ?? s.project.views[0].id;
         }
         s.selectedAreaId = null;
+        s.selectedAreaIds = [];
         s.selectedLayerId = null;
       });
     },
@@ -661,6 +690,7 @@ export const useStore = create<AppState>()(
         view.layers.push(layer);
         s.selectedLayerId = layer.id;
         s.selectedAreaId = null;
+        s.selectedAreaIds = [];
       });
     },
 
@@ -690,6 +720,7 @@ export const useStore = create<AppState>()(
         s.activeViewId = s.project.views[loc.viewIdx].id;
         s.selectedLayerId = copy.id;
         s.selectedAreaId = null;
+        s.selectedAreaIds = [];
       });
     },
 
@@ -781,6 +812,7 @@ export const useStore = create<AppState>()(
           view.layers[0];
         targetLayer.areas.push(area);
         s.selectedAreaId = area.id;
+        s.selectedAreaIds = [area.id];
         s.selectedLayerId = null;
         s.activeTool = "select";
       });
@@ -901,7 +933,8 @@ export const useStore = create<AppState>()(
         if (!loc) return;
         pushHistory(s);
         s.project.views[loc.viewIdx].layers[loc.layerIdx].areas.splice(loc.areaIdx, 1);
-        if (s.selectedAreaId === areaId) s.selectedAreaId = null;
+        s.selectedAreaIds = s.selectedAreaIds.filter((id) => id !== areaId);
+        if (s.selectedAreaId === areaId) s.selectedAreaId = s.selectedAreaIds.at(-1) ?? null;
       });
     },
 
@@ -926,6 +959,7 @@ export const useStore = create<AppState>()(
         pushHistory(s);
         s.project.views[loc.viewIdx].layers[loc.layerIdx].areas.splice(loc.areaIdx + 1, 0, duped);
         s.selectedAreaId = duped.id;
+        s.selectedAreaIds = [duped.id];
         s.selectedLayerId = null;
       });
     },
@@ -970,6 +1004,7 @@ export const useStore = create<AppState>()(
         const [area] = sourceLayer.areas.splice(source.areaIdx, 1);
         targetLayer.areas.splice(insertion, 0, area);
         s.selectedAreaId = area.id;
+        s.selectedAreaIds = [area.id];
         s.selectedLayerId = null;
         s.activeViewId = s.project.views[target.viewIdx].id;
         result = "moved";
@@ -1013,6 +1048,7 @@ export const useStore = create<AppState>()(
         pushHistory(s);
         layers[0].areas.push(pasted as (typeof layers)[0]["areas"][0]);
         s.selectedAreaId = pasted.id;
+        s.selectedAreaIds = [pasted.id];
         s.selectedLayerId = null;
       });
     },
@@ -1028,6 +1064,7 @@ export const useStore = create<AppState>()(
         s.project.assets = prev.assets;
         s.project.settings = prev.settings as typeof s.project.settings;
         s.selectedAreaId = null;
+        s.selectedAreaIds = [];
         s.selectedLayerId = null;
         s.historyVersion += 1;
       });
@@ -1042,6 +1079,7 @@ export const useStore = create<AppState>()(
         s.project.assets = next.assets;
         s.project.settings = next.settings as typeof s.project.settings;
         s.selectedAreaId = null;
+        s.selectedAreaIds = [];
         s.selectedLayerId = null;
         s.historyVersion += 1;
       });
@@ -1072,12 +1110,15 @@ export const useStore = create<AppState>()(
         }
         if (ref.areaId) {
           s.selectedAreaId = ref.areaId;
+          s.selectedAreaIds = [ref.areaId];
           s.selectedLayerId = null;
         } else if (ref.layerId) {
           s.selectedLayerId = ref.layerId;
           s.selectedAreaId = null;
+          s.selectedAreaIds = [];
         } else {
           s.selectedAreaId = null;
+          s.selectedAreaIds = [];
           s.selectedLayerId = null;
         }
       });

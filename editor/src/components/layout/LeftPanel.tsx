@@ -46,8 +46,8 @@ function InlineRename({
 // ---------------------------------------------------------------------------
 
 function AreaRow({ areaId, name, layerId, targetIndex, locked, onMoveMessage }: { areaId: string; name: string; layerId: string; targetIndex: number; locked: boolean; onMoveMessage: (message: string) => void }) {
-  const { selectedAreaId, setSelectedAreaId, reorderArea, moveAreaToLayer, project } = useStore();
-  const selected = selectedAreaId === areaId;
+  const { selectedAreaIds, setSelectedAreaId, toggleSelectedAreaId, reorderArea, moveAreaToLayer, project } = useStore();
+  const selected = selectedAreaIds.includes(areaId);
   const [dragOver, setDragOver] = useState(false);
 
   return (
@@ -75,7 +75,7 @@ function AreaRow({ areaId, name, layerId, targetIndex, locked, onMoveMessage }: 
         const result = moveAreaToLayer(movedAreaId, layerId, targetIndex);
         onMoveMessage(result === "moved" ? `Area moved before ${name}.` : result === "locked" ? "Layer is locked." : "Area could not be moved.");
       }}
-      onClick={() => setSelectedAreaId(areaId)}
+      onClick={(event) => event.shiftKey ? toggleSelectedAreaId(areaId) : setSelectedAreaId(areaId)}
       className={`flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-xs ${dragOver ? locked ? "ring-1 ring-red-500" : "ring-1 ring-blue-400" : ""} ${
         selected
           ? "bg-blue-600 text-white"

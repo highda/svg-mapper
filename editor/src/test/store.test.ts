@@ -3,8 +3,32 @@ import { useStore } from "../store";
 import { serializeProjectFile, createNewProject } from "../lib/project";
 
 function resetStore() {
-  useStore.setState({ project: createNewProject(), openError: null, screen: "design" });
+  useStore.setState({ project: createNewProject(), openError: null, screen: "design", selectedAreaId: null, selectedAreaIds: [] });
 }
+
+describe("store: multi-selection", () => {
+  beforeEach(resetStore);
+
+  it("toggles additive area selection while keeping the last selected area primary", () => {
+    const store = useStore.getState();
+    store.setSelectedAreaId("area_one");
+    useStore.getState().toggleSelectedAreaId("area_two");
+    expect(useStore.getState().selectedAreaIds).toEqual(["area_one", "area_two"]);
+    expect(useStore.getState().selectedAreaId).toBe("area_two");
+
+    useStore.getState().toggleSelectedAreaId("area_two");
+    expect(useStore.getState().selectedAreaIds).toEqual(["area_one"]);
+    expect(useStore.getState().selectedAreaId).toBe("area_one");
+  });
+
+  it("clears all selected areas when a layer is selected", () => {
+    useStore.getState().setSelectedAreaId("area_one");
+    useStore.getState().toggleSelectedAreaId("area_two");
+    useStore.getState().setSelectedLayerId("layer_one");
+    expect(useStore.getState().selectedAreaIds).toEqual([]);
+    expect(useStore.getState().selectedAreaId).toBeNull();
+  });
+});
 
 describe("store: newProject", () => {
   beforeEach(resetStore);
