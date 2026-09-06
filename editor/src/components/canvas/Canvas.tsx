@@ -72,11 +72,16 @@ export function Canvas() {
     activeViewId,
     activeTool,
     selectedAreaId,
+    selectedAreaIds,
     setActiveTool,
     setSelectedAreaId,
+    setSelectedAreaIds,
+    toggleSelectedAreaId,
     addArea,
     deleteArea,
     duplicateArea,
+    duplicateAreas,
+    moveAreas,
     undo,
     redo,
     copyArea,
@@ -114,14 +119,16 @@ export function Canvas() {
 
   // Drag state (refs to avoid re-renders during drag)
   const drag = useRef<{
-    type: "pan" | "move" | "draw-rect" | "resize" | "draw-circle" | "resize-circle";
+    type: "pan" | "marquee" | "move" | "draw-rect" | "resize" | "draw-circle" | "resize-circle";
     startSvg: { x: number; y: number };
     startContent: { x: number; y: number };
     areaId?: string;
     handle?: RectHandle;
     areaGeoBefore?: Area["geometry"];
+    areaGeometriesBefore?: Array<{ id: string; geometry: Area["geometry"] }>;
     panBefore?: { x: number; y: number };
     previewRect?: { x: number; y: number; width: number; height: number } | null;
+    selectionBefore?: string[];
   } | null>(null);
 
   const spaceHeld = useRef(false);
@@ -220,7 +227,8 @@ export function Canvas() {
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "d" && selectedAreaId) {
         e.preventDefault();
-        duplicateArea(selectedAreaId);
+        if (selectedAreaIds.length > 1) duplicateAreas(selectedAreaIds);
+        else duplicateArea(selectedAreaId);
         return;
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "c" && selectedAreaId) {
@@ -289,6 +297,7 @@ export function Canvas() {
   }, [
     activeTool,
     selectedAreaId,
+    selectedAreaIds,
     polyPts,
     zoom,
     setActiveTool,
@@ -297,6 +306,8 @@ export function Canvas() {
     addArea,
     deleteArea,
     duplicateArea,
+    duplicateAreas,
+    moveAreas,
     copyArea,
     pasteArea,
     undo,
@@ -311,6 +322,9 @@ export function Canvas() {
   // ── Pointer events ────────────────────────────────────────────────────────
 
   const [previewRect, setPreviewRect] = useState<{
+    x: number; y: number; width: number; height: number;
+  } | null>(null);
+  const [marqueeRect, setMarqueeRect] = useState<{
     x: number; y: number; width: number; height: number;
   } | null>(null);
 
@@ -341,10 +355,15 @@ export function Canvas() {
     }
 
     if (activeTool === "select") {
-      // Background drag = pan; short tap = deselect (disambiguated in onSvgPointerUp)
+      // Background drag selects intersecting regions. Space/middle-button pans.
       svg.setPointerCapture(e.pointerId);
-      drag.current = { type: "pan", startSvg: sp, startContent: cp, panBefore: { x: panX, y: panY } };
-      setIsPanning(true);
+      drag.current = {
+        type: "marquee",
+        startSvg: sp,
+        startContent: cp,
+        selectionBefore: e.shiftKey ? selectedAreaIds : [],
+      };
+      setMarqueeRect({ x: cp.x, y: cp.y, width: 0, height: 0 });
     } else if (activeTool === "rect") {
       svg.setPointerCapture(e.pointerId);
       drag.current = {
@@ -376,7 +395,12 @@ export function Canvas() {
     const sp = svgPoint(e, svg);
     const cp = toContent(sp);
 
-    setSelectedAreaId(areaId);
+    if (e.shiftKey) {
+      toggleSelectedAreaId(areaId);
+      return;
+    }
+    const movingIds = selectedAreaIds.includes(areaId) ? selectedAreaIds : [areaId];
+    if (!selectedAreaIds.includes(areaId)) setSelectedAreaId(areaId);
 
     // Find the area geometry for drag baseline
     let geoSnapshot: Area["geometry"] | undefined;
@@ -384,6 +408,18 @@ export function Canvas() {
       for (const layer of view.layers) {
         const a = layer.areas.find((ar) => ar.id === areaId);
         if (a) { geoSnapshot = a.geometry; break; }
+      }
+    }
+    const geometrySnapshots: Array<{ id: string; geometry: Area["geometry"] }> = [];
+    for (const view of project.views) {
+      if (view.id !== activeViewId) continue;
+      for (const layer of view.layers) {
+        if (layer.locked) continue;
+        for (const area of layer.areas) {
+          if (movingIds.includes(area.id) && area.geometry.type !== "path") {
+            geometrySnapshots.push({ id: area.id, geometry: area.geometry });
+          }
+        }
       }
     }
 
@@ -394,6 +430,7 @@ export function Canvas() {
       startContent: cp,
       areaId,
       areaGeoBefore: geoSnapshot,
+      areaGeometriesBefore: geometrySnapshots,
     };
   }
 
@@ -481,6 +518,13 @@ export function Canvas() {
       const dsvgX = sp.x - d.startSvg.x;
       const dsvgY = sp.y - d.startSvg.y;
       setEditorState({ pan: { x: d.panBefore.x + dsvgX, y: d.panBefore.y + dsvgY } });
+    } else if (d.type === "marquee") {
+      setMarqueeRect({
+        x: Math.min(d.startContent.x, cp.x),
+        y: Math.min(d.startContent.y, cp.y),
+        width: Math.abs(cp.x - d.startContent.x),
+        height: Math.abs(cp.y - d.startContent.y),
+      });
     } else if (d.type === "draw-rect") {
       const rx = Math.min(d.startContent.x, cp.x);
       const ry = Math.min(d.startContent.y, cp.y);
@@ -490,17 +534,16 @@ export function Canvas() {
     } else if (d.type === "move" && d.areaId) {
       const dx = cp.x - d.startContent.x;
       const dy = cp.y - d.startContent.y;
-      // Live-update via updateAreaGeometry using the snapshot + delta
-      if (d.areaGeoBefore) {
-        const newGeo = snapGeometry(moveGeometry(d.areaGeoBefore, dx, dy));
+      if (d.areaGeometriesBefore?.length) {
         // Directly mutate store for smooth dragging (no undo entry mid-drag)
         useStore.setState((s) => {
           for (const v of s.project.views) {
             for (const layer of v.layers) {
-              const a = layer.areas.find((ar) => ar.id === d.areaId);
-              if (a) {
-                (a as Area).geometry = newGeo as (typeof a)["geometry"];
-                return;
+              for (const area of layer.areas) {
+                const baseline = d.areaGeometriesBefore!.find((entry) => entry.id === area.id);
+                if (baseline) {
+                  (area as Area).geometry = moveGeometry(baseline.geometry, dx, dy) as typeof area.geometry;
+                }
               }
             }
           }
@@ -556,11 +599,28 @@ export function Canvas() {
     setIsPanning(false);
 
     if (d.type === "pan") {
-      // If barely moved in select mode, treat as a background click → deselect
-      if (activeTool === "select") {
-        const dx = sp.x - d.startSvg.x;
-        const dy = sp.y - d.startSvg.y;
-        if (Math.abs(dx) < 4 && Math.abs(dy) < 4) setSelectedAreaId(null);
+      // Panning is handled continuously above.
+    } else if (d.type === "marquee") {
+      const x = Math.min(d.startContent.x, cp.x);
+      const y = Math.min(d.startContent.y, cp.y);
+      const width = Math.abs(cp.x - d.startContent.x);
+      const height = Math.abs(cp.y - d.startContent.y);
+      setMarqueeRect(null);
+      if (Math.abs(sp.x - d.startSvg.x) < 4 && Math.abs(sp.y - d.startSvg.y) < 4) {
+        setSelectedAreaIds(d.selectionBefore ?? []);
+      } else {
+        if (!view) return;
+        const hits = view.layers
+          .filter((layer) => layer.visible)
+          .flatMap((layer) => layer.areas)
+          .filter((area) => {
+            const bounds = getGeometryBbox(area.geometry);
+            return bounds !== null
+              && bounds.x <= x + width && bounds.x + bounds.width >= x
+              && bounds.y <= y + height && bounds.y + bounds.height >= y;
+          })
+          .map((area) => area.id);
+        setSelectedAreaIds([...(d.selectionBefore ?? []), ...hits]);
       }
     } else if (d.type === "draw-rect") {
       const rx = Math.min(d.startContent.x, cp.x);
@@ -573,11 +633,16 @@ export function Canvas() {
         area.geometry = snapGeometry(area.geometry);
         addArea(area);
       }
-    } else if (d.type === "move" && d.areaId && d.areaGeoBefore) {
-      const dx = cp.x - d.startContent.x;
-      const dy = cp.y - d.startContent.y;
-      const finalGeo = snapGeometry(moveGeometry(d.areaGeoBefore, dx, dy));
-      useStore.getState().updateAreaGeometry(d.areaId, finalGeo);
+    } else if (d.type === "move" && d.areaGeometriesBefore?.length) {
+      const dx = grid.enabled ? snapValue(cp.x - d.startContent.x, grid.size) : cp.x - d.startContent.x;
+      const dy = grid.enabled ? snapValue(cp.y - d.startContent.y, grid.size) : cp.y - d.startContent.y;
+      useStore.setState((s) => {
+        for (const v of s.project.views) for (const layer of v.layers) for (const area of layer.areas) {
+          const baseline = d.areaGeometriesBefore!.find((entry) => entry.id === area.id);
+          if (baseline) (area as Area).geometry = baseline.geometry as typeof area.geometry;
+        }
+      });
+      useStore.getState().moveAreas(d.areaGeometriesBefore.map(({ id }) => id), dx, dy);
     } else if (d.type === "resize" && d.areaId && d.handle && d.areaGeoBefore) {
       if (d.areaGeoBefore.type !== "rect") return;
       const dx = cp.x - d.startContent.x;
@@ -700,7 +765,7 @@ export function Canvas() {
                   <AreaShape
                     key={area.id}
                     area={area}
-                    selected={selectedAreaId === area.id}
+                    selected={selectedAreaIds.includes(area.id)}
                     zoom={zoom}
                     onPointerDown={onAreaPointerDown}
                     onHandlePointerDown={onHandlePointerDown}
@@ -745,6 +810,21 @@ export function Canvas() {
           )}
 
           {/* Rect drawing preview */}
+          {marqueeRect && (
+            <rect
+              data-testid="selection-marquee"
+              x={marqueeRect.x}
+              y={marqueeRect.y}
+              width={marqueeRect.width}
+              height={marqueeRect.height}
+              fill="rgba(59,130,246,0.12)"
+              stroke="#3b82f6"
+              strokeWidth={1 / zoom}
+              strokeDasharray={`${4 / zoom} ${3 / zoom}`}
+              pointerEvents="none"
+            />
+          )}
+
           {previewRect && (
             <rect
               x={previewRect.x}

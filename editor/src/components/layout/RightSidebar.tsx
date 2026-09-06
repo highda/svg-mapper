@@ -1342,7 +1342,12 @@ function LabelEditor({ areaId, label }: { areaId: string; label: AreaLabel | und
 }
 
 function AreaInspector() {
-  const { selectedAreaId, project, renameArea, updateAreaStyle } = useStore();
+  const { selectedAreaId, selectedAreaIds, project, renameArea, updateAreaStyle, updateAreas,
+    createSharedStyle, updateSharedStyle, applySharedStyle, alignAreas, distributeAreas, duplicateAreas } = useStore();
+  const [presetName, setPresetName] = useState("");
+  const [presetId, setPresetId] = useState(() => project.views
+    .flatMap((view) => view.layers.flatMap((layer) => layer.areas))
+    .find((candidate) => candidate.id === selectedAreaId)?.sharedStyleId ?? "");
 
   if (!selectedAreaId) return null;
 
@@ -1360,6 +1365,11 @@ function AreaInspector() {
   const style = a.style as AreaStyle;
   const disabledStyle = style.disabled ?? { ...style.default, fill: "#9ca3af", stroke: "#6b7280" };
   const tooltip = a.tooltip as Tooltip | undefined;
+  const selectedAreas = project.views.flatMap((view) =>
+    view.layers.flatMap((layer) => layer.areas.filter((candidate) => selectedAreaIds.includes(candidate.id))),
+  );
+  const hasMixedStyles = selectedAreas.some((candidate) => JSON.stringify(candidate.style) !== JSON.stringify(a.style));
+  const hasMixedActions = selectedAreas.some((candidate) => JSON.stringify(candidate.action) !== JSON.stringify(a.action));
 
   function updateStyleState(stateKey: keyof AreaStyle, styleState: AreaStyleState) {
     updateAreaStyle(a.id, { ...style, [stateKey]: styleState });
@@ -1380,9 +1390,74 @@ function AreaInspector() {
       </Row>
 
       <SectionHeader title="Geometry" scope="Area" />
+      {selectedAreas.length > 1 && (
+        <div className="space-y-1 rounded border border-neutral-700 bg-neutral-800/60 p-2">
+          <p className="text-[10px] text-neutral-400">Arrange {selectedAreas.length} selected areas</p>
+          <div className="grid grid-cols-3 gap-1">
+            {(["left", "center", "right", "top", "middle", "bottom"] as const).map((alignment) => (
+              <button key={alignment} type="button" onClick={() => alignAreas(selectedAreaIds, alignment)} className="rounded bg-neutral-700 px-1 py-1 text-[10px] capitalize text-white hover:bg-neutral-600">
+                {alignment}
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-1">
+            <button type="button" disabled={selectedAreas.length < 3} onClick={() => distributeAreas(selectedAreaIds, "horizontal")} className="rounded bg-neutral-700 px-1 py-1 text-[10px] text-white disabled:opacity-40">Distribute ↔</button>
+            <button type="button" disabled={selectedAreas.length < 3} onClick={() => distributeAreas(selectedAreaIds, "vertical")} className="rounded bg-neutral-700 px-1 py-1 text-[10px] text-white disabled:opacity-40">Distribute ↕</button>
+          </div>
+          <button type="button" onClick={() => duplicateAreas(selectedAreaIds)} className="w-full rounded bg-blue-700 px-2 py-1 text-xs text-white hover:bg-blue-600">Duplicate selection</button>
+        </div>
+      )}
       <GeometryEditor areaId={a.id} geometry={a.geometry as unknown as { type: string }} />
 
       <SectionHeader title="Style" scope="Area" />
+      <div className="space-y-1 rounded border border-neutral-700 bg-neutral-800/60 p-2">
+        <label className="block text-[10px] text-neutral-400" htmlFor="shared-style-select">Named style preset</label>
+        <select
+          id="shared-style-select"
+          value={presetId}
+          onChange={(event) => setPresetId(event.target.value)}
+          className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-1 text-xs text-neutral-200"
+        >
+          <option value="">Choose a preset…</option>
+          {Object.entries(project.sharedStyles).map(([id, preset]) => (
+            <option key={id} value={id}>{preset.name}</option>
+          ))}
+        </select>
+        <div className="flex gap-1">
+          <input
+            aria-label="New style preset name"
+            value={presetName}
+            onChange={(event) => setPresetName(event.target.value)}
+            placeholder="Preset name"
+            className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-800 px-1.5 py-1 text-xs text-neutral-200"
+          />
+          <button type="button" disabled={!presetName.trim()} onClick={() => {
+            const id = createSharedStyle(presetName.trim(), style);
+            setPresetId(id);
+            setPresetName("");
+          }} className="rounded bg-neutral-700 px-2 text-xs text-neutral-100 disabled:opacity-40">Save</button>
+        </div>
+        {presetId && project.sharedStyles[presetId] && (
+          <div className="grid grid-cols-3 gap-1">
+            <button type="button" onClick={() => applySharedStyle(selectedAreaIds, presetId, false)} className="rounded bg-neutral-700 px-1 py-1 text-[10px] text-white">Apply once</button>
+            <button type="button" onClick={() => applySharedStyle(selectedAreaIds, presetId, true)} className="rounded bg-blue-700 px-1 py-1 text-[10px] text-white">Apply linked</button>
+            <button type="button" onClick={() => updateSharedStyle(presetId, project.sharedStyles[presetId]!.name, style)} className="rounded bg-neutral-700 px-1 py-1 text-[10px] text-white">Update preset</button>
+          </div>
+        )}
+        {a.sharedStyleId && <p className="text-[10px] text-blue-300">Linked to {project.sharedStyles[a.sharedStyleId]?.name ?? a.sharedStyleId}. Editing directly unlinks it.</p>}
+      </div>
+      {selectedAreas.length > 1 && (
+        <div className="rounded border border-neutral-700 bg-neutral-800/60 p-2 text-[10px] text-neutral-400">
+          <p>{hasMixedStyles ? "Mixed styles. Controls show the primary area." : "All selected areas share this style."}</p>
+          <button
+            type="button"
+            onClick={() => updateAreas(selectedAreaIds, { style })}
+            className="mt-1 w-full rounded bg-blue-700 px-2 py-1 text-xs text-white hover:bg-blue-600"
+          >
+            Apply primary style to {selectedAreas.length} areas
+          </button>
+        </div>
+      )}
       <StyleStateEditor
         label="Default"
         styleState={style.default}
@@ -1420,6 +1495,18 @@ function AreaInspector() {
       <TooltipEditor areaId={a.id} tooltip={tooltip} />
 
       <SectionHeader title="Action" scope="Area" />
+      {selectedAreas.length > 1 && (
+        <div className="rounded border border-neutral-700 bg-neutral-800/60 p-2 text-[10px] text-neutral-400">
+          <p>{hasMixedActions ? "Mixed actions. Controls show the primary area." : "All selected areas share this action."}</p>
+          <button
+            type="button"
+            onClick={() => updateAreas(selectedAreaIds, { action: a.action })}
+            className="mt-1 w-full rounded bg-blue-700 px-2 py-1 text-xs text-white hover:bg-blue-600"
+          >
+            Apply primary action to {selectedAreas.length} areas
+          </button>
+        </div>
+      )}
       <ActionEditor key={`${a.id}-${a.action.type}`} areaId={a.id} action={a.action} />
     </div>
   );
@@ -1430,7 +1517,7 @@ function AreaInspector() {
 // ---------------------------------------------------------------------------
 
 export function RightSidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: boolean; onMobileClose?: () => void }) {
-  const { selectedAreaId, selectedLayerId, project, activeViewId, historyVersion, screen } = useStore();
+  const { selectedAreaId, selectedAreaIds, selectedLayerId, project, activeViewId, historyVersion, screen } = useStore();
 
   const activeView = project.views.find((v) => v.id === activeViewId);
 
@@ -1458,7 +1545,9 @@ export function RightSidebar({ mobileOpen = false, onMobileClose }: { mobileOpen
       className={`${screen === "export" ? "hidden lg:flex" : mobileOpen ? "fixed inset-y-0 right-0 z-50 flex w-[min(20rem,90vw)]" : "hidden lg:flex"} w-56 shrink-0 flex-col border-l border-neutral-700 bg-neutral-900 sm:w-64`}
     >
       <div className="flex min-h-11 items-center border-b border-neutral-700 px-3 py-1.5">
-        <span className="text-xs font-semibold text-neutral-300">Inspector</span>
+        <span className="text-xs font-semibold text-neutral-300">
+          Inspector{selectedAreaIds.length > 1 ? ` · ${selectedAreaIds.length} areas` : ""}
+        </span>
         <button type="button" onClick={onMobileClose} className="ml-auto min-h-10 rounded px-3 text-sm text-neutral-300 hover:bg-neutral-800 lg:hidden" aria-label="Close inspector">Close</button>
       </div>
       <div className="flex-1 overflow-y-auto px-3 py-2">{content}</div>

@@ -4,8 +4,33 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #126 — feat(editor): add multi-selection and reusable styles for repeated map regions
+Branch:       feat/126-multi-selection-styles
+Started:      2026-09-06
+Last commit:  pending  feat: finish multi-area geometry workflows
+
+### What's done
+- Added synchronized multi-area selection state with Shift toggling in the canvas and tree.
+- Rendered all selected outlines and surfaced the selection count in the Inspector.
+- Added replacement and Shift-additive canvas marquee selection across visible areas.
+- Added unit coverage and browser-validated a two-area selection with a clean console.
+- Added contiguous Shift ranges plus arrow, Enter, Space, and modifier-key selection in the tree.
+- Covered tree selection with unit tests and a production-build Playwright golden path.
+- Surfaced mixed styles/actions and added one-step batch application from the primary area.
+- Covered preservation of names, geometry, and metadata plus undo and browser behavior.
+- Added validated named style presets with explicit apply-once and linked-update behavior.
+- Preserved presets and linked styles through undo, saved project data, and exported map data.
+- Covered the authoring flow with unit tests and a production-build Playwright golden path.
+- Added atomic alignment, distribution, group movement, and collision-safe group duplication.
+- Honored locked layers and constrained spatial operations to the active view.
+- Covered 100-region save/export styling, cross-view copy, undo, and production browser behavior.
+
+### What's next
+- Open, verify, and merge the completion PR; then clear the handoff.
+
+### Notes / gotchas
+- `selectedAreaId` remains the primary/last-selected compatibility field; `selectedAreaIds` is the ordered full selection.
+- Shift-click selects without initiating a drag. Ordinary click preserves the existing single-area behavior.
 
 ---
 

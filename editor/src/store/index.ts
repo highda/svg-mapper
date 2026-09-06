@@ -14,6 +14,7 @@ import type {
   Layer,
   ProjectFile,
   Settings,
+  SharedStyle,
   Tooltip,
   ValidationRef,
   View,
@@ -26,7 +27,7 @@ import {
   serializeProjectFile,
   downloadJson,
 } from "../lib/project";
-import { findAreaLocation, moveGeometry } from "../lib/area-utils";
+import { findAreaLocation, getGeometryBbox, moveGeometry } from "../lib/area-utils";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -39,6 +40,7 @@ interface HistorySnapshot {
   views: View[];
   assets: Asset[];
   settings: Settings;
+  sharedStyles: Record<string, SharedStyle>;
 }
 
 export interface AppState {
@@ -50,6 +52,7 @@ export interface AppState {
   // Design screen
   activeTool: Tool;
   selectedAreaId: string | null;
+  selectedAreaIds: string[];
   selectedLayerId: string | null;
   activeViewId: string;
 
@@ -72,6 +75,8 @@ export interface AppState {
   // ── Design screen ────────────────────────────────────────────────────────
   setActiveTool: (tool: Tool) => void;
   setSelectedAreaId: (id: string | null) => void;
+  setSelectedAreaIds: (ids: string[]) => void;
+  toggleSelectedAreaId: (id: string) => void;
   setSelectedLayerId: (id: string | null) => void;
   setActiveViewId: (id: string) => void;
 
@@ -105,9 +110,16 @@ export interface AppState {
   // ── Area CRUD ────────────────────────────────────────────────────────────
   addArea: (area: Area) => void;
   moveArea: (areaId: string, dx: number, dy: number) => void;
+  moveAreas: (areaIds: string[], dx: number, dy: number) => void;
+  alignAreas: (areaIds: string[], alignment: "left" | "center" | "right" | "top" | "middle" | "bottom") => void;
+  distributeAreas: (areaIds: string[], axis: "horizontal" | "vertical") => void;
   updateAreaGeometry: (areaId: string, geometry: Area["geometry"]) => void;
   renameArea: (areaId: string, name: string) => void;
   updateAreaStyle: (areaId: string, style: AreaStyle) => void;
+  updateAreas: (areaIds: string[], patch: { style?: AreaStyle; action?: Action }) => void;
+  createSharedStyle: (name: string, style: AreaStyle) => string;
+  updateSharedStyle: (id: string, name: string, style: AreaStyle) => void;
+  applySharedStyle: (areaIds: string[], id: string, linked: boolean) => void;
   updateAreaTooltip: (areaId: string, tooltip: Tooltip | undefined) => void;
   updateAreaAction: (areaId: string, action: Action) => void;
   updateAreaMetadata: (areaId: string, metadata: Record<string, unknown>) => void;
@@ -119,6 +131,7 @@ export interface AppState {
   updateAreaImage: (areaId: string, image: Area["image"]) => void;
   deleteArea: (areaId: string) => void;
   duplicateArea: (areaId: string) => void;
+  duplicateAreas: (areaIds: string[]) => void;
   reorderArea: (areaId: string, direction: -1 | 1) => void;
   moveAreaToLayer: (
     areaId: string,
@@ -157,6 +170,7 @@ function snapshot(state: AppState): HistorySnapshot {
     views: current(state.project.views) as View[],
     assets: current(state.project.assets) as Asset[],
     settings: current(state.project.settings) as Settings,
+    sharedStyles: current(state.project.sharedStyles) as Record<string, SharedStyle>,
   };
 }
 
@@ -248,6 +262,7 @@ export const useStore = create<AppState>()(
     openError: null,
     activeTool: "select",
     selectedAreaId: null,
+    selectedAreaIds: [],
     selectedLayerId: null,
     activeViewId: deriveActiveViewId(initialProject),
     past: [],
@@ -265,6 +280,7 @@ export const useStore = create<AppState>()(
         s.savedSnapshot = projectSnapshot(p);
         s.activeViewId = deriveActiveViewId(p);
         s.selectedAreaId = null;
+        s.selectedAreaIds = [];
         s.selectedLayerId = null;
         s.activeTool = "select";
         s.past = [];
@@ -282,6 +298,7 @@ export const useStore = create<AppState>()(
           s.savedSnapshot = projectSnapshot(parsed);
           s.activeViewId = deriveActiveViewId(parsed);
           s.selectedAreaId = null;
+          s.selectedAreaIds = [];
           s.selectedLayerId = null;
           s.activeTool = "select";
           s.past = [];
@@ -303,6 +320,7 @@ export const useStore = create<AppState>()(
         s.savedSnapshot = "";
         s.activeViewId = deriveActiveViewId(project);
         s.selectedAreaId = null;
+        s.selectedAreaIds = [];
         s.selectedLayerId = null;
         s.activeTool = "select";
         s.past = [];
@@ -368,21 +386,47 @@ export const useStore = create<AppState>()(
     setActiveTool(tool: Tool) {
       set((s) => {
         s.activeTool = tool;
-        if (tool !== "select") s.selectedAreaId = null;
+        if (tool !== "select") {
+          s.selectedAreaId = null;
+          s.selectedAreaIds = [];
+        }
       });
     },
 
     setSelectedAreaId(id: string | null) {
       set((s) => {
         s.selectedAreaId = id;
+        s.selectedAreaIds = id === null ? [] : [id];
         if (id !== null) s.selectedLayerId = null;
+      });
+    },
+
+    setSelectedAreaIds(ids: string[]) {
+      set((s) => {
+        s.selectedAreaIds = [...new Set(ids)];
+        s.selectedAreaId = s.selectedAreaIds.at(-1) ?? null;
+        if (s.selectedAreaIds.length > 0) s.selectedLayerId = null;
+      });
+    },
+
+    toggleSelectedAreaId(id: string) {
+      set((s) => {
+        const selected = s.selectedAreaIds.includes(id)
+          ? s.selectedAreaIds.filter((candidate) => candidate !== id)
+          : [...s.selectedAreaIds, id];
+        s.selectedAreaIds = selected;
+        s.selectedAreaId = selected.at(-1) ?? null;
+        if (selected.length > 0) s.selectedLayerId = null;
       });
     },
 
     setSelectedLayerId(id: string | null) {
       set((s) => {
         s.selectedLayerId = id;
-        if (id !== null) s.selectedAreaId = null;
+        if (id !== null) {
+          s.selectedAreaId = null;
+          s.selectedAreaIds = [];
+        }
       });
     },
 
@@ -390,6 +434,7 @@ export const useStore = create<AppState>()(
       set((s) => {
         s.activeViewId = id;
         s.selectedAreaId = null;
+        s.selectedAreaIds = [];
         s.selectedLayerId = null;
       });
     },
@@ -505,6 +550,7 @@ export const useStore = create<AppState>()(
           },
         });
         s.selectedAreaId = id;
+        s.selectedAreaIds = [id];
         s.selectedLayerId = null;
         s.activeTool = "select";
       });
@@ -524,6 +570,7 @@ export const useStore = create<AppState>()(
         s.project.views.push(view);
         s.activeViewId = view.id;
         s.selectedAreaId = null;
+        s.selectedAreaIds = [];
         s.selectedLayerId = null;
       });
     },
@@ -561,6 +608,7 @@ export const useStore = create<AppState>()(
         s.project.views.splice(idx + 1, 0, copy as (typeof s.project.views)[0]);
         s.activeViewId = copy.id;
         s.selectedAreaId = null;
+        s.selectedAreaIds = [];
         s.selectedLayerId = null;
       });
     },
@@ -621,6 +669,7 @@ export const useStore = create<AppState>()(
           s.activeViewId = nextView?.id ?? s.project.views[0].id;
         }
         s.selectedAreaId = null;
+        s.selectedAreaIds = [];
         s.selectedLayerId = null;
       });
     },
@@ -661,6 +710,7 @@ export const useStore = create<AppState>()(
         view.layers.push(layer);
         s.selectedLayerId = layer.id;
         s.selectedAreaId = null;
+        s.selectedAreaIds = [];
       });
     },
 
@@ -690,6 +740,7 @@ export const useStore = create<AppState>()(
         s.activeViewId = s.project.views[loc.viewIdx].id;
         s.selectedLayerId = copy.id;
         s.selectedAreaId = null;
+        s.selectedAreaIds = [];
       });
     },
 
@@ -781,6 +832,7 @@ export const useStore = create<AppState>()(
           view.layers[0];
         targetLayer.areas.push(area);
         s.selectedAreaId = area.id;
+        s.selectedAreaIds = [area.id];
         s.selectedLayerId = null;
         s.activeTool = "select";
       });
@@ -797,6 +849,72 @@ export const useStore = create<AppState>()(
           dx,
           dy,
         ) as typeof area.geometry;
+      });
+    },
+
+    moveAreas(areaIds: string[], dx: number, dy: number) {
+      set((s) => {
+        if ((!dx && !dy) || areaIds.length === 0) return;
+        const wanted = new Set(areaIds);
+        const movable = s.project.views.filter((view) => view.id === s.activeViewId).flatMap((view) => view.layers.flatMap((layer) =>
+          layer.locked ? [] : layer.areas.filter((area) => wanted.has(area.id) && area.geometry.type !== "path"),
+        ));
+        if (movable.length === 0) return;
+        pushHistory(s);
+        for (const area of movable) {
+          area.geometry = moveGeometry(area.geometry as Area["geometry"], dx, dy) as typeof area.geometry;
+        }
+      });
+    },
+
+    alignAreas(areaIds, alignment) {
+      set((s) => {
+        const wanted = new Set(areaIds);
+        const entries = s.project.views.filter((view) => view.id === s.activeViewId).flatMap((view) => view.layers.flatMap((layer) =>
+          layer.locked ? [] : layer.areas.flatMap((area) => {
+            const bounds = wanted.has(area.id) ? getGeometryBbox(area.geometry as Area["geometry"]) : null;
+            return bounds && area.geometry.type !== "path" ? [{ area, bounds }] : [];
+          }),
+        ));
+        if (entries.length < 2) return;
+        const horizontal = alignment === "left" || alignment === "center" || alignment === "right";
+        const primary = entries.find(({ area }) => area.id === s.selectedAreaId) ?? entries[0]!;
+        const edge = alignment === "left" || alignment === "top"
+          ? Math.min(...entries.map(({ bounds }) => horizontal ? bounds.x : bounds.y))
+          : alignment === "right" || alignment === "bottom"
+            ? Math.max(...entries.map(({ bounds }) => horizontal ? bounds.x + bounds.width : bounds.y + bounds.height))
+            : primary.bounds[horizontal ? "x" : "y"] + primary.bounds[horizontal ? "width" : "height"] / 2;
+        pushHistory(s);
+        for (const { area, bounds } of entries) {
+          const current = horizontal
+            ? alignment === "left" ? bounds.x : alignment === "right" ? bounds.x + bounds.width : bounds.x + bounds.width / 2
+            : alignment === "top" ? bounds.y : alignment === "bottom" ? bounds.y + bounds.height : bounds.y + bounds.height / 2;
+          area.geometry = moveGeometry(area.geometry as Area["geometry"], horizontal ? edge - current : 0, horizontal ? 0 : edge - current) as typeof area.geometry;
+        }
+      });
+    },
+
+    distributeAreas(areaIds, axis) {
+      set((s) => {
+        const wanted = new Set(areaIds);
+        const horizontal = axis === "horizontal";
+        const entries = s.project.views.filter((view) => view.id === s.activeViewId).flatMap((view) => view.layers.flatMap((layer) =>
+          layer.locked ? [] : layer.areas.flatMap((area) => {
+            const bounds = wanted.has(area.id) ? getGeometryBbox(area.geometry as Area["geometry"]) : null;
+            return bounds && area.geometry.type !== "path" ? [{ area, bounds }] : [];
+          }),
+        )).sort((a, b) => (horizontal ? a.bounds.x + a.bounds.width / 2 : a.bounds.y + a.bounds.height / 2)
+          - (horizontal ? b.bounds.x + b.bounds.width / 2 : b.bounds.y + b.bounds.height / 2));
+        if (entries.length < 3) return;
+        const first = entries[0]!, last = entries.at(-1)!;
+        const start = horizontal ? first.bounds.x + first.bounds.width / 2 : first.bounds.y + first.bounds.height / 2;
+        const end = horizontal ? last.bounds.x + last.bounds.width / 2 : last.bounds.y + last.bounds.height / 2;
+        pushHistory(s);
+        entries.slice(1, -1).forEach(({ area, bounds }, index) => {
+          const current = horizontal ? bounds.x + bounds.width / 2 : bounds.y + bounds.height / 2;
+          const target = start + (end - start) * (index + 1) / (entries.length - 1);
+          area.geometry = moveGeometry(area.geometry as Area["geometry"], horizontal ? target - current : 0, horizontal ? 0 : target - current) as typeof area.geometry;
+        });
       });
     },
 
@@ -826,6 +944,62 @@ export const useStore = create<AppState>()(
         pushHistory(s);
         s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx].style =
           style as unknown as (typeof s.project.views)[0]["layers"][0]["areas"][0]["style"];
+        s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx].sharedStyleId = undefined;
+      });
+    },
+
+    createSharedStyle(name: string, style: AreaStyle) {
+      const id = `style_${Math.random().toString(36).slice(2, 10)}`;
+      set((s) => {
+        pushHistory(s);
+        s.project.sharedStyles[id] = { name, style } as typeof s.project.sharedStyles[string];
+      });
+      return id;
+    },
+
+    updateSharedStyle(id: string, name: string, style: AreaStyle) {
+      set((s) => {
+        if (!s.project.sharedStyles[id]) return;
+        pushHistory(s);
+        s.project.sharedStyles[id] = { name, style } as typeof s.project.sharedStyles[string];
+        for (const view of s.project.views) for (const layer of view.layers) for (const area of layer.areas) {
+          if (area.sharedStyleId === id) area.style = style as typeof area.style;
+        }
+      });
+    },
+
+    applySharedStyle(areaIds: string[], id: string, linked: boolean) {
+      set((s) => {
+        const preset = s.project.sharedStyles[id];
+        if (!preset) return;
+        const wanted = new Set(areaIds);
+        const areas = s.project.views.flatMap((view) => view.layers.flatMap((layer) => layer.areas))
+          .filter((area) => wanted.has(area.id));
+        if (areas.length === 0) return;
+        pushHistory(s);
+        for (const area of areas) {
+          area.style = preset.style as typeof area.style;
+          area.sharedStyleId = linked ? id : undefined;
+        }
+      });
+    },
+
+    updateAreas(areaIds: string[], patch: { style?: AreaStyle; action?: Action }) {
+      set((s) => {
+        const locations = [...new Set(areaIds)]
+          .map((areaId) => findAreaLocation(s.project.views as unknown as View[], areaId))
+          .filter((location): location is NonNullable<typeof location> => location !== null);
+        if (locations.length === 0 || (patch.style === undefined && patch.action === undefined)) return;
+        pushHistory(s);
+        for (const location of locations) {
+          const area = s.project.views[location.viewIdx].layers[location.layerIdx].areas[location.areaIdx];
+          if (patch.style !== undefined) {
+            area.style = patch.style as unknown as typeof area.style;
+          }
+          if (patch.action !== undefined) {
+            area.action = patch.action as typeof area.action;
+          }
+        }
       });
     },
 
@@ -901,7 +1075,8 @@ export const useStore = create<AppState>()(
         if (!loc) return;
         pushHistory(s);
         s.project.views[loc.viewIdx].layers[loc.layerIdx].areas.splice(loc.areaIdx, 1);
-        if (s.selectedAreaId === areaId) s.selectedAreaId = null;
+        s.selectedAreaIds = s.selectedAreaIds.filter((id) => id !== areaId);
+        if (s.selectedAreaId === areaId) s.selectedAreaId = s.selectedAreaIds.at(-1) ?? null;
       });
     },
 
@@ -926,6 +1101,38 @@ export const useStore = create<AppState>()(
         pushHistory(s);
         s.project.views[loc.viewIdx].layers[loc.layerIdx].areas.splice(loc.areaIdx + 1, 0, duped);
         s.selectedAreaId = duped.id;
+        s.selectedAreaIds = [duped.id];
+        s.selectedLayerId = null;
+      });
+    },
+
+    duplicateAreas(areaIds: string[]) {
+      set((s) => {
+        const wanted = new Set(areaIds);
+        const existingIds = new Set(s.project.views.flatMap((view) => view.layers.flatMap((layer) => layer.areas.map((area) => area.id))));
+        const selected: string[] = [];
+        const targets = s.project.views.flatMap((view, viewIdx) => view.layers.flatMap((layer, layerIdx) =>
+          layer.locked ? [] : layer.areas.flatMap((area, areaIdx) => wanted.has(area.id) ? [{ viewIdx, layerIdx, areaIdx }] : []),
+        ));
+        if (targets.length === 0) return;
+        pushHistory(s);
+        for (const target of targets.sort((a, b) => b.areaIdx - a.areaIdx)) {
+          const areas = s.project.views[target.viewIdx].layers[target.layerIdx].areas;
+          const original = areas[target.areaIdx]!;
+          let id: string;
+          do id = `area_${Math.random().toString(36).slice(2, 10)}`; while (existingIds.has(id));
+          existingIds.add(id);
+          const duplicate = {
+            ...original,
+            id,
+            name: `${original.name} copy`,
+            geometry: moveGeometry(original.geometry as Area["geometry"], 10, 10),
+          } as typeof original;
+          areas.splice(target.areaIdx + 1, 0, duplicate);
+          selected.unshift(id);
+        }
+        s.selectedAreaIds = selected;
+        s.selectedAreaId = selected.at(-1) ?? null;
         s.selectedLayerId = null;
       });
     },
@@ -970,6 +1177,7 @@ export const useStore = create<AppState>()(
         const [area] = sourceLayer.areas.splice(source.areaIdx, 1);
         targetLayer.areas.splice(insertion, 0, area);
         s.selectedAreaId = area.id;
+        s.selectedAreaIds = [area.id];
         s.selectedLayerId = null;
         s.activeViewId = s.project.views[target.viewIdx].id;
         result = "moved";
@@ -1013,6 +1221,7 @@ export const useStore = create<AppState>()(
         pushHistory(s);
         layers[0].areas.push(pasted as (typeof layers)[0]["areas"][0]);
         s.selectedAreaId = pasted.id;
+        s.selectedAreaIds = [pasted.id];
         s.selectedLayerId = null;
       });
     },
@@ -1027,7 +1236,9 @@ export const useStore = create<AppState>()(
         s.project.views = prev.views as typeof s.project.views;
         s.project.assets = prev.assets;
         s.project.settings = prev.settings as typeof s.project.settings;
+        s.project.sharedStyles = prev.sharedStyles as typeof s.project.sharedStyles;
         s.selectedAreaId = null;
+        s.selectedAreaIds = [];
         s.selectedLayerId = null;
         s.historyVersion += 1;
       });
@@ -1041,7 +1252,9 @@ export const useStore = create<AppState>()(
         s.project.views = next.views as typeof s.project.views;
         s.project.assets = next.assets;
         s.project.settings = next.settings as typeof s.project.settings;
+        s.project.sharedStyles = next.sharedStyles as typeof s.project.sharedStyles;
         s.selectedAreaId = null;
+        s.selectedAreaIds = [];
         s.selectedLayerId = null;
         s.historyVersion += 1;
       });
@@ -1072,12 +1285,15 @@ export const useStore = create<AppState>()(
         }
         if (ref.areaId) {
           s.selectedAreaId = ref.areaId;
+          s.selectedAreaIds = [ref.areaId];
           s.selectedLayerId = null;
         } else if (ref.layerId) {
           s.selectedLayerId = ref.layerId;
           s.selectedAreaId = null;
+          s.selectedAreaIds = [];
         } else {
           s.selectedAreaId = null;
+          s.selectedAreaIds = [];
           s.selectedLayerId = null;
         }
       });

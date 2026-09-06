@@ -66,6 +66,33 @@ describe("primary editor navigation", () => {
     expect(screen.getByLabelText(`${target.name}, locked`)).toBeInTheDocument();
   });
 
+  it("supports contiguous and keyboard area selection in the tree", () => {
+    const first = createRectArea(0, 0, 20, 20);
+    first.name = "First room";
+    const second = createRectArea(30, 0, 20, 20);
+    second.name = "Second room";
+    const third = createRectArea(60, 0, 20, 20);
+    third.name = "Third room";
+    useStore.getState().addArea(first);
+    useStore.getState().addArea(second);
+    useStore.getState().addArea(third);
+    useStore.getState().setScreen("tree");
+    render(<App />);
+
+    const firstRow = screen.getByRole("treeitem", { name: /First room/ });
+    const thirdRow = screen.getByRole("treeitem", { name: /Third room/ });
+    fireEvent.click(firstRow);
+    fireEvent.click(thirdRow, { shiftKey: true });
+    expect(useStore.getState().selectedAreaIds).toEqual([first.id, second.id, third.id]);
+
+    fireEvent.keyDown(thirdRow, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(screen.getByRole("treeitem", { name: /Second room/ }));
+    expect(useStore.getState().selectedAreaIds).toEqual([second.id]);
+
+    fireEvent.keyDown(document.activeElement!, { key: " ", ctrlKey: true });
+    expect(useStore.getState().selectedAreaIds).toEqual([]);
+  });
+
   it("duplicates locked layers from the responsive hierarchy action", () => {
     const viewId = useStore.getState().project.views[0].id;
     useStore.getState().addLayer(viewId);
