@@ -7,7 +7,7 @@
 Issue:        #130 — expose configurable JavaScript hooks for map, view and area lifecycle
 Branch:       feat/130-javascript-hooks
 Started:      2026-09-06
-Last commit:  d957dbe  chore: hand off #126 — done
+Last commit:  2be751d  feat: scaffold trusted lifecycle hooks
 
 ### What's done
 - Claimed the task and confirmed prerequisite #122 is complete.
