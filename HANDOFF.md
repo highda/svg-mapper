@@ -4,8 +4,20 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #116 — feat(editor): protect unsaved work and recover local drafts
+Branch:       feat/116-draft-recovery
+Started:      2026-09-06
+Last commit:  dc7ef86  chore: claim #116 — draft recovery
+
+### What's done
+- Added dirty/download status, guarded New/Open replacement, IndexedDB draft recovery, quota/unavailable warnings, and unload protection.
+- Added recovery tests and local-only storage documentation; desktop and 390px browser paths pass.
+
+### What's next
+- Commit, push, open the PR, and merge after checks.
+
+### Notes / gotchas
+- Browser validation confirmed IndexedDB persistence, cancel retention, reload recovery, mobile dialog fit, and no console errors.
 
 ---
 
