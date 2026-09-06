@@ -7,16 +7,21 @@
 Issue:        #126 — feat(editor): add multi-selection and reusable styles for repeated map regions
 Branch:       feat/126-multi-selection-styles
 Started:      2026-09-06
-Last commit:  13b660d  chore: hand off #125 — done
+Last commit:  c792d4b  feat: add additive area selection foundation
 
 ### What's done
-- Claimed the task and established its implementation branch.
+- Added synchronized multi-area selection state with Shift toggling in the canvas and tree.
+- Rendered all selected outlines and surfaced the selection count in the Inspector.
+- Added unit coverage and browser-validated a two-area selection with a clean console.
 
 ### What's next
-- Inspect the selection, history, schema, and inspector architecture; implement a coherent first slice of multi-selection.
+- Add marquee selection and tree keyboard/range selection.
+- Add mixed inspector values and batch style/action edits as single undo steps.
+- Add named style presets, align/distribute, and group move/duplicate; finish 100-region and persistence/export coverage.
 
 ### Notes / gotchas
-- Preserve single-area behavior while evolving selection state; issue scope spans multiple checkpoints.
+- `selectedAreaId` remains the primary/last-selected compatibility field; `selectedAreaIds` is the ordered full selection.
+- Shift-click selects without initiating a drag. Ordinary click preserves the existing single-area behavior.
 
 ---
 
