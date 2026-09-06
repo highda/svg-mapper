@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #119 — fix(editor): make the initial view selectable and preserve navigation on view edits
+Branch:       feat/119-initial-view-navigation
+Started:      2026-09-06
+Last commit:  (claim pending)
+
+### What's done
+- Claimed the task after confirming the host-selected #127 was already closed and merged.
+
+### What's next
+- Implement initial-view controls, collision-safe slugs, and navigation-aware view CRUD.
+
+### Notes / gotchas
+- Preserve inbound broken-link diagnostics unless the author explicitly retargets them.
 
 ---
 
