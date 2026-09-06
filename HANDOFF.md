@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #122 — fix(renderer): make ready events observable for inline and fetched definitions
-Branch:       fix/122-observable-ready
-Started:      2026-09-06
-Last commit:  (claim pending)
-
-### What's done
-- Claimed the task and confirmed the readiness acceptance criteria.
-
-### What's next
-- Implement deferred, exactly-once readiness and lifecycle cancellation with tests and docs.
-
-### Notes / gotchas
-- Remove Preview's synthetic ready event after the renderer contract is reliable.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-06 — closed #122 — made inline and fetched readiness observable exactly once with abortable loading and lifecycle coverage; PR #149.
 - 2026-09-06 — closed #124 — added stable PR gates, production exported-package browser tests, failure artifacts, and renderer size enforcement; PR #148.
 - 2026-09-06 — closed #121 — exposed sanitized details on focus/touch, preserved navigation focus, and restored popup triggers across light and Shadow DOM; PR #147.
 - 2026-09-06 — closed #120 — completed toggle-layer runtime behavior and accessible custom-event authoring with validated payloads; PR #146.
