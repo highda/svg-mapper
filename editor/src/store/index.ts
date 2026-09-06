@@ -38,6 +38,7 @@ export type Tool = "select" | "rect" | "polygon" | "circle" | "marker";
 interface HistorySnapshot {
   views: View[];
   assets: Asset[];
+  settings: Settings;
 }
 
 export interface AppState {
@@ -85,8 +86,9 @@ export interface AppState {
   addView: () => void;
   duplicateView: (viewId: string) => void;
   renameView: (viewId: string, name: string) => void;
+  setInitialView: (viewId: string) => void;
   setViewCustomCss: (viewId: string, css: string | undefined) => void;
-  deleteView: (viewId: string) => void;
+  deleteView: (viewId: string, retargetViewId?: string) => void;
   setCanvasSize: (width: number, height: number) => void;
   setViewport: (viewId: string, patch: Partial<Viewport>) => void;
 
@@ -154,6 +156,7 @@ function snapshot(state: AppState): HistorySnapshot {
   return {
     views: current(state.project.views) as View[],
     assets: current(state.project.assets) as Asset[],
+    settings: current(state.project.settings) as Settings,
   };
 }
 
@@ -206,12 +209,25 @@ function projectIds(project: ProjectFile): Set<string> {
   return used;
 }
 
-function uniqueProjectId(used: Set<string>, prefix: "layer" | "area"): string {
+function uniqueProjectId(used: Set<string>, prefix: "view" | "layer" | "area"): string {
   let id: string;
   do id = `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
   while (used.has(id));
   used.add(id);
   return id;
+}
+
+function slugFromName(name: string): string {
+  return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "view";
+}
+
+function uniqueViewSlug(views: readonly View[], desired: string, exceptId?: string): string {
+  const base = slugFromName(desired);
+  const used = new Set(views.filter((view) => view.id !== exceptId).map((view) => view.slug));
+  if (!used.has(base)) return base;
+  let suffix = 2;
+  while (used.has(`${base}-${suffix}`)) suffix += 1;
+  return `${base}-${suffix}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -504,7 +520,7 @@ export const useStore = create<AppState>()(
         )?.canvas;
         const view = createDefaultView(activeCanvas);
         view.name = `View ${s.project.views.length + 1}`;
-        view.slug = view.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+        view.slug = uniqueViewSlug(s.project.views as unknown as View[], view.name);
         s.project.views.push(view);
         s.activeViewId = view.id;
         s.selectedAreaId = null;
@@ -518,18 +534,27 @@ export const useStore = create<AppState>()(
         if (idx === -1) return;
         pushHistory(s);
         const original = current(s.project.views[idx]) as View;
+        const usedIds = projectIds(current(s.project) as ProjectFile);
+        const viewIdMap = new Map([[original.id, uniqueProjectId(usedIds, "view")]]);
+        const layerIdMap = new Map(original.layers.map((layer) => [layer.id, uniqueProjectId(usedIds, "layer")]));
+        const areaIdMap = new Map(original.layers.flatMap((layer) => layer.areas.map((area) => [area.id, uniqueProjectId(usedIds, "area")] as const)));
         const copy: View = {
           ...original,
-          id: `view_${Math.random().toString(36).slice(2, 10)}`,
+          id: viewIdMap.get(original.id)!,
           name: original.name + " copy",
-          slug: (original.slug + "-copy").replace(/-+/g, "-"),
+          slug: uniqueViewSlug(s.project.views as unknown as View[], `${original.slug}-copy`),
           canvas: { ...original.canvas },
           layers: original.layers.map((l) => ({
             ...l,
-            id: `layer_${Math.random().toString(36).slice(2, 10)}`,
+            id: layerIdMap.get(l.id)!,
             areas: l.areas.map((a) => ({
               ...a,
-              id: `area_${Math.random().toString(36).slice(2, 10)}`,
+              id: areaIdMap.get(a.id)!,
+              action: a.action.type === "goToView" && viewIdMap.has(a.action.targetViewId)
+                ? { ...a.action, targetViewId: viewIdMap.get(a.action.targetViewId)! }
+                : a.action.type === "toggleLayer" && layerIdMap.has(a.action.targetLayerId)
+                  ? { ...a.action, targetLayerId: layerIdMap.get(a.action.targetLayerId)! }
+                  : a.action,
             })),
           })),
         };
@@ -546,7 +571,15 @@ export const useStore = create<AppState>()(
         if (!view) return;
         pushHistory(s);
         view.name = name;
-        view.slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-") || view.slug;
+        view.slug = uniqueViewSlug(s.project.views as unknown as View[], name, viewId);
+      });
+    },
+
+    setInitialView(viewId: string) {
+      set((s) => {
+        if (s.project.settings.initialViewId === viewId || !s.project.views.some((view) => view.id === viewId)) return;
+        pushHistory(s);
+        s.project.settings.initialViewId = viewId;
       });
     },
 
@@ -559,13 +592,30 @@ export const useStore = create<AppState>()(
       });
     },
 
-    deleteView(viewId: string) {
+    deleteView(viewId: string, retargetViewId?: string) {
       set((s) => {
         if (s.project.views.length <= 1) return;
         const idx = s.project.views.findIndex((v) => v.id === viewId);
         if (idx === -1) return;
+        const canRetarget = retargetViewId !== viewId
+          && s.project.views.some((view) => view.id === retargetViewId);
         pushHistory(s);
+        if (canRetarget) {
+          for (const sourceView of s.project.views) {
+            if (sourceView.id === viewId) continue;
+            for (const layer of sourceView.layers) {
+              for (const area of layer.areas) {
+                if (area.action.type === "goToView" && area.action.targetViewId === viewId) {
+                  area.action.targetViewId = retargetViewId!;
+                }
+              }
+            }
+          }
+        }
         s.project.views.splice(idx, 1);
+        if (s.project.settings.initialViewId === viewId) {
+          s.project.settings.initialViewId = s.project.views[Math.min(idx, s.project.views.length - 1)].id;
+        }
         if (s.activeViewId === viewId) {
           const nextView = s.project.views[Math.max(0, idx - 1)];
           s.activeViewId = nextView?.id ?? s.project.views[0].id;
@@ -976,6 +1026,7 @@ export const useStore = create<AppState>()(
         s.future.push(snapshot(s));
         s.project.views = prev.views as typeof s.project.views;
         s.project.assets = prev.assets;
+        s.project.settings = prev.settings as typeof s.project.settings;
         s.selectedAreaId = null;
         s.selectedLayerId = null;
         s.historyVersion += 1;
@@ -989,6 +1040,7 @@ export const useStore = create<AppState>()(
         s.past.push(snapshot(s));
         s.project.views = next.views as typeof s.project.views;
         s.project.assets = next.assets;
+        s.project.settings = next.settings as typeof s.project.settings;
         s.selectedAreaId = null;
         s.selectedLayerId = null;
         s.historyVersion += 1;

@@ -61,6 +61,15 @@ describe("store: renameView", () => {
     useStore.getState().undo();
     expect(useStore.getState().project.views[0].name).toBe(original);
   });
+
+  it("generates unique nonempty slugs for duplicate names", () => {
+    const firstId = useStore.getState().project.views[0].id;
+    useStore.getState().renameView(firstId, "!!!");
+    useStore.getState().addView();
+    const secondId = useStore.getState().activeViewId;
+    useStore.getState().renameView(secondId, "!!!");
+    expect(useStore.getState().project.views.map((view) => view.slug)).toEqual(["view", "view-2"]);
+  });
 });
 
 describe("store: deleteView", () => {
@@ -86,6 +95,59 @@ describe("store: deleteView", () => {
     useStore.getState().deleteView(activeViewId);
     const { activeViewId: newId, project: p } = useStore.getState();
     expect(p.views.some((v) => v.id === newId)).toBe(true);
+  });
+
+  it("replaces a deleted initial view and restores it on undo", () => {
+    const initialId = useStore.getState().project.settings.initialViewId;
+    useStore.getState().addView();
+    const replacementId = useStore.getState().activeViewId;
+    useStore.getState().deleteView(initialId);
+    expect(useStore.getState().project.settings.initialViewId).toBe(replacementId);
+    useStore.getState().undo();
+    expect(useStore.getState().project.settings.initialViewId).toBe(initialId);
+  });
+
+  it("sets the initial view and makes the setting undoable", () => {
+    const initialId = useStore.getState().project.settings.initialViewId;
+    useStore.getState().addView();
+    const nextId = useStore.getState().activeViewId;
+    useStore.getState().setInitialView(nextId);
+    expect(useStore.getState().project.settings.initialViewId).toBe(nextId);
+    useStore.getState().undo();
+    expect(useStore.getState().project.settings.initialViewId).toBe(initialId);
+  });
+
+  it("retargets surviving inbound links as part of the undoable deletion", () => {
+    const sourceId = useStore.getState().project.views[0].id;
+    const area = createRectArea(0, 0, 20, 20);
+    useStore.getState().addArea(area);
+    useStore.getState().addView();
+    const deletedId = useStore.getState().activeViewId;
+    useStore.getState().addView();
+    const replacementId = useStore.getState().activeViewId;
+    useStore.getState().updateAreaAction(area.id, { type: "goToView", targetViewId: deletedId });
+
+    useStore.getState().deleteView(deletedId, replacementId);
+    const action = useStore.getState().project.views.find((view) => view.id === sourceId)!.layers[0].areas[0].action;
+    expect(action).toEqual({ type: "goToView", targetViewId: replacementId });
+
+    useStore.getState().undo();
+    const restored = useStore.getState().project.views.find((view) => view.id === sourceId)!.layers[0].areas[0].action;
+    expect(restored).toEqual({ type: "goToView", targetViewId: deletedId });
+  });
+
+  it("can explicitly retain a diagnosed broken inbound link", () => {
+    const area = createRectArea(0, 0, 20, 20);
+    useStore.getState().addArea(area);
+    useStore.getState().addView();
+    const deletedId = useStore.getState().activeViewId;
+    useStore.getState().updateAreaAction(area.id, { type: "goToView", targetViewId: deletedId });
+
+    useStore.getState().deleteView(deletedId);
+    expect(useStore.getState().project.views[0].layers[0].areas[0].action).toEqual({
+      type: "goToView",
+      targetViewId: deletedId,
+    });
   });
 });
 

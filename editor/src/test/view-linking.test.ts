@@ -59,6 +59,25 @@ describe("store: goToView action", () => {
     const saved = useStore.getState().project.views[0].layers[0].areas[0].action;
     expect(saved.type).toBe("none");
   });
+
+  it("uses unique slugs and remaps self-view and internal-layer actions", () => {
+    const original = useStore.getState().project.views[0];
+    const area = createRectArea(10, 10, 20, 20);
+    area.action = { type: "goToView", targetViewId: original.id };
+    useStore.getState().addArea(area);
+    const layerArea = createRectArea(40, 10, 20, 20);
+    layerArea.action = { type: "toggleLayer", targetLayerId: useStore.getState().project.views[0].layers[0].id };
+    useStore.getState().addArea(layerArea);
+
+    useStore.getState().duplicateView(original.id);
+    const firstCopy = useStore.getState().project.views[1];
+    useStore.getState().duplicateView(original.id);
+    const secondCopy = useStore.getState().project.views[1];
+
+    expect(firstCopy.slug).not.toBe(secondCopy.slug);
+    expect(secondCopy.layers[0].areas[0].action).toEqual({ type: "goToView", targetViewId: secondCopy.id });
+    expect(secondCopy.layers[0].areas[1].action).toEqual({ type: "toggleLayer", targetLayerId: secondCopy.layers[0].id });
+  });
 });
 
 // ── duplicateView ───────────────────────────────────────────────────────────

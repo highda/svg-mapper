@@ -12,7 +12,7 @@ On phones and tablets, open **Project** for the same rename, New, Open, and Save
 
 ## 2. Organize views and layers
 
-The left panel holds views, layers, and areas. Add, rename, duplicate, or remove views; duplicated views, layers, and areas receive new IDs. Add and rename layers, toggle visibility/locking, and drag layers to change paint order. Select a view or layer to edit its settings in the right sidebar.
+The left panel holds views, layers, and areas. Add, rename, duplicate, or remove views; duplicated views, layers, and areas receive new IDs, unique URL slugs, and remapped links to content inside the copy. Mark any view as **Initial** to choose what visitors see first. When a view has inbound links, the tree shows their count and deletion identifies the source areas. Choose a replacement to retarget every surviving link in the same undoable operation, or explicitly keep broken links for Export validation to diagnose. Add and rename layers, toggle visibility/locking, and drag layers to change paint order. Select a view or layer to edit its settings in the right sidebar.
 
 Use multiple views for drill-down maps. Each view has a unique slug, viewport limits, pan/zoom flags, and navigation UI settings. In the project inspector you can enable area labels, a scene switcher, zoom controls, content templates, a grid, and canvas padding.
 

@@ -290,6 +290,7 @@ function ViewSection({ view, isActive, onMoveMessage }: { view: View; isActive: 
     activeViewId,
     setActiveViewId,
     renameView,
+    setInitialView,
     duplicateView,
     deleteView,
     addLayer,
@@ -299,8 +300,19 @@ function ViewSection({ view, isActive, onMoveMessage }: { view: View; isActive: 
 
   const [renaming, setRenaming] = useState(false);
   const [expanded, setExpanded] = useState(true);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [retargetViewId, setRetargetViewId] = useState("");
   const dragFromIdx = useRef<number | null>(null);
   const canDelete = project.views.length > 1;
+  const isInitial = project.settings.initialViewId === view.id;
+  const inboundLinks = project.views.flatMap((sourceView) =>
+    sourceView.id === view.id ? [] : sourceView.layers.flatMap((layer) =>
+      layer.areas
+        .filter((area) => area.action.type === "goToView" && area.action.targetViewId === view.id)
+        .map((area) => ({ area: area.name, view: sourceView.name })),
+    ),
+  );
+  const replacementViews = project.views.filter((candidate) => candidate.id !== view.id);
 
   function handleViewClick(e: React.MouseEvent) {
     e.stopPropagation();
@@ -358,6 +370,20 @@ function ViewSection({ view, isActive, onMoveMessage }: { view: View; isActive: 
           </span>
         )}
 
+        {isInitial ? (
+          <span className="rounded bg-blue-950 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-blue-300" title="This view opens first">
+            Initial
+          </span>
+        ) : (
+          <button
+            onClick={(e) => { e.stopPropagation(); setInitialView(view.id); }}
+            title={`Set ${view.name} as initial view`}
+            className="text-[10px] text-neutral-600 hover:text-blue-300"
+          >
+            ☆
+          </button>
+        )}
+
         {/* Duplicate view */}
         <button
           onClick={(e) => { e.stopPropagation(); duplicateView(view.id); }}
@@ -370,14 +396,60 @@ function ViewSection({ view, isActive, onMoveMessage }: { view: View; isActive: 
         {/* Delete view */}
         {canDelete && (
           <button
-            onClick={(e) => { e.stopPropagation(); deleteView(view.id); }}
+            onClick={(e) => { e.stopPropagation(); setConfirmingDelete(true); }}
             title="Delete view"
+            aria-label={`Delete view ${view.name}`}
             className="text-[10px] text-neutral-700 hover:text-red-400"
           >
             ✕
           </button>
         )}
       </div>
+
+      {inboundLinks.length > 0 && !confirmingDelete && (
+        <div className="px-2 pb-1 text-[10px] text-amber-300">
+          {inboundLinks.length} inbound {inboundLinks.length === 1 ? "link" : "links"}
+        </div>
+      )}
+
+      {confirmingDelete && (
+        <div
+          role="group"
+          aria-label={`Delete ${view.name}`}
+          className="m-1 space-y-1 rounded border border-red-900 bg-neutral-950 p-2 text-[10px] text-neutral-300"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <p>Delete <strong>{view.name}</strong>?</p>
+          {inboundLinks.length > 0 ? (
+            <>
+              <p className="text-amber-300">
+                {inboundLinks.length} surviving {inboundLinks.length === 1 ? "link" : "links"} from other areas: {inboundLinks.slice(0, 3).map((link) => `${link.area} (${link.view})`).join(", ")}{inboundLinks.length > 3 ? "…" : ""}
+              </p>
+              <label className="block">
+                Retarget links
+                <select
+                  aria-label={`Retarget links from ${view.name}`}
+                  value={retargetViewId}
+                  onChange={(event) => setRetargetViewId(event.target.value)}
+                  className="mt-0.5 w-full rounded border border-neutral-700 bg-neutral-800 p-1"
+                >
+                  <option value="">Keep diagnosed broken links</option>
+                  {replacementViews.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}
+                </select>
+              </label>
+            </>
+          ) : <p>No other views link here.</p>}
+          <div className="flex justify-end gap-1">
+            <button className="rounded px-2 py-1 hover:bg-neutral-800" onClick={() => setConfirmingDelete(false)}>Cancel</button>
+            <button
+              className="rounded bg-red-900 px-2 py-1 text-red-100 hover:bg-red-800"
+              onClick={() => deleteView(view.id, retargetViewId || undefined)}
+            >
+              {retargetViewId ? "Retarget & delete" : "Delete view"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Layers */}
       {expanded && (

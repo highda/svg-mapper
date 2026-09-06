@@ -84,6 +84,35 @@ describe("primary editor navigation", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Floor details duplicated.");
   });
 
+  it("shows inbound view links and lets authors retarget before deletion", async () => {
+    const user = userEvent.setup();
+    const area = createRectArea(0, 0, 20, 20);
+    area.name = "Lobby link";
+    useStore.getState().addArea(area);
+    useStore.getState().addView();
+    const deleted = useStore.getState().project.views[1];
+    useStore.getState().renameView(deleted.id, "Details");
+    useStore.getState().addView();
+    const replacement = useStore.getState().project.views[2];
+    useStore.getState().renameView(replacement.id, "Overview");
+    useStore.getState().updateAreaAction(area.id, { type: "goToView", targetViewId: deleted.id });
+    useStore.getState().setScreen("tree");
+    render(<App />);
+
+    expect(screen.getByText("1 inbound link")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Delete view Details" }));
+    const controls = screen.getByRole("group", { name: "Delete Details" });
+    expect(within(controls).getByText(/Lobby link \(Main View\)/)).toBeVisible();
+    await user.selectOptions(within(controls).getByRole("combobox"), replacement.id);
+    await user.click(within(controls).getByRole("button", { name: "Retarget & delete" }));
+
+    expect(useStore.getState().project.views.some((view) => view.id === deleted.id)).toBe(false);
+    expect(useStore.getState().project.views[0].layers[0].areas[0].action).toEqual({
+      type: "goToView",
+      targetViewId: replacement.id,
+    });
+  });
+
   it("gives Export the full narrow viewport while retaining the desktop inspector", () => {
     useStore.getState().setScreen("export");
     render(<App />);
