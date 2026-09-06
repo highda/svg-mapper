@@ -4,6 +4,7 @@ import { JSDOM } from "jsdom";
 import { generateExportPackage, generateExportPreview } from "../lib/export-package";
 import { createRectArea } from "../lib/area-utils";
 import { createNewProject, toDefinition } from "../lib/project";
+import type { Asset } from "@svg-mapper/shared";
 
 const STUB_JS = "/* renderer */";
 const STUB_CSS = "/* styles */";
@@ -283,5 +284,68 @@ describe("generateExportPackage", () => {
     // Asset file should exist in ZIP.
     const assetKeys = Object.keys(files).filter((k) => k.startsWith("assets/"));
     expect(assetKeys.length).toBe(1);
+  });
+
+  it("writes comma-containing raw SVG as UTF-8 with the canonical extension", () => {
+    const project = createNewProject("Raw SVG");
+    const rawSvg = '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0,0 L10,10"/></svg>';
+    project.assets = [{ id: "raw", type: "image/svg+xml", name: "floor.plan.svg", src: rawSvg, width: 10, height: 10, inline: true }];
+
+    const pkg = generateExportPackage(toDefinition(project), STUB_JS, STUB_CSS, { inlineAssets: false });
+    const files = unzipSync(pkg.zip);
+    const parsed = JSON.parse(pkg.mapJson) as { assets: Asset[] };
+
+    expect(parsed.assets[0]?.src).toBe("assets/floor.plan.svg");
+    expect(strFromU8(files["assets/floor.plan.svg"]!)).toBe(rawSvg);
+  });
+
+  it("decodes percent and base64 data URIs and assigns MIME-based extensions", () => {
+    const project = createNewProject("Encoded assets");
+    project.assets = [
+      { id: "svg", type: "image/svg+xml", name: "marker", src: "data:image/svg+xml,%3Csvg%3E%3C%2Fsvg%3E", width: 1, height: 1, inline: true },
+      { id: "jpg", type: "image/jpeg", name: "photo.jpeg", src: "data:image/jpeg;base64,SGk=", width: 1, height: 1, inline: true },
+      { id: "webp", type: "image/webp", name: "photo", src: "data:image/webp;base64,V2VicA==", width: 1, height: 1, inline: true },
+    ];
+
+    const files = unzipSync(generateExportPackage(toDefinition(project), STUB_JS, STUB_CSS, { inlineAssets: false }).zip);
+    expect(strFromU8(files["assets/marker.svg"]!)).toBe("<svg></svg>");
+    expect(strFromU8(files["assets/photo.jpg"]!)).toBe("Hi");
+    expect(strFromU8(files["assets/photo.webp"]!)).toBe("Webp");
+  });
+
+  it("deduplicates packaged filenames without rewriting external references", () => {
+    const project = createNewProject("Mixed assets");
+    project.assets = [
+      { id: "one", type: "image/png", name: "plan.png", src: "data:image/png;base64,QQ==", width: 1, height: 1, inline: true },
+      { id: "two", type: "image/png", name: "plan.png", src: "data:image/png;base64,Qg==", width: 1, height: 1, inline: true },
+      { id: "remote", type: "image/png", name: "remote.png", src: "https://cdn.example.test/map.png", width: 1, height: 1, inline: false },
+      { id: "relative", type: "image/png", name: "relative.png", src: "../shared/map.png", width: 1, height: 1, inline: false },
+    ];
+
+    const pkg = generateExportPackage(toDefinition(project), STUB_JS, STUB_CSS, { inlineAssets: false });
+    const files = unzipSync(pkg.zip);
+    const parsed = JSON.parse(pkg.mapJson) as { assets: Asset[] };
+    expect(parsed.assets.map((asset) => asset.src)).toEqual([
+      "assets/plan.png",
+      "assets/plan-1.png",
+      "https://cdn.example.test/map.png",
+      "../shared/map.png",
+    ]);
+    expect(Object.keys(files).filter((path) => path.startsWith("assets/"))).toEqual(["assets/plan.png", "assets/plan-1.png"]);
+    expect(strFromU8(files["README.txt"]!)).toContain("https://cdn.example.test/map.png");
+    expect(strFromU8(files["README.txt"]!)).toContain("../shared/map.png");
+  });
+
+  it("reports preserved dependencies and rejects malformed embedded data", () => {
+    const project = createNewProject("Dependencies");
+    project.assets = [{ id: "remote", type: "image/png", name: "remote", src: "https://cdn.example.test/map.png", width: 1, height: 1, inline: false }];
+    const preview = generateExportPreview(toDefinition(project), STUB_JS, STUB_CSS, { inlineAssets: false });
+    expect(preview.assetFileCount).toBe(0);
+    expect(preview.assetBytes).toBe(0);
+    expect(preview.externalDependencies).toEqual(["https://cdn.example.test/map.png"]);
+
+    project.assets[0] = { ...project.assets[0]!, src: "data:image/png;base64,%%%" };
+    expect(() => generateExportPackage(toDefinition(project), STUB_JS, STUB_CSS, { inlineAssets: false }))
+      .toThrow("Malformed base64 asset data URI");
   });
 });

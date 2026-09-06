@@ -47,4 +47,15 @@ describe("ExportScreen failure handling", () => {
     expect(preview).toHaveTextContent("#map-one");
     expect(preview).toHaveTextContent("width: 100vw; height: 100vh");
   });
+
+  it("discloses preserved external asset dependencies", () => {
+    const project = createNewProject("External assets");
+    project.assets = [{ id: "plan", type: "image/png", name: "Plan", src: "https://cdn.example.test/plan.png", width: 100, height: 100, inline: false }];
+    useStore.setState({ project, activeViewId: project.views[0].id });
+
+    render(<ExportScreen />);
+
+    expect(screen.getByRole("status")).toHaveTextContent("1 external asset dependency is preserved");
+    expect(screen.getByRole("status")).toHaveTextContent("README.txt lists every dependency");
+  });
 });
