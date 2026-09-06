@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #116 — feat(editor): protect unsaved work and recover local drafts
+Branch:       feat/116-draft-recovery
+Started:      2026-09-06
+Last commit:  7a0893d  chore: hand off #115 — done
+
+### What's done
+- Claimed the task and reviewed its acceptance criteria.
+
+### What's next
+- Implement dirty-state tracking, draft persistence/recovery, guarded replacement, and documentation/tests.
+
+### Notes / gotchas
+- Draft storage must handle image-heavy projects and quota/unavailable failures honestly.
 
 ---
 
