@@ -45,6 +45,41 @@ function areaElement(id: string): SVGElement {
 }
 
 describe("renderer interaction model", () => {
+  it("toggles same-view layers for pointer and keyboard users and reset restores authored visibility", () => {
+    const project = createNewProject();
+    const trigger = createRectArea(0, 0, 20, 20);
+    trigger.name = "Amenities";
+    trigger.action = { type: "toggleLayer", targetLayerId: "amenities" };
+    const amenity = createRectArea(40, 0, 20, 20);
+    amenity.name = "Accessible toilets";
+    project.views[0].layers = [
+      { id: "controls", name: "Controls", visible: true, locked: false, opacity: 1, areas: [trigger] },
+      { id: "amenities", name: "Amenities", visible: false, locked: false, opacity: 1, areas: [amenity] },
+    ];
+    const instance = create({ container: "#map", definition: toDefinition(project) });
+
+    expect(document.querySelector(`[data-area-id="${amenity.id}"]`)).toBeNull();
+    areaElement(trigger.id).dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(areaElement(amenity.id)).toHaveAttribute("tabindex", "0");
+    expect(document.querySelector(".clickmap-aria-live")).toHaveTextContent("Amenities shown");
+
+    areaElement(trigger.id).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(document.querySelector(`[data-area-id="${amenity.id}"]`)).toBeNull();
+    instance.reset();
+    expect(document.querySelector(`[data-area-id="${amenity.id}"]`)).toBeNull();
+  });
+
+  it("dispatches authored custom-event payloads", () => {
+    const area = createRectArea(0, 0, 10, 10);
+    area.action = { type: "customEvent", eventName: "map:request-details", payload: { propertyId: 42 } };
+    renderAreas(area);
+    const listener = vi.fn();
+    window.addEventListener("map:request-details", listener);
+    areaElement(area.id).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(listener).toHaveBeenCalledOnce();
+    expect((listener.mock.calls[0]![0] as CustomEvent).detail).toEqual({ propertyId: 42 });
+  });
+
   it("searches configured metadata, filters categories, and explains unavailable places", () => {
     const project = createNewProject();
     const toilets = createRectArea(100, 100, 40, 40);

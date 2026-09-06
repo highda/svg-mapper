@@ -7,16 +7,17 @@
 Issue:        #120 — Complete toggle-layer and custom-event action authoring
 Branch:       feat/120-action-authoring
 Started:      2026-09-06
-Last commit:  (claim checkpoint pending)
+Last commit:  23cc5ea  chore: claim #120 — action authoring
 
 ### What's done
-- Claimed the task after confirming the host task brief points to already-closed #127.
+- Added complete toggle-layer and custom-event inspector controls, validation, runtime behavior, docs, and tests.
+- Verified keyboard activation in Preview hides the target layer and announces the change.
 
 ### What's next
-- Implement and verify toggle-layer runtime behavior and both action-authoring variants.
+- Commit, push, open the PR, and merge after checks.
 
 ### Notes / gotchas
-- Preserve imported action variants faithfully and cover missing targets and invalid JSON.
+- Runtime layer overrides are current-view scoped, survive navigation, and reset to authored visibility.
 
 ---
 

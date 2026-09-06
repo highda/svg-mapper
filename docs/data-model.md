@@ -70,7 +70,7 @@ An optional `image` references an asset by `assetId`. `fit` is `fill`, `contain`
 
 Each `style` contains `default`, `hover`, and `active` states, plus optional `disabled`. A state is `{ fill, stroke, strokeWidth }`; colors are CSS color strings.
 
-Actions are `none`; `url` with `href` and target; `goToView` with a target ID and optional transition; `popup` with inline content and position; `toggleLayer` with a target layer ID (schema-supported but not currently executed by the renderer); or `customEvent` with an event name and optional JSON payload.
+Actions are `none`; `url` with `href` and target; `goToView` with a target ID and optional transition; `popup` with inline content and position; `toggleLayer` with a layer ID in the area's view; or `customEvent` with a non-empty event name and optional JSON-object payload. Runtime layer visibility begins from the authored `visible` value, survives leaving and re-entering a view, and returns to authored values when the renderer is reset. Hidden layers are removed from pointer and keyboard interaction.
 
 ## Minimal example
 
