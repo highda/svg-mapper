@@ -44,7 +44,14 @@ Transparent holes remain non-clickable, while keyboard focus retains the visible
 
 **Tree** gives a hierarchical project overview. **Flow** shows `goToView` connections and calls out orphan views. Use both to catch organization and navigation mistakes.
 
-**Preview** runs the exported renderer in a sandboxed iframe. Exercise the golden path: hover and keyboard-focus areas, confirm tooltip details are exposed on focus, follow every view link and hear the destination, go back, open and close popups while checking trigger focus restoration, test URLs, zoom and pan, and switch among full, tablet, and mobile widths to check how the published map adapts to smaller embedding elements. Hover-only tooltips can be pinned with a tap and dismissed by tapping elsewhere. Preview can block external URL navigation while you test.
+**Preview** runs the exported renderer in a sandboxed iframe. Exercise the golden path: hover and keyboard-focus areas, confirm tooltip details are exposed on focus, follow every view link and hear the destination, go back, open and close popups while checking trigger focus restoration, test URLs, and zoom and pan.
+
+Preview separates the host page from the map host inside it:
+
+- **Page:** Full, 1200, 768, or 375 sets the width of the host page.
+- **Map host:** width and height fields size the element the map is embedded in, so you can test a 360 px element on a 1200 px page as well as a narrow page. Leave a field empty for automatic size. You can also drag the blue corner handle, or focus it and use the arrow keys (Shift for bigger steps).
+
+The status line shows the map sizing mode and the measured page, host, and map sizes. Resizing never restarts the map, so the current view, zoom, and open popups are kept. A fluid-width map taller than the page makes the preview page scroll, as it would for a visitor; **Fit to stage** sizes the host so the whole map is visible. **Restart preview** reloads the map from its initial view. Hover-only tooltips can be pinned with a tap and dismissed by tapping elsewhere. Preview can block external URL navigation while you test.
 
 To help visitors find places by text, select the view and enable **Place Directory** in the project inspector. Area names are always searched; add comma-separated metadata fields such as `amenity, address` for richer matching. A category field (for example `category`) plus `value = Visitor label` lines creates filter chips and a text legend. Preview uses the real published directory: verify search counts and empty states, keyboard through filters and results, and choose results in several views. Hidden layers never appear; disabled areas are visibly listed as unavailable.
 
