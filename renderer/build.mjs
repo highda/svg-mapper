@@ -21,6 +21,10 @@ const opts = {
   define: {
     __CLICKMAP_CSS__: JSON.stringify(rendererCss),
   },
+  // Minification drops dependency license comments; keep the required notice.
+  banner: {
+    js: "/*! clickmap-renderer bundles Floating UI (https://floating-ui.com), MIT License, Copyright (c) 2021-present Floating UI contributors. */",
+  },
 };
 
 mkdirSync("dist", { recursive: true });
