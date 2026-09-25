@@ -252,8 +252,8 @@ Leave `agent:in-progress` **on**. The next agent will pick this up via the pre-f
 Commit and push all useful work, post the same Done / Next / Gotchas snapshot as
 §6b, add `agent:blocked`, and remove `agent:in-progress`. Clear the `HANDOFF.md`
 Active block and add a ledger entry describing what the task awaits. The next
-loop iteration picks another feasible ready task; parked work never halts the
-repository-wide loop.
+loop iteration picks another feasible ready task;
+parked work never halts the repository-wide loop.
 
 When the external condition changes, remove `agent:blocked`, add `agent:ready`,
 and let a later agent claim it normally. If the condition can be checked cheaply,

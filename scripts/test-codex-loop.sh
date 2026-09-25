@@ -69,7 +69,11 @@ for gone in github-connect-proxy.mjs host-command-relay.mjs host-command-client.
 done
 rg -F -- '--configLoader runner' "$repo_root/editor/package.json" >/dev/null
 rg -F 'CODEX_VITE_CACHE_DIR' "$repo_root/editor/vite.config.ts" >/dev/null
-rg -F 'Proactively invent and implement valuable in-scope improvements' "$repo_root/.codex/GOAL.md" >/dev/null
+rg -F 'The standard is finite' "$repo_root/.codex/GOAL.md" >/dev/null
+if rg -qF 'Proactively invent' "$repo_root/.codex/GOAL.md"; then
+  printf '%s\n' '.codex/GOAL.md must not require open-ended feature invention.' >&2
+  exit 1
+fi
 test -x "$repo_root/editor/node_modules/.bin/playwright-mcp"
 git check-ignore -q "$repo_root/sweep-future-proof.png"
 git check-ignore -q "$repo_root/example-screenshot.png"

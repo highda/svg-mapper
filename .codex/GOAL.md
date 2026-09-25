@@ -1,28 +1,33 @@
 # Autonomous completion goal
 
-The loop may stop only when all of these are true. This is a product-completion
-standard, not an MVP checklist or a reason to avoid worthwhile invention.
+The loop may stop only when all of these are true. The standard is finite: a
+fixed set of acceptance scenarios plus resolved or explicitly parked defects.
+It does not ask the loop to keep inventing features.
 
-- The browser-only SVG Mapper is feature-complete for its useful in-browser
-  authoring and static export scope. Do not add server-side storage, accounts,
-  or backend work.
-- The editor and dependency-free exported renderer work together through the
-  documented product flows, including import, editing, linking, preview,
-  validation, and export.
-- The application looks intentional and polished at normal desktop and mobile
-  sizes; no obvious broken, placeholder, or inaccessible UI remains.
-- Automated checks are green, relevant browser golden paths have been exercised,
-  and there are no known reproducible major defects.
-- A repository inspection has found no remaining high-value feature or quality
-  gap that materially advances this product's stated scope.
+- **Scope.** Two surfaces, as defined in `ASSIGNMENT.md` §2.4–§2.6:
+  - a desktop authoring editor, supported down to a 1024×600 CSS px window;
+  - a static, framework-free exported renderer that responds to its embedding
+    element for desktop and mobile visitors.
 
-Proactively invent and implement valuable in-scope improvements before declaring
-completion. Prefer changes that make authoring faster, safer, clearer, or more
-pleasant without complicating the exported runtime. Examples include a usable
-color picker for RGBA style fields, drag-and-drop where it improves view/layer
-management, and duplicating views or layers with correctly remapped unique IDs.
-These examples are prompts for judgment, not an exhaustive backlog. Do not stop
-merely because the original MVP acceptance criteria pass.
+  Phone/tablet authoring, server-side storage, accounts, and backend work are
+  out of scope.
+- **Release acceptance.** Every release acceptance flow in the active roadmap
+  (#180) has behavior-level evidence: author on desktop, embed, publish,
+  guardrails, and access/lifecycle.
+- **Defects.** Every required roadmap leaf is closed or parked with
+  `agent:blocked` and a stated external condition. There are no known
+  reproducible major defects in either surface. Renderer touch/physical-device
+  QA (#113) counts only when actually performed; emulation is never a
+  physical-device pass.
+- **Checks.** Automated checks are green, and the editor and exported-map golden
+  paths have been exercised in a browser.
+
+Scope discipline:
+
+- A defect found during the work may get a bounded ticket.
+- A speculative feature idea is not a reason to keep the loop running. Record
+  it as a Phase 2+ candidate and move on.
+- Do not remove implemented capabilities to simplify the product.
 
 "Bug free" means the strongest available evidence above, never an unsupported
 claim of mathematical certainty.

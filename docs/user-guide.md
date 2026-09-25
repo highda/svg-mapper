@@ -1,6 +1,8 @@
 # User guide
 
-SVG Mapper runs entirely in the browser. While you edit, it keeps a debounced recovery draft in IndexedDB, including embedded images. On a later visit you can restore or discard that draft. This storage is local to the current browser profile, can be removed by clearing site data, and may be unavailable or run out of quota; the editor reports those failures. Download the editable project JSON for a portable backup because there is no server-side autosave.
+SVG Mapper runs entirely in the browser. The editor is a desktop tool: use a desktop or laptop browser window of at least 1024×600 CSS px (1280×720 or larger is more comfortable). The maps you export are separate from that: they adapt to whatever element they are embedded in and work for phone and tablet visitors.
+
+While you edit, the editor keeps a debounced recovery draft in IndexedDB, including embedded images. On a later visit you can restore or discard that draft. This storage is local to the current browser profile, can be removed by clearing site data, and may be unavailable or run out of quota; the editor reports those failures. Download the editable project JSON for a portable backup because there is no server-side autosave.
 
 ## 1. Start and import
 
@@ -10,7 +12,7 @@ Use **New** for a blank map, **Open** for a saved project, or **Samples** for on
 
 Use **Open** to load a previously saved project JSON, and **Save** to download the editable project. The header distinguishes the last downloaded version from unsaved work and local-draft state. New, Samples, and Open offer Save, Discard, and Cancel before replacing changed work; an unreadable or structurally malformed file leaves the current project, selection, and undo history intact and reports the failing JSON path. Repairable link errors, such as an action targeting a missing view, can still be opened and are reported on Export. Closing or reloading warns when changes have not yet reached local recovery storage. Exported `map.json` is structurally loadable, but it does not contain editor-only state.
 
-On phones and tablets, open **Project** for the same rename, New, Samples, Open, and Save operations. In Design, **Views & layers** switches to the full-width hierarchy while **Inspector** opens the selected item's settings in a dismissible sheet; closing either panel preserves the current selection and returns the canvas to the full available width. These controls are sized for touch and do not require hover or keyboard shortcuts.
+If the window is narrower than the supported size, the side panels collapse. **Project** then holds rename, New, Samples, Open, and Save, so you can always save work or restore a draft. **Views & layers** and **Inspector** open as panels that you can close again without losing the selection. Authoring below the supported size is not a goal. Widen the window to keep editing.
 
 ## 2. Organize views and layers
 
@@ -42,7 +44,7 @@ Transparent holes remain non-clickable, while keyboard focus retains the visible
 
 **Tree** gives a hierarchical project overview. **Flow** shows `goToView` connections and calls out orphan views. Use both to catch organization and navigation mistakes.
 
-**Preview** runs the exported renderer in a sandboxed iframe. Exercise the golden path: hover and keyboard-focus areas, confirm tooltip details are exposed on focus, follow every view link and hear the destination, go back, open and close popups while checking trigger focus restoration, test URLs, zoom and pan, and switch among full, tablet, and mobile widths. Hover-only tooltips can be pinned with a tap and dismissed by tapping elsewhere. Preview can block external URL navigation while you test.
+**Preview** runs the exported renderer in a sandboxed iframe. Exercise the golden path: hover and keyboard-focus areas, confirm tooltip details are exposed on focus, follow every view link and hear the destination, go back, open and close popups while checking trigger focus restoration, test URLs, zoom and pan, and switch among full, tablet, and mobile widths to check how the published map adapts to smaller embedding elements. Hover-only tooltips can be pinned with a tap and dismissed by tapping elsewhere. Preview can block external URL navigation while you test.
 
 To help visitors find places by text, select the view and enable **Place Directory** in the project inspector. Area names are always searched; add comma-separated metadata fields such as `amenity, address` for richer matching. A category field (for example `category`) plus `value = Visitor label` lines creates filter chips and a text legend. Preview uses the real published directory: verify search counts and empty states, keyboard through filters and results, and choose results in several views. Hidden layers never appear; disabled areas are visibly listed as unavailable.
 

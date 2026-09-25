@@ -12,8 +12,10 @@ Typical use cases: building floor plans, campus maps, event booth maps, seating 
 
 **Two pieces of software ship from this repo:**
 
-1. **The editor** — a React-based SPA where the map is authored.
-2. **The renderer** — a small, dependency-free vanilla-JS runtime that displays the exported map on any host page.
+1. **The editor** — a React-based SPA where the map is authored. It is a **desktop authoring tool**; see §2.4.
+2. **The renderer** — a small, framework-free vanilla-JS runtime that displays the exported map on any host page. It responds to the **element it is embedded in**, for desktop and mobile visitors alike; see §2.5.
+
+These are two separate contracts. Editor window size and published-map container size are different test dimensions and must never be conflated.
 
 Hard rule: the editor may use any frontend framework. The exported renderer must **not** depend on React, a CSS framework, or a build step. It is the product.
 
@@ -34,12 +36,12 @@ That portability is the entire reason this product exists instead of a WordPress
 | Concern         | Choice                                |
 | --------------- | ------------------------------------- |
 | Build           | Vite                                  |
-| UI              | React 18 + TypeScript (strict)        |
-| State           | Zustand (with `immer` middleware)     |
-| Styling         | Tailwind CSS                          |
+| UI              | React 19 + TypeScript (strict)        |
+| State           | Zustand 5 (with `immer`)              |
+| Styling         | Tailwind CSS 4                        |
 | Geometry        | Native SVG; no Konva/Fabric/Paper.js  |
 | Flow graph view | React Flow (editor only, not runtime) |
-| Persistence     | Browser localStorage + JSON file I/O  |
+| Persistence     | IndexedDB recovery draft + JSON file I/O |
 | Tests           | Vitest + React Testing Library        |
 | Lint/Format     | ESLint + Prettier                     |
 
@@ -50,7 +52,7 @@ No backend. No accounts. MVP runs entirely client-side.
 | Concern        | Choice                                                   |
 | -------------- | -------------------------------------------------------- |
 | Language       | TypeScript, compiled to a single ES2018 UMD/IIFE bundle  |
-| Dependencies   | **None** at runtime                                      |
+| Dependencies   | No framework and nothing for the user to install; bundled libraries allowed under §2.6 |
 | Output         | `clickmap-renderer.js` + `clickmap-renderer.css`         |
 | Size budget    | < 30 KB gzipped for the JS                               |
 | Browser target | Last 2 versions of Chrome/Firefox/Safari/Edge + iOS/Android Safari |
@@ -66,6 +68,35 @@ No backend. No accounts. MVP runs entirely client-side.
 ```
 
 Both `/editor` and `/renderer` consume types from `/shared`. The editor's export pipeline produces packages that the `/renderer` can consume; this is verified end-to-end in `/examples`.
+
+### 2.4 Editor surface: desktop authoring
+
+The editor targets desktop and laptop browsers driven by mouse/trackpad and keyboard. Phone and tablet **authoring** is not a product requirement.
+
+| Window (CSS px)  | Status                                                    |
+| ---------------- | --------------------------------------------------------- |
+| 1440×900         | Normal size                                               |
+| 1280×720         | Normal size                                               |
+| 1024×600         | **Supported floor**: every authoring task must remain possible |
+| Below 1024×600   | Unsupported for authoring; see below                      |
+
+Practical window resizing between these sizes must not lose selection, settings, focus, or unsaved work, and must not scroll the outer document.
+
+Below the floor the editor must still keep Save, Open, and draft recovery reachable, and may show a concise "use a larger window" message. Do not build a mobile authoring navigation system. Existing collapse/menu behavior may stay where it helps desktop resizing. (Checked on 2026-09-25 at 1024×600, 1280×720, and 1440×900 in Chromium: the top bar's New/Samples/Open/Save, the five screens, tree, canvas, and inspector were all reachable, with no document overflow. Below 1024 px the existing Project menu keeps Save/Open reachable.)
+
+### 2.5 Published surface: container-responsive renderer
+
+The exported map responds to the dimensions of its **embedding element**, not to the browser window. That includes narrow elements on wide pages, tall and short elements, containers that are hidden and later revealed, and containers whose width or height changes after load. Mobile visitors are in scope: touch, pinch/pan without trapping host-page scrolling ([#113](https://github.com/highda/svg-mapper/issues/113)), and keyboard access all remain required. Renderer touch and browser QA stay required, whatever the editor's scope.
+
+### 2.6 Dependency policy
+
+Libraries are allowed in both the editor and the renderer when they replace fragile or duplicated code (sanitization, CSS parsing, overlay positioning, ZIP packaging, and similar). What users receive does not change: static, framework-free files with no installation, build step, account, or required network dependency.
+
+- **Install:** add through npm with a committed lockfile. Never vendor library source into the repository tree.
+- **Budget:** the renderer JS stays under the §11 gzip budget, which CI enforces. Editor additions should justify their size in the PR.
+- **License:** permissive licenses only (MIT, ISC, BSD, Apache-2.0, or similar). Record any non-trivial new runtime dependency in the PR description.
+- **Maintenance:** prefer actively maintained packages with a small API. Upgrades go through normal PRs with passing checks. Security fixes take priority over other work.
+- The renderer must still load from a plain `<script>` tag. Bundled libraries are compiled into `clickmap-renderer.js`, not loaded from a CDN at runtime.
 
 ---
 
@@ -87,164 +118,15 @@ The end-user experience is a lightweight interactive map, not a slideshow.
 
 ## 4. Data Model
 
-The same JSON shape is the editor's persistence format **and** the renderer's input format. Editor-only fields (selection, zoom, history) are stripped on export.
+The same JSON shape is the editor's persistence format **and** the renderer's input format. Editor-only state (selection, zoom, pan, grid, history) is stripped on export.
 
-### 4.1 Top-level project
+This brief no longer duplicates the schema, because copies drift out of date. The canonical sources are:
 
-```json
-{
-  "schemaVersion": "1.0.0",
-  "project": {
-    "id": "project_001",
-    "name": "Campus Interactive Map",
-    "createdAt": "2026-05-12T12:00:00.000Z",
-    "updatedAt": "2026-05-12T12:00:00.000Z"
-  },
-  "settings": {
-    "initialViewId": "view_main",
-    "responsive": true,
-    "maintainAspectRatio": true,
-    "theme": "default",
-    "enableHistory": true,
-    "enableKeyboardNavigation": true
-  },
-  "assets": [ /* Asset[] */ ],
-  "views":  [ /* View[]  */ ],
-  "popups": [ /* Popup[] */ ],
-  "sharedStyles": {
-    "style_accessible": { "name": "Accessible", "style": { "default": { "fill": "#2563eb", "stroke": "#ffffff", "strokeWidth": 2 }, "hover": { "fill": "#1d4ed8", "stroke": "#ffffff", "strokeWidth": 2 }, "active": { "fill": "#1e40af", "stroke": "#ffffff", "strokeWidth": 3 } } }
-  },
-  "customEvents": []
-}
-```
+- [`shared/types.ts`](shared/types.ts): the TypeScript declarations (`ProjectFile`, `ClickMapDefinition`, views, layers, areas, geometry and action variants).
+- [`docs/data-model.md`](docs/data-model.md): field-by-field reference, sizing modes, and decoding rules.
+- [`docs/export-format.md`](docs/export-format.md) and [`docs/renderer-api.md`](docs/renderer-api.md): package layout and runtime API.
 
-### 4.2 Asset
-
-```json
-{
-  "id": "asset_campus_svg",
-  "type": "image/svg+xml",
-  "name": "campus-map.svg",
-  "src": "assets/campus-map.svg",
-  "width": 1600,
-  "height": 900,
-  "inline": false
-}
-```
-
-Supported MIME types: `image/png`, `image/jpeg`, `image/webp`, `image/svg+xml`.
-On export, an SVG asset may be referenced externally, inlined into `map.json` as base64 / raw markup, or inlined into the demo `index.html`.
-
-### 4.3 View
-
-```json
-{
-  "id": "view_main",
-  "name": "Main Campus Map",
-  "slug": "main-campus-map",
-  "background": {
-    "assetId": "asset_campus_svg",
-    "fit": "contain"
-  },
-  "width":  1600,
-  "height": 900,
-  "viewport": {
-    "minZoom": 1,
-    "maxZoom": 4,
-    "initialZoom": 1,
-    "panEnabled": true,
-    "zoomEnabled": true
-  },
-  "ui": {
-    "showBackButton": true,
-    "showBreadcrumbs": true,
-    "showTitle": true
-  },
-  "layers": [ /* Layer[] */ ]
-}
-```
-
-### 4.4 Layer
-
-```json
-{
-  "id": "layer_buildings",
-  "name": "Buildings",
-  "visible": true,
-  "locked": false,
-  "opacity": 1,
-  "areas": [ /* Area[] */ ]
-}
-```
-
-### 4.5 Area (canonical example — all fields shown)
-
-```json
-{
-  "id": "area_library",
-  "name": "Library",
-  "type": "polygon",
-  "geometry": {
-    "points": [[320, 210], [510, 220], [530, 390], [300, 380]]
-  },
-  "style": {
-    "default": { "fill": "rgba(0,120,255,0)",    "stroke": "rgba(0,120,255,0)",   "strokeWidth": 2 },
-    "hover":   { "fill": "rgba(0,120,255,0.25)", "stroke": "rgba(0,120,255,0.9)", "strokeWidth": 2 },
-    "active":  { "fill": "rgba(0,120,255,0.35)", "stroke": "rgba(0,120,255,1)",   "strokeWidth": 3 }
-  },
-  "tooltip": {
-    "enabled": true,
-    "title":   "Library",
-    "body":    "Click to view library floors."
-  },
-  "action": {
-    "type": "goToView",
-    "targetViewId": "view_library_floor_1",
-    "transition": "fade"
-  },
-  "accessibility": {
-    "ariaLabel": "Open Library map",
-    "tabIndex": 0
-  },
-  "metadata": { "category": "building" }
-}
-```
-
-### 4.6 Geometry variants
-
-| `type`    | `geometry` shape                                                       |
-| --------- | ---------------------------------------------------------------------- |
-| `rect`    | `{ x, y, width, height, rx? }`                                         |
-| `circle`  | `{ cx, cy, r }`                                                        |
-| `polygon` | `{ points: [[x,y], ...] }`                                             |
-| `path`    | `{ d: "M…Z" }` (SVG path data)                                         |
-| `marker`  | `{ x, y, anchor: "bottom-center" \| "center" \| "top-left" \| ... }` |
-
-### 4.7 Action variants
-
-| `type`          | Required fields                                |
-| --------------- | ---------------------------------------------- |
-| `none`          | —                                              |
-| `url`           | `href`, `target` (`"_blank"` \| `"_self"`)     |
-| `goToView`      | `targetViewId`, `transition?`                  |
-| `popup`         | `popupId`                                      |
-| `toggleLayer`   | `targetLayerId`                                |
-| `customEvent`   | `eventName`, `payload?`                        |
-
-### 4.8 Editor-only state (stripped on export)
-
-```json
-"editor": {
-  "selectedAreaId": "area_library",
-  "zoom": 1.25,
-  "pan": { "x": 120, "y": 80 },
-  "grid": { "enabled": true, "size": 10 },
-  "guides": [],
-  "history": []
-}
-```
-
-Export pipeline drops this block unless the user explicitly checks "include editor metadata."
+The conceptual model in §3 holds. Notable additions since the original brief: each view owns its `canvas` coordinate space; layers contain ordered images as well as areas; `sizingMode` controls the renderer's CSS box. Update those documents, not this section, when the schema changes.
 
 ---
 
@@ -302,7 +184,7 @@ React Flow is an editor-only dependency. It must not appear in the exported rend
 
 ### 5.4 Preview
 
-Renders the current project using the **real** exported renderer (not a React reimplementation). Verifies that what the user authors is what visitors will see. Supports responsive resizing, mobile viewport simulation, hover/touch state testing, popup behavior, back-button navigation, and a "block outbound URLs" toggle for safe testing.
+Renders the current project using the **real** exported renderer (not a React reimplementation). Verifies that what the user authors is what visitors will see. Supports resizing the embed container (width and height, including narrow/mobile-sized containers), hover/touch state testing, popup behavior, back-button navigation, and a "block outbound URLs" toggle for safe testing.
 
 ### 5.5 Export
 
@@ -407,7 +289,7 @@ type ClickMapInstance = {
 - Dispatch the configured action on click / Enter / Space.
 - Animate View transitions (`fade` minimum; others optional).
 - Maintain navigation history; support `goBack()` and browser back button when `enableHistory: true`.
-- Resize responsively while preserving aspect ratio if configured.
+- Resize to the embedding element (§2.5), preserving aspect ratio if configured.
 - Render tooltips and popups (modal, focus-trapped, ESC-to-close).
 - Emit custom events to host page.
 
@@ -594,7 +476,7 @@ The MVP is accepted when:
 12. The exported `index.html` works opened locally and served from a static web server.
 13. The embed snippet can be pasted into a plain HTML page and Just Works.
 14. The exported renderer has zero React or framework dependencies.
-15. The exported map is responsive.
+15. The exported map responds to its embedding element's size (§2.5).
 16. The exported map supports basic keyboard accessibility (§10.1).
 
 ### 12.3 Definition of Done (for any task on this repo)
@@ -605,6 +487,15 @@ The MVP is accepted when:
 - If user-facing: manually exercised in the running editor (see [AGENTS.md](./AGENTS.md) §5).
 - Docs in `/docs` updated when the data model, renderer API, or export format changes.
 - PR merged into `main` with a `Closes #N` reference to the issue.
+
+### 12.4 Release completion (finite)
+
+Work after the MVP is not open-ended. The release is complete when both of these hold:
+
+1. Every release acceptance flow in the active roadmap ([#180](https://github.com/highda/svg-mapper/issues/180): author on desktop, embed, publish, guardrails, access/lifecycle) is exercised, with behavior-level evidence recorded.
+2. Every required leaf issue in that roadmap is closed, or explicitly parked with `agent:blocked` and the external condition it waits on. Physical-device QA such as #113 counts only when actually performed; emulation is never a physical-device pass.
+
+A defect found along the way may get a bounded ticket. Speculative features do not keep the release open. Record them as Phase 2+ candidates (Appendix C) instead.
 
 ---
 

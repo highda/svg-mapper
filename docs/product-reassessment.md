@@ -5,6 +5,12 @@ important mismatches discovered after the nominal MVP completion, and the
 image-first direction delivered by roadmap #90. `ASSIGNMENT.md` remains the
 original brief; this file records the decisions that guided the implementation.
 
+> **Scope update (2026-09-25, #154):** the owner narrowed the editor to
+> desktop authoring, with a 1024×600 floor. The published renderer must respond
+> to its embedding element, including for mobile visitors. The 390×844 editor
+> smoke paths below are historical and no longer a requirement. See
+> `ASSIGNMENT.md` §2.4–§2.6 and §12.4.
+
 ## Product thesis
 
 SVG Mapper should be a portable, image-first interactive scene composer. It is
