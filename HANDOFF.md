@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #177 — fix(infra): refresh task selection and exclude blocked issues and roadmaps
-Branch:       claude/kind-albattani-vjpp90
-Started:      2026-09-25
-Last commit:  (claim)
-
-### What's done
-- Claimed #177 (Wave 0 of roadmap #180, ahead of oldest-first #155).
-
-### What's next
-- One shared selection function in scripts/codex-loop.sh, refreshed per session; behavior tests with fake gh.
-
-### Notes / gotchas
-- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/177-*`.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-25 — closed #177 — one shared selector (scripts/select-task.mjs) refreshed before every loop session; blocked, roadmap and dependency-gated issues are never picked or promoted; multi-session fake gh/codex tests; PR #183.
 - 2026-09-25 — closed #154 — split scope into a desktop editor (1024×600 floor) and a container-responsive renderer, made loop completion finite against #180, and documented dependency policy; PR #181.
 - 2026-09-06 — closed #130 — added exported lifecycle hooks, ordered view/camera events, and explicit sandboxed trusted-hook Preview tooling; PR #153.
 - 2026-09-06 — closed #126 — added multi-selection, reusable linked styles, batch editing, arrangement tools, and group geometry workflows; PR #152.
