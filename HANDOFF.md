@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #154 — docs: define desktop authoring scope and finite review acceptance
+Branch:       claude/kind-albattani-vjpp90
+Started:      2026-09-25
+Last commit:  (claim)
+
+### What's done
+- Claimed #154.
+
+### What's next
+- Reconcile ASSIGNMENT, .codex goal/prompts, user guide and QA matrix on desktop authoring floor + container-responsive renderer.
+
+### Notes / gotchas
+- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/154-*`.
 
 ---
 
