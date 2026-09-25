@@ -141,4 +141,82 @@ if rg -F 'GitHub API was temporarily unreachable' <<<"$source_only_output" >/dev
   exit 1
 fi
 
+node --test "$repo_root/scripts/test-select-task.mjs" >/dev/null
+
+# Fresh task selection across sessions: a fake gh serves open issues from a
+# JSON state file, and a fake codex records each brief and closes the task it
+# was given. Every session must see the previous session's result.
+selection_dir="$test_bin_dir/selection"
+mkdir -p "$selection_dir/bin"
+cat >"$selection_dir/state.json" <<'JSON'
+[
+  {"number": 5,   "title": "Older p2",       "url": "", "body": "",  "labels": [{"name": "agent:ready"}, {"name": "p2"}]},
+  {"number": 10,  "title": "Older p1",       "url": "", "body": "",  "labels": [{"name": "agent:ready"}, {"name": "p1"}]},
+  {"number": 20,  "title": "Newer p0",       "url": "", "body": "",  "labels": [{"name": "agent:ready"}, {"name": "p0"}]},
+  {"number": 30,  "title": "Gated leaf",     "url": "", "body": "Depends on #5. Promote afterwards.", "labels": [{"name": "p1"}]},
+  {"number": 113, "title": "Parked touch",   "url": "", "body": "",  "labels": [{"name": "agent:blocked"}, {"name": "p1"}]},
+  {"number": 131, "title": "Roadmap: stuff", "url": "", "body": "",  "labels": [{"name": "p1"}]}
+]
+JSON
+cat >"$selection_dir/bin/gh" <<'SH'
+#!/usr/bin/env node
+const fs = require('node:fs');
+const file = process.env.FAKE_GH_STATE;
+const issues = JSON.parse(fs.readFileSync(file, 'utf8'));
+const [cmd, sub, ...rest] = process.argv.slice(2);
+if (cmd === 'issue' && sub === 'list') {
+  process.stdout.write(JSON.stringify(issues));
+} else if (cmd === 'issue' && sub === 'edit') {
+  const target = issues.find((i) => i.number === Number(rest[0]));
+  const label = rest[rest.indexOf('--add-label') + 1];
+  if (!target.labels.some((l) => l.name === label)) target.labels.push({ name: label });
+  fs.writeFileSync(file, JSON.stringify(issues));
+} else {
+  process.stderr.write(`fake gh: unsupported ${process.argv.slice(2).join(' ')}\n`);
+  process.exit(1);
+}
+SH
+cat >"$selection_dir/codex" <<'SH'
+#!/usr/bin/env bash
+last_message=""
+while (($#)); do
+  if [[ "$1" == "--output-last-message" ]]; then last_message="$2"; shift 2; continue; fi
+  shift
+done
+brief="$CODEX_LOOP_RUNTIME_DIR/task-brief.md"
+head -n 1 "$brief" >>"$FAKE_BRIEF_LOG"
+number="$(sed -n 's/^# Assigned task: [a-z]* #\([0-9]*\)$/\1/p' "$brief" | head -n 1)"
+if [[ -n "$number" ]]; then
+  node -e 'const fs=require("fs");const f=process.argv[1];fs.writeFileSync(f,JSON.stringify(JSON.parse(fs.readFileSync(f,"utf8")).filter(i=>i.number!==Number(process.argv[2]))))' "$FAKE_GH_STATE" "$number"
+fi
+printf '%s' 'checkpoint complete' >"$last_message"
+SH
+chmod +x "$selection_dir/bin/gh" "$selection_dir/codex"
+PATH="$selection_dir/bin:$PATH" FAKE_GH_STATE="$selection_dir/state.json" FAKE_BRIEF_LOG="$selection_dir/briefs.log" \
+  CODEX_LOOP_MAX_SESSIONS=5 CODEX_LOOP_RUNTIME_DIR="$test_runtime_dir/selection" CODEX_LOOP_GITHUB_TOKEN=test-token \
+  CODEX_BIN="$selection_dir/codex" "$repo_root/scripts/codex-loop.sh" >/dev/null 2>&1
+expected_briefs='# Assigned task: claim #20
+# Assigned task: claim #10
+# Assigned task: claim #5
+# Assigned task: claim #30
+# No eligible task'
+if [[ "$(cat "$selection_dir/briefs.log")" != "$expected_briefs" ]]; then
+  printf 'Unexpected task briefs across sessions:\n%s\n' "$(cat "$selection_dir/briefs.log")" >&2
+  exit 1
+fi
+if node -e 'const x=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")); process.exit(x.some(i=>i.labels.some(l=>l.name==="agent:ready"))?0:1)' "$selection_dir/state.json"; then
+  printf '%s\n' 'Blocked or roadmap issues must never be promoted to agent:ready.' >&2
+  exit 1
+fi
+
+# The completion reviewer never receives an implementation brief.
+printf '%s\n' 'candidate' >"$test_runtime_dir/selection/completion-candidate.md"
+PATH="$selection_dir/bin:$PATH" FAKE_GH_STATE="$selection_dir/state.json" FAKE_BRIEF_LOG="$selection_dir/review.log" \
+  CODEX_LOOP_MAX_SESSIONS=1 CODEX_LOOP_RUNTIME_DIR="$test_runtime_dir/selection" CODEX_LOOP_GITHUB_TOKEN=test-token \
+  CODEX_BIN="$selection_dir/codex" "$repo_root/scripts/codex-loop.sh" >/dev/null 2>&1 || true
+if [[ -s "$selection_dir/review.log" ]]; then
+  printf '%s\n' 'Completion review must not receive a task brief.' >&2
+  exit 1
+fi
+
 printf '%s\n' 'Codex loop static checks passed.'

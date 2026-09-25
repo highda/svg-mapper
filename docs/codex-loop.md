@@ -44,6 +44,15 @@ the final reviewer writes the `loop-complete.md` marker. For a bounded run:
 CODEX_LOOP_MAX_SESSIONS=5 ./scripts/codex-loop.sh
 ```
 
+Before every work session, the script lists open issues and runs
+`scripts/select-task.mjs`. The result goes to `.codex/runtime/task-brief.md`
+as one of: resume the active task, claim the top eligible ready issue, resolve
+a lock conflict, or report that nothing is eligible. It is never reused from an
+earlier session. Blocked issues, `Roadmap:` trackers and issues with open
+dependencies are never selected or promoted. A completion-review session gets
+no brief. `scripts/test-codex-loop.sh` covers this with a fake `gh` and a fake
+Codex across several sessions.
+
 The script writes JSONL event logs and final messages below
 `.codex/runtime/`; that directory is ignored by Git. Terminal output is only
 the session lifecycle, not agent conversation.

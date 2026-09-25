@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #177 — fix(infra): refresh task selection and exclude blocked issues and roadmaps
+Branch:       claude/kind-albattani-vjpp90
+Started:      2026-09-25
+Last commit:  (claim)
+
+### What's done
+- Claimed #177 (Wave 0 of roadmap #180, ahead of oldest-first #155).
+
+### What's next
+- One shared selection function in scripts/codex-loop.sh, refreshed per session; behavior tests with fake gh.
+
+### Notes / gotchas
+- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/177-*`.
 
 ---
 
