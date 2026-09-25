@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #160 — fix(renderer): adapt visitor controls to the container and prevent overlap
+Branch:       claude/kind-albattani-vjpp90
+Started:      2026-09-25
+Last commit:  (claim)
+
+### What's done
+- Claimed #160 (selected by scripts/select-task.mjs).
+
+### What's next
+- Container-based compact mode for the root; control slots so Back, directory, switcher, zoom and legend don't overlap; compact "Find a place" toggle.
+
+### Notes / gotchas
+- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/160-*`.
 
 ---
 
