@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #160 — fix(renderer): adapt visitor controls to the container and prevent overlap
-Branch:       claude/kind-albattani-vjpp90
-Started:      2026-09-25
-Last commit:  (claim)
-
-### What's done
-- Claimed #160 (selected by scripts/select-task.mjs).
-
-### What's next
-- Container-based compact mode for the root; control slots so Back, directory, switcher, zoom and legend don't overlap; compact "Find a place" toggle.
-
-### Notes / gotchas
-- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/160-*`.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-25 — closed #160 — visitor controls share one slot grid (no overlaps), compact mode from renderer size with Find-a-place toggle and dropdown switcher, scrollable switcher; PR #193.
 - 2026-09-25 — closed #159 — popovers/tooltips placed by Floating UI against rendered shapes, contained in the map with scrolling body and reachable Close, tracked only while open; renderer 23.7 KB gzip; PR #191.
 - 2026-09-25 — closed #158 — Preview page vs independently resizable map host (fields, drag and keyboard handle), live size readout, fit/restart, resize without rebuild, source-checked messages; PR #189.
 - 2026-09-25 — closed #157 — fixed 800×0 fixed-mode view; one shared sizing resolution now drives renderer, Preview, map.json, index.html, embed and README; Export writes sizingMode; real-layout e2e in light/Shadow DOM; PR #187.
