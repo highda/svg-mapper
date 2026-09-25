@@ -98,7 +98,7 @@ export function App() {
   }, [saveProject, setScreen]);
 
   return (
-    <div className="flex h-screen flex-col bg-neutral-900 text-neutral-200">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-neutral-900 text-neutral-200">
       <TopBar draftState={draftState} />
       <FirstUseGuide />
       {draftError && (

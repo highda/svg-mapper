@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #155 — fix(editor): investigate and prevent outer document scrolling
+Branch:       claude/kind-albattani-vjpp90
+Started:      2026-09-25
+Last commit:  (claim)
+
+### What's done
+- Claimed #155 (selected by scripts/select-task.mjs).
+
+### What's next
+- Reproduce outer-document scroll (wheel at panel boundaries, focus traversal, dialogs, banners, zoom, resize), find cause, bound app shell, add regression checks.
+
+### Notes / gotchas
+- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/155-*`.
 
 ---
 

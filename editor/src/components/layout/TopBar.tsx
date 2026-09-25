@@ -247,7 +247,7 @@ export function TopBar({
       )}
       {starterOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="starter-title">
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-neutral-600 bg-neutral-900 p-5 shadow-2xl">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto overscroll-contain rounded-xl border border-neutral-600 bg-neutral-900 p-5 shadow-2xl">
             <div className="flex items-start gap-3">
               <div><h2 id="starter-title" className="text-lg font-semibold text-white">Start a map</h2><p className="mt-1 text-sm text-neutral-400">Everything here stays editable and uses the same Preview and Export as your own project.</p></div>
               <button autoFocus type="button" aria-label="Close starter" className="ml-auto rounded px-2 py-1 text-neutral-400 hover:bg-neutral-800" onClick={() => setStarterOpen(false)}>✕</button>

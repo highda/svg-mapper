@@ -163,7 +163,7 @@ export function PreviewScreen() {
       )}
 
       {/* Iframe stage */}
-      <div className="flex min-h-0 flex-1 justify-center overflow-auto p-4">
+      <div className="flex min-h-0 flex-1 justify-center overflow-auto overscroll-contain p-4">
         <iframe
           title="Map preview"
           sandbox="allow-scripts allow-popups"

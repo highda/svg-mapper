@@ -44,7 +44,7 @@ export function ShortcutsHelp({ onClose }: ShortcutsHelpProps) {
       onClick={onClose}
     >
       <div
-        className="w-96 rounded-lg border border-neutral-700 bg-neutral-900 p-5 shadow-2xl"
+        className="max-h-[calc(100%-2rem)] w-96 overflow-y-auto overscroll-contain rounded-lg border border-neutral-700 bg-neutral-900 p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">

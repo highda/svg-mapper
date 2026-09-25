@@ -13,3 +13,20 @@ body,
   margin: 0;
   padding: 0;
 }
+
+/*
+ * The editor is a fixed desktop shell: only its panels scroll. The document
+ * itself never needs to, so keep it stationary even where browsers scroll or
+ * rubber-band the root without real overflow (macOS elastic overscroll, wheel
+ * chaining out of a panel or the Preview iframe). Regression tests still
+ * assert that no descendant overflows the viewport, so this cannot hide
+ * unreachable content. Editor-only: never applied to exported maps.
+ */
+html {
+  overflow: hidden;
+}
+
+html,
+body {
+  overscroll-behavior: none;
+}
