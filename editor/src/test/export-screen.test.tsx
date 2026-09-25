@@ -40,12 +40,23 @@ describe("ExportScreen failure handling", () => {
     render(<ExportScreen />);
     fireEvent.change(screen.getByLabelText("Upload base path"), { target: { value: "/nested/maps/one" } });
     fireEvent.change(screen.getByLabelText("Container ID"), { target: { value: "map-one" } });
-    fireEvent.change(screen.getByLabelText("Container sizing"), { target: { value: "viewport" } });
+    fireEvent.change(screen.getByLabelText(/Map sizing/), { target: { value: "fill-container" } });
+    fireEvent.change(screen.getByLabelText("Host width"), { target: { value: "100vw" } });
+    fireEvent.change(screen.getByLabelText("Host height"), { target: { value: "100vh" } });
 
     const preview = screen.getByText((_, element) => element?.tagName === "PRE");
     expect(preview).toHaveTextContent("/nested/maps/one/map.json");
     expect(preview).toHaveTextContent("#map-one");
     expect(preview).toHaveTextContent("width: 100vw; height: 100vh");
+    // The choice is project data, so Preview and map.json use the same mode.
+    expect(useStore.getState().project.settings.sizingMode).toBe("fill-container");
+  });
+
+  it("rejects a host size that is not a single CSS length", () => {
+    render(<ExportScreen />);
+    fireEvent.change(screen.getByLabelText(/Map sizing/), { target: { value: "fill-container" } });
+    fireEvent.change(screen.getByLabelText("Host height"), { target: { value: "auto" } });
+    expect(screen.getByRole("alert")).toHaveTextContent("Host width and height must each be one CSS length");
   });
 
   it("discloses preserved external asset dependencies", () => {

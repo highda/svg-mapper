@@ -289,10 +289,10 @@ describe("renderer interaction model", () => {
   });
 
   it.each([
-    ["fixed", "1600px", "900px", ""],
-    ["fluid-width", "100%", "auto", "1600 / 900"],
-    ["fill-container", "100%", "100%", ""],
-  ] as const)("applies the %s container sizing contract", (mode, width, height, ratio) => {
+    ["fixed", "1600px", "900px", "", "100%"],
+    ["fluid-width", "100%", "auto", "1600 / 900", "auto"],
+    ["fill-container", "100%", "100%", "", "100%"],
+  ] as const)("applies the %s container sizing contract", (mode, width, height, ratio, viewHeight) => {
     const project = createNewProject();
     project.settings.sizingMode = mode;
     create({ container: "#map", definition: toDefinition(project) });
@@ -303,6 +303,8 @@ describe("renderer interaction model", () => {
     expect(root.style.width).toBe(width);
     expect(root.style.height).toBe(height);
     expect(view.style.aspectRatio).toBe(ratio);
+    // The view's children are absolute; without this it collapses to 0px (#157).
+    expect(view.style.height).toBe(viewHeight);
   });
 
   it.each([

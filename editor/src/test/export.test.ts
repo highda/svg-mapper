@@ -237,9 +237,9 @@ describe("generateExportPackage", () => {
       inlineAssets: true,
       basePath: "/sites/campus/maps/directory-a/",
       containerId: "campus-map-a",
-      containerWidth: "800px",
-      containerHeight: "600px",
+      hostSize: { width: "800px", height: "600px" },
     };
+    project.settings.sizingMode = "fill-container";
     const pkg = generateExportPackage(toDefinition(project), STUB_JS, STUB_CSS, options);
     const files = unzipSync(pkg.zip);
     const embed = strFromU8(files["embed.html"]!);
@@ -260,6 +260,38 @@ describe("generateExportPackage", () => {
     });
     expect(second.embedSnippet).toContain('container: "#campus-map-b"');
     expect(second.embedSnippet).not.toContain("campus-map-a");
+  });
+
+  it.each([
+    ["fixed", `<div id="clickmap"></div>`, "#clickmap {  }", "Mode: fixed canvas size"],
+    ["fluid-width", `<div id="clickmap" style="width: 100%;"></div>`, "#clickmap { width: 100%; max-width: 1200px; }", "Mode: fluid width"],
+    ["fill-container", `<div id="clickmap" style="width: 100vw; height: 100vh;"></div>`, "#clickmap { width: 100vw; height: 100vh; }", "Mode: fill host"],
+  ] as const)("derives every %s artifact from one sizing resolution", (mode, hostDiv, demoCss, guide) => {
+    const project = createNewProject("Sizing");
+    project.settings.sizingMode = mode;
+    const options = { inlineAssets: true, hostSize: { width: "100vw", height: "100vh" } };
+    const pkg = generateExportPackage(toDefinition(project), STUB_JS, STUB_CSS, options);
+    const files = unzipSync(pkg.zip);
+    const preview = generateExportPreview(toDefinition(project), STUB_JS, STUB_CSS, options);
+
+    expect(pkg.embedSnippet).toContain(hostDiv);
+    expect(strFromU8(files["embed.html"]!)).toContain(hostDiv);
+    expect(preview.embedSnippet).toBe(pkg.embedSnippet);
+    expect(strFromU8(files["index.html"]!)).toContain(demoCss);
+    expect(strFromU8(files["README.txt"]!)).toContain(guide);
+    expect(JSON.parse(pkg.mapJson).settings.sizingMode).toBe(mode);
+    expect(JSON.parse(preview.mapJson).settings.sizingMode).toBe(mode);
+  });
+
+  it("writes the inferred mode for legacy definitions without sizingMode", () => {
+    const project = createNewProject("Legacy");
+    delete project.settings.sizingMode;
+    project.settings.responsive = false;
+    const pkg = generateExportPackage(toDefinition(project), STUB_JS, STUB_CSS, { inlineAssets: true });
+    expect(JSON.parse(pkg.mapJson).settings.sizingMode).toBe("fixed");
+    expect(pkg.embedSnippet).toContain('<div id="clickmap"></div>');
+    const readme = strFromU8(unzipSync(pkg.zip)["README.txt"]!);
+    expect(readme).toMatch(/Mode: fixed canvas size[\s\S]*\d+ × \d+ CSS px/);
   });
 
   it("keeps configured paths inert in embed script and HTML contexts", () => {

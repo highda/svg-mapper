@@ -3,7 +3,8 @@
 // embed.html, README.txt.
 
 import { zipSync, strToU8 } from "fflate";
-import type { ClickMapDefinition, Asset } from "@svg-mapper/shared";
+import type { ClickMapDefinition, Asset, ContainerSizingMode, HostSize } from "@svg-mapper/shared";
+import { DEFAULT_HOST_SIZE, hostStyle, resolveSizingMode } from "@svg-mapper/shared";
 import { serializeJsonForScript } from "./script-json";
 
 export interface ExportOptions {
@@ -13,9 +14,12 @@ export interface ExportOptions {
   basePath?: string;
   /** Unique host-page element id. */
   containerId?: string;
-  /** CSS width and height applied to the host element. */
-  containerWidth?: string;
-  containerHeight?: string;
+  /**
+   * Host element size for `fill-container` maps. The renderer mode itself comes
+   * from `definition.settings` (see resolveSizingMode); fixed and fluid-width
+   * maps size themselves and ignore this.
+   */
+  hostSize?: HostSize;
 }
 
 export interface ExportPackage {
@@ -37,12 +41,55 @@ export interface ExportPreview {
 const DEFAULT_EXPORT_OPTIONS = {
   basePath: "/maps/my-map",
   containerId: "clickmap",
-  containerWidth: "100%",
-  containerHeight: "auto",
+  hostSize: DEFAULT_HOST_SIZE,
 } as const;
 
-function resolvedOptions(options: ExportOptions) {
-  return { ...DEFAULT_EXPORT_OPTIONS, ...options };
+/**
+ * The single sizing resolution every artifact is generated from: the renderer
+ * mode written into map.json, the host CSS in index.html and the embed
+ * snippet, and the README guidance.
+ */
+function resolvedOptions(options: ExportOptions, definition: ClickMapDefinition) {
+  const merged = { ...DEFAULT_EXPORT_OPTIONS, ...options };
+  const mode = resolveSizingMode(definition.settings);
+  const initialView = definition.views.find((view) => view.id === definition.settings.initialViewId) ?? definition.views[0];
+  return {
+    ...merged,
+    mode,
+    hostStyle: hostStyle(mode, merged.hostSize),
+    canvas: initialView?.canvas ?? { width: 0, height: 0 },
+  };
+}
+
+type ResolvedOptions = ReturnType<typeof resolvedOptions>;
+
+/** Record the resolved mode explicitly so every consumer of map.json agrees. */
+function withResolvedSizing(definition: ClickMapDefinition, mode: ContainerSizingMode): ClickMapDefinition {
+  return { ...definition, settings: { ...definition.settings, sizingMode: mode } };
+}
+
+function hostDiv(options: ResolvedOptions): string {
+  const id = escapeHtml(options.containerId);
+  return options.hostStyle ? `<div id="${id}" style="${escapeHtml(options.hostStyle)}"></div>` : `<div id="${id}"></div>`;
+}
+
+function sizingGuide(options: ResolvedOptions): string {
+  const { width, height } = options.canvas;
+  if (options.mode === "fixed") {
+    return `  Mode: fixed canvas size. The map renders at the canvas size of each view
+  (${width} × ${height} CSS px for the initial view) whatever the host's size.
+  The host needs no size of its own; leave that much room for it on the page.`;
+  }
+  if (options.mode === "fluid-width") {
+    return `  Mode: fluid width. The map fills the width of <div id="${options.containerId}">
+  and sets its own height from each view's shape (${width}:${height} for the
+  initial view). Give the host or its parent a nonzero width; do not set a height.`;
+  }
+  return `  Mode: fill host. The map fills <div id="${options.containerId}">, sized
+  ${options.hostSize.width.trim()} × ${options.hostSize.height.trim()} here. The host must have an explicit,
+  nonzero width and height. A percentage height only works when every parent
+  also has a height. The canvas (${width} × ${height} for the initial view) is
+  fitted inside the host; it does not set the host's size.`;
 }
 
 function normalizeBasePath(path: string): string {
@@ -101,12 +148,11 @@ function makeAssetFilenamer() {
   };
 }
 
-function buildEmbedSnippet(options: ReturnType<typeof resolvedOptions>): string {
+function buildEmbedSnippet(options: ResolvedOptions): string {
   const basePath = normalizeBasePath(options.basePath);
   const htmlBasePath = escapeHtml(basePath);
-  const id = escapeHtml(options.containerId);
   const selector = serializeJsString(`#${options.containerId}`);
-  return `<div id="${id}" style="width: ${escapeHtml(options.containerWidth)}; height: ${escapeHtml(options.containerHeight)};"></div>
+  return `${hostDiv(options)}
 
 <link rel="stylesheet" href="${htmlBasePath}/clickmap-renderer.css">
 <script src="${htmlBasePath}/clickmap-renderer.js"></script>
@@ -126,6 +172,7 @@ function buildIndexHtml(
   definition: ClickMapDefinition,
   rendererJs: string,
   rendererCss: string,
+  options: ResolvedOptions,
 ): string {
   const safeJson = serializeJsonForScript(definition, 2);
 
@@ -142,7 +189,7 @@ ${rendererCss}
     html, body { margin: 0; padding: 0; height: 100%; }
     body { display: flex; align-items: center; justify-content: center;
            background: #1a1a1a; }
-    #clickmap { width: 100%; max-width: 1200px; }
+    #clickmap { ${options.mode === "fluid-width" ? "width: 100%; max-width: 1200px;" : options.hostStyle} }
   </style>
 </head>
 <body>
@@ -162,10 +209,9 @@ ${HOOKS_SCAFFOLD}
 </html>`;
 }
 
-function buildEmbedHtml(options: ReturnType<typeof resolvedOptions>): string {
+function buildEmbedHtml(options: ResolvedOptions): string {
   const basePath = normalizeBasePath(options.basePath);
   const htmlBasePath = escapeHtml(basePath);
-  const id = escapeHtml(options.containerId);
   const selector = serializeJsString(`#${options.containerId}`);
   return `<!-- Embed snippet: paste into your page's <head> and <body> -->
 
@@ -173,7 +219,7 @@ function buildEmbedHtml(options: ReturnType<typeof resolvedOptions>): string {
 <link rel="stylesheet" href="${htmlBasePath}/clickmap-renderer.css">
 
 <!-- In <body> where the map should appear: -->
-<div id="${id}" style="width: ${escapeHtml(options.containerWidth)}; height: ${escapeHtml(options.containerHeight)};"></div>
+${hostDiv(options)}
 
 <!-- Before </body>: -->
 <script src="${htmlBasePath}/clickmap-renderer.js"></script>
@@ -189,7 +235,7 @@ function buildEmbedHtml(options: ReturnType<typeof resolvedOptions>): string {
 </script>`;
 }
 
-function buildReadme(projectName: string, options: ReturnType<typeof resolvedOptions>, externalDependencies: string[]): string {
+function buildReadme(projectName: string, options: ResolvedOptions, externalDependencies: string[]): string {
   const dependencyNotice = externalDependencies.length === 0
     ? "  None. Every embedded source is included in this package."
     : `  This package preserves the following external references; they were not\n  downloaded or rewritten. Remote URLs must remain reachable. Relative paths must\n  be deployed relative to map.json (and index.html when opened locally):\n${externalDependencies.map((source) => `  - ${source}`).join("\n")}`;
@@ -216,7 +262,11 @@ QUICK START
 2. Open embed.html and copy the snippet into your page.
 3. Upload it at ${normalizeBasePath(options.basePath)} (the path already used by embed.html).
 4. The <div id="${options.containerId}"> can be placed anywhere in your page body.
-   Its configured size is ${options.containerWidth} × ${options.containerHeight}.
+   See MAP SIZE below for the space it needs.
+
+MAP SIZE
+--------
+${sizingGuide(options)}
 
 OPENING LOCALLY
 ---------------
@@ -233,9 +283,9 @@ Missing assets
   Packaged asset files must be uploaded alongside map.json in the assets/ folder.
   Do not rename or move them. Preserve any external dependencies listed above.
 
-Container has no height
-  Make sure the element with id="clickmap" has an explicit height set in CSS,
-  or its parent has a defined height. The renderer fills 100% of the container.
+Map is blank or zero-height
+  Check MAP SIZE above. A hidden host (display: none) is fine: the map lays
+  itself out when the host becomes visible and gains size.
 
 Multiple instances per page
   Call ClickMapRenderer.create() once per container. Each call returns an
@@ -320,7 +370,7 @@ export function generateExportPackage(
   rendererCss: string,
   options: ExportOptions,
 ): ExportPackage {
-  const resolved = resolvedOptions(options);
+  const resolved = resolvedOptions(options, definition);
   const { inlineAssets } = resolved;
 
   // For the ZIP's map.json: inline keeps data-URIs; external rewrites to paths.
@@ -331,6 +381,7 @@ export function generateExportPackage(
   } else {
     ({ definition: exportedDefinition, embeddedAssets } = definitionWithAssetPaths(definition));
   }
+  exportedDefinition = withResolvedSizing(exportedDefinition, resolved.mode);
 
   const mapJson = JSON.stringify(exportedDefinition, null, 2);
   const embedSnippet = buildEmbedSnippet(resolved);
@@ -343,7 +394,7 @@ export function generateExportPackage(
   files["hooks.js"] = strToU8(HOOKS_SCAFFOLD);
   files["embed.html"] = strToU8(buildEmbedHtml(resolved));
   files["index.html"] = strToU8(
-    buildIndexHtml(exportedDefinition, rendererJs, rendererCss),
+    buildIndexHtml(exportedDefinition, rendererJs, rendererCss, resolved),
   );
   files["README.txt"] = strToU8(buildReadme(definition.project.name, resolved, externalDependencies(definition)));
 
@@ -363,10 +414,10 @@ export function generateExportPreview(
   rendererCss: string,
   options: ExportOptions,
 ): ExportPreview {
-  const resolved = resolvedOptions(options);
-  const exportedDefinition = options.inlineAssets
+  const resolved = resolvedOptions(options, definition);
+  const exportedDefinition = withResolvedSizing(options.inlineAssets
     ? definition
-    : definitionWithAssetPaths(definition).definition;
+    : definitionWithAssetPaths(definition).definition, resolved.mode);
   const mapJson = JSON.stringify(exportedDefinition, null, 2);
   const embedSnippet = buildEmbedSnippet(resolved);
   const dependencies = externalDependencies(definition);
