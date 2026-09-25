@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #155 — fix(editor): investigate and prevent outer document scrolling
-Branch:       claude/kind-albattani-vjpp90
-Started:      2026-09-25
-Last commit:  (claim)
-
-### What's done
-- Claimed #155 (selected by scripts/select-task.mjs).
-
-### What's next
-- Reproduce outer-document scroll (wheel at panel boundaries, focus traversal, dialogs, banners, zoom, resize), find cause, bound app shell, add regression checks.
-
-### Notes / gotchas
-- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/155-*`.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-25 — closed #155 — not reproducible in headless Chromium; bounded the shell to 100% (not 100vh), stopped root overscroll/chaining, made help dialog scroll, added document-scroll e2e guard; Safari/macOS trackpad confirmation still owed; PR #185.
 - 2026-09-25 — closed #177 — one shared selector (scripts/select-task.mjs) refreshed before every loop session; blocked, roadmap and dependency-gated issues are never picked or promoted; multi-session fake gh/codex tests; PR #183.
 - 2026-09-25 — closed #154 — split scope into a desktop editor (1024×600 floor) and a container-responsive renderer, made loop completion finite against #180, and documented dependency policy; PR #181.
 - 2026-09-06 — closed #130 — added exported lifecycle hooks, ordered view/camera events, and explicit sandboxed trusted-hook Preview tooling; PR #153.
