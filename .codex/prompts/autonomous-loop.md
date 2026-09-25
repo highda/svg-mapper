@@ -44,11 +44,14 @@ goal condition is met, write a concise evidence-backed proposal to
 finish safely, leave an accurate memento and end; the next fresh iteration will
 recover it.
 
-If there is no ready task and no active task but the goal assessment finds
-remaining in-scope work, turn the highest-priority feasible open backlog issue
-into `agent:ready` (or create one if none describes the gap), then claim and
-advance it. An empty Ready column is a workflow gap, not a reason to report
-`blocked`.
+If there is no ready task and no active task, but the goal assessment finds an
+unmet release acceptance flow or a reproducible defect, find the
+highest-priority feasible open leaf issue for it. A leaf's prerequisites must
+have landed before it counts as feasible. Make that leaf `agent:ready`, then
+claim and advance it. If no issue describes the gap, create one bounded defect
+ticket. Roadmap trackers are not claimable tasks. Do not create tickets for
+speculative features just to fill Ready.
+An empty Ready column is a workflow gap, not a reason to report `blocked`.
 
 Issues carrying `agent:blocked` without `agent:in-progress` are parked external
 waits. They do not hold the serial lock and must not stop the loop while any

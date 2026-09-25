@@ -1,5 +1,15 @@
 # Human test plan
 
+This plan covers two surfaces with separate size dimensions (see
+[ASSIGNMENT §2.4–§2.5](../ASSIGNMENT.md#24-editor-surface-desktop-authoring)):
+
+- **Editor:** desktop authoring at 1440×900, 1280×720, and the 1024×600
+  floor, with mouse/trackpad and keyboard. Phone/tablet authoring is not
+  tested and is not a defect.
+- **Exported map:** size is set by the **host element**, not the browser
+  window. Test wide, narrow, and tall hosts, resizing, and hide/show. Include
+  mobile visitors: touch, pinch/pan, and a physical-device pass (#113).
+
 Automated tests do not replace this pass. Run the canonical definitions from
 the [QA gallery](../examples/qa-gallery/README.md), the hosted editor, and a
 downloaded export. Copy the record and result tables into the tracking issue.
@@ -39,7 +49,8 @@ Pass/Fail verdict. Use one row per browser, viewport, and input combination.
 
 | Check ID | Browser | Viewport | Input method | Expected result | Actual result | Console output | Screenshot reference | Result |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| example | Chrome | 390×844 | touch | Controls are at least 44 px and operable without hover. | | | `.codex/runtime/…` or issue attachment | Pass / Fail / Blocked |
+| example-editor | Chrome | 1024×600 | mouse + keyboard | Save/Open/Preview/Export and the selected object's properties are reachable; the page itself does not scroll. | | | `.codex/runtime/…` or issue attachment | Pass / Fail / Blocked |
+| example-embed | Chrome | 390×844, exported map in a full-width host | touch | Map controls are at least 44 px and operable without hover; page scrolling is not trapped. | | | `.codex/runtime/…` or issue attachment | Pass / Fail / Blocked |
 
 ## Canonical fixture coverage
 
@@ -57,14 +68,17 @@ generation; JPEG/SVG retain a clearly described rectangular hit area.
 
 ## Authoring and gallery path
 
-0. From **Samples**, open each bundled sample. At desktop and 390×844, edit a hotspot, test its details and cross-view navigation in Preview, return to edit, save JSON, reach Export, and dismiss the first-map checklist. Confirm no console errors.
+0. From **Samples**, open each bundled sample. At 1440×900 and at the 1024×600 floor, edit a hotspot, test its details and cross-view navigation in Preview, return to edit, save JSON, reach Export, and dismiss the first-map checklist. Confirm no console errors.
 1. Open the QA gallery; exercise both fixtures in wide, narrow, and tall hosts.
 2. For every fit view, confirm crop/letterbox/distortion/intrinsic sizing and pointer alignment match the fixture.
 3. Exercise every geometry and action; verify the event log and console, including intentional broken/missing assets.
 4. Create a project and rename it.
 5. Import one PNG and one SVG into different views.
 6. Exercise every fit mode; confirm the editor matches Preview.
-7. Resize the browser from wide desktop through 768 px and 390 px widths.
+7. Resize the editor window from 1440×900 through 1280×720 to 1024×600, and
+   drag it to sizes in between. Confirm that selection, open settings, focus,
+   and unsaved state survive, and that the outer document never scrolls. Below
+   the floor, confirm only that Save/Open and draft recovery stay reachable.
 8. Draw, select, move, resize, duplicate, undo, and redo rectangle/circle/polygon areas.
 9. Use grid snapping and zoom-to-fit; pan at a zoom above 1.
 10. Confirm the background and areas remain registered during every camera change.
@@ -75,7 +89,7 @@ generation; JPEG/SVG retain a clearly described rectangular hit area.
 ## Access and device matrix
 
 1. Keyboard only: reach every interactive area and chrome control, see focus, hear tooltip/details content and view destinations, activate with Enter/Space, close popovers with Escape and confirm focus returns to the trigger, and navigate back. Repeat with hidden and disabled areas and a hover-only tooltip; then verify the same focus tracking in Shadow DOM.
-2. Touch emulation or a touch device at 390×844: confirm controls have a usable touch target, no task depends on hover, and horizontal overflow does not hide actions.
+2. Exported map, touch emulation and then a physical touch device, in a 390×844 viewport with narrow and full-width hosts: confirm map controls have a usable touch target, no visitor task depends on hover, pinch/pan does not trap host-page scrolling, and horizontal overflow does not hide controls. This applies to the published renderer, not editor authoring.
 3. Enable `prefers-reduced-motion: reduce`: confirm navigation and overlays remain understandable without required animation.
 4. Repeat the gallery path with Shadow DOM enabled and an opinionated host stylesheet.
 
@@ -102,7 +116,7 @@ and tall containers, then manually resize both width and height.
 - What does a first-time user think “fit” changes: the image, view, or browser frame?
 - Can the user recover after importing the wrong image or choosing the wrong canvas size?
 - Is it clear which properties belong to a project, view, layer, area, or asset?
-- Does touch reveal every action that hover reveals?
+- In the exported map, does touch reveal every action that hover reveals?
 - Do missing assets and invalid links explain both the problem and the repair?
 - Does an export feel like the primary product, rather than an afterthought?
 

@@ -6,12 +6,15 @@ Read AGENTS.md, .codex/GOAL.md, HANDOFF.md, Git status/history, and
 .codex/runtime/completion-candidate.md. This is a fresh context: do not trust
 the candidate's claim without independent evidence.
 
-Reassess the repository against every goal condition. Inspect product behavior,
-run the full relevant automated checks, and exercise the editor/export golden
-path in a browser where possible. Look specifically for useful missing
-in-scope features, visible quality gaps, regressions, and reproducible major
-defects. MVP acceptance alone is insufficient: reject the candidate when a
-substantial, product-purpose-driven improvement remains obvious and feasible.
+Reassess the repository against every goal condition. Run the full relevant
+automated checks. Exercise the desktop editor at its supported sizes and the
+exported map in differently sized host elements, in a browser where possible.
+Check each release acceptance flow in the active roadmap for behavior-level
+evidence. Look specifically for regressions, reproducible major defects, and
+required leaves that are neither closed nor parked with a stated external
+condition. Reject the candidate for those gaps. Do not reject it just because
+some further feature could be imagined; record such ideas as Phase 2+
+candidates instead.
 
 If the candidate is not proven, remove
 .codex/runtime/completion-candidate.md, record the remaining work using the
