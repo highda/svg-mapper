@@ -28,6 +28,17 @@ import {
 /** Keep overlays this far inside the map's clipping box. */
 const OVERLAY_PADDING = 8;
 
+/**
+ * Below this renderer size the visitor controls switch to compact forms: a
+ * "Find a place" button instead of an open directory and a dropdown scene
+ * switcher. Measured on the renderer root, never the window, so a 400px embed
+ * behaves the same on any page.
+ */
+const COMPACT_WIDTH = 560;
+const COMPACT_HEIGHT = 360;
+
+type ControlSlot = "top-left" | "top-center" | "top-right" | "bottom-left" | "bottom-center" | "bottom-right";
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 function svgEl<T extends SVGElement>(tag: string): T {
@@ -234,6 +245,12 @@ class Renderer implements ClickMapInstance {
 
   // Popover state
   private openPopoverId: string | null = null;
+  /** One grid of corner/centre slots so controls stack instead of overlapping. */
+  private controlsEl!: HTMLDivElement;
+  private slots = new Map<ControlSlot, HTMLDivElement>();
+  private compact = false;
+  private directoryEl: HTMLElement | null = null;
+  private directoryToggle: HTMLButtonElement | null = null;
   /** Stops Floating UI tracking; set only while a popover is open. */
   private stopPopoverTracking: (() => void) | null = null;
   private popoverPlacement: Placement = "bottom";
@@ -393,6 +410,15 @@ class Renderer implements ClickMapInstance {
     this.viewEl.appendChild(this.bgEl);
     this.viewEl.appendChild(this.svgEl);
     this.root.appendChild(this.viewEl);
+    this.controlsEl = document.createElement("div");
+    this.controlsEl.className = "clickmap-controls";
+    for (const slot of ["top-left", "top-center", "top-right", "bottom-left", "bottom-center", "bottom-right"] as const) {
+      const cell = document.createElement("div");
+      cell.className = `clickmap-slot clickmap-slot--${slot}`;
+      this.controlsEl.appendChild(cell);
+      this.slots.set(slot, cell);
+    }
+    this.root.appendChild(this.controlsEl);
     this.root.appendChild(this.tooltipEl);
     this.root.appendChild(this.popoverEl);
     this.root.appendChild(this.ariaLiveEl);
@@ -465,9 +491,31 @@ class Renderer implements ClickMapInstance {
 
     const panel = document.createElement("section");
     panel.className = "clickmap-directory";
+    panel.id = `${this.instanceId}-directory`;
     panel.setAttribute("aria-label", "Place directory");
     const heading = document.createElement("h2");
     heading.textContent = "Find a place";
+
+    // Compact embeds show only this button; the panel opens over the map.
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "clickmap-directory-toggle";
+    toggle.textContent = "Find a place";
+    toggle.setAttribute("aria-controls", panel.id);
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.addEventListener("click", () => this.setDirectoryOpen(!panel.classList.contains("clickmap-directory--open")));
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "clickmap-directory-close";
+    close.setAttribute("aria-label", "Close place directory");
+    close.textContent = "×";
+    close.addEventListener("click", () => this.setDirectoryOpen(false, true));
+    panel.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && this.compact && panel.classList.contains("clickmap-directory--open")) {
+        event.stopPropagation();
+        this.setDirectoryOpen(false, true);
+      }
+    });
     const input = document.createElement("input");
     input.type = "search";
     input.className = "clickmap-directory-search";
@@ -526,14 +574,30 @@ class Renderer implements ClickMapInstance {
     };
     for (const item of config.categories ?? []) addFilter(item.value, item.label);
     input.addEventListener("input", update);
-    panel.append(heading, input);
+    panel.append(close, heading, input);
     if (filters.childElementCount) panel.appendChild(filters);
     panel.append(status, list);
-    this.root.appendChild(panel);
+    const slot = this.slots.get("top-left")!;
+    slot.append(toggle, panel);
+    this.directoryEl = panel;
+    this.directoryToggle = toggle;
     update();
   }
 
+  /** Compact mode only: open or dismiss the directory panel over the map. */
+  private setDirectoryOpen(open: boolean, restoreFocus = false) {
+    const panel = this.directoryEl;
+    const toggle = this.directoryToggle;
+    if (!panel || !toggle) return;
+    panel.classList.toggle("clickmap-directory--open", open);
+    toggle.setAttribute("aria-expanded", String(open));
+    if (open) panel.querySelector<HTMLInputElement>(".clickmap-directory-search")?.focus();
+    else if (restoreFocus) toggle.focus();
+  }
+
   private revealDirectoryEntry(view: View, area: Area) {
+    // In a compact embed, get the panel out of the way so the result is visible.
+    if (this.compact) this.setDirectoryOpen(false);
     const reveal = () => {
       const el = this.findAreaEl(area.id);
       if (!el) return;
@@ -782,7 +846,7 @@ class Renderer implements ClickMapInstance {
     btn.className = "clickmap-back-btn";
     btn.textContent = "← Back";
     btn.addEventListener("click", () => this.goBack());
-    this.root.appendChild(btn);
+    this.slots.get("top-left")!.prepend(btn);
     this.backBtn = btn;
   }
 
@@ -797,20 +861,24 @@ class Renderer implements ClickMapInstance {
     const ss = this.def.settings.sceneSwitcher;
     if (!ss?.enabled) return;
 
+    // Compact embeds always use the dropdown: it fits any width.
+    const style = this.compact ? "dropdown" : ss.style ?? "buttons";
+    const position = ss.position ?? "bottom-center";
     const el = document.createElement("div");
-    el.className = `clickmap-scene-switcher clickmap-scene-switcher--${ss.position ?? "bottom-center"} clickmap-scene-switcher--${ss.style ?? "buttons"}`;
+    el.className = `clickmap-scene-switcher clickmap-scene-switcher--${position} clickmap-scene-switcher--${style}`;
 
     const views = this.def.views;
     views.forEach((view) => {
-      if (ss.style === "dropdown") return; // handled below
+      if (style === "dropdown") return; // handled below
       const btn = document.createElement("button");
       btn.textContent = view.name;
+      btn.title = view.name;
       btn.setAttribute("type", "button");
       btn.setAttribute("data-view-id", view.id);
       btn.className = "clickmap-scene-btn";
       const active = view.id === this.currentViewId;
       if (active) btn.classList.add("clickmap-scene-btn--active");
-      if (ss.style === "tabs") {
+      if (style === "tabs") {
         el.setAttribute("role", "tablist");
         btn.setAttribute("role", "tab");
         btn.setAttribute("aria-selected", String(active));
@@ -820,9 +888,10 @@ class Renderer implements ClickMapInstance {
       el.appendChild(btn);
     });
 
-    if (ss.style === "dropdown") {
+    if (style === "dropdown") {
       const sel = document.createElement("select");
       sel.className = "clickmap-scene-dropdown";
+      sel.setAttribute("aria-label", "Choose a view");
       views.forEach((view) => {
         const opt = document.createElement("option");
         opt.value = view.id;
@@ -847,8 +916,14 @@ class Renderer implements ClickMapInstance {
       e.preventDefault();
     });
 
-    this.root.appendChild(el);
+    this.slots.get(position)!.appendChild(el);
     this.sceneSwitcherEl = el;
+    // A long switcher scrolls sideways: keep the active view in sight without
+    // scrollIntoView(), which could also scroll the host page.
+    const active = el.querySelector<HTMLElement>(".clickmap-scene-btn--active");
+    if (active && el.scrollWidth > el.clientWidth) {
+      el.scrollLeft = active.offsetLeft - (el.clientWidth - active.offsetWidth) / 2;
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -881,7 +956,7 @@ class Renderer implements ClickMapInstance {
     el.appendChild(makeBtn("clickmap-zoom-out", "Zoom out", () => this.adjustZoom(1 / factor)));
     el.appendChild(makeBtn("clickmap-zoom-reset", "Reset zoom", () => this.resetZoom()));
 
-    this.root.appendChild(el);
+    this.slots.get(zc.position ?? "top-right")!.appendChild(el);
     this.zoomControlsEl = el;
   }
 
@@ -1241,8 +1316,7 @@ class Renderer implements ClickMapInstance {
     const legend = document.createElement("div");
     legend.className = "clickmap-legend";
     legend.style.cssText =
-      `position:absolute;bottom:10px;right:10px;background:rgba(255,255,255,0.9);` +
-      `border:1px solid #ccc;border-radius:4px;padding:6px 8px;font-size:11px;`;
+      `background:rgba(255,255,255,0.9);border:1px solid #ccc;border-radius:4px;padding:6px 8px;font-size:11px;`;
 
     const values = Array.from(this.choroplethData.values());
     const minV = Math.min(...values);
@@ -1259,7 +1333,7 @@ class Renderer implements ClickMapInstance {
 
     legend.appendChild(gradient);
     legend.appendChild(labels);
-    this.root.appendChild(legend);
+    this.slots.get("bottom-right")!.appendChild(legend);
   }
 
   setChoroplethData(data: Array<{ id: string; value: number }>) {
@@ -1822,6 +1896,7 @@ class Renderer implements ClickMapInstance {
   private updateScale() {
     const mode = resolveSizingMode(this.def.settings);
     this.root.dataset.sizing = mode;
+    this.updateCompact();
     this.root.style.width = mode === "fixed" ? `${this.viewW}px` : "100%";
     this.root.style.height = mode === "fixed" ? `${this.viewH}px` : mode === "fill-container" ? "100%" : "auto";
     // The view's children are absolutely positioned, so it has no intrinsic
@@ -1838,6 +1913,19 @@ class Renderer implements ClickMapInstance {
       this.updateLabelVisibility();
     }
     this.refreshOverlays();
+  }
+
+  /** Switch control forms when the renderer (not the window) crosses the compact size. */
+  private updateCompact() {
+    const { width, height } = this.root.getBoundingClientRect();
+    // A zero-size host (hidden, not laid out yet) keeps its current mode.
+    if (width === 0 && height === 0) return;
+    const compact = width < COMPACT_WIDTH || height < COMPACT_HEIGHT;
+    if (compact === this.compact) return;
+    this.compact = compact;
+    this.root.classList.toggle("clickmap-root--compact", compact);
+    if (!compact) this.setDirectoryOpen(false);
+    this.renderSceneSwitcher();
   }
 
   // -------------------------------------------------------------------------
