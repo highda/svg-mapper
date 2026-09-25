@@ -42,7 +42,7 @@ Container sizing and scene coordinates are separate. `sizingMode` controls only 
 
 When `sizingMode` is absent, `responsive: false` means `fixed`; `responsive: true` with `maintainAspectRatio: true` means `fluid-width`; and responsive without maintained aspect ratio means `fill-container`. A zero-size host is valid during initialization: the `ResizeObserver` leaves the scene mounted and it becomes usable when the host gains size, for example a `display: none` host that is later shown. In every mode the renderer view fills the renderer box, or takes its height from the canvas aspect ratio in `fluid-width`, and the active view's canvas decides the size and ratio. The renderer always sizes itself to its host element, never to the browser window. Export writes the resolved mode explicitly, so legacy files that rely on the booleans export with a concrete `sizingMode`.
 
-Backgrounds and areas are world-attached: they share a viewBox and pan/zoom together. Renderer controls, popovers, and tooltips are viewport-attached HTML overlays: they stay fixed to the renderer box and are not map coordinates. Future scene elements must declare the same world-versus-viewport distinction rather than borrowing CSS `background-attachment` semantics.
+Backgrounds and areas are world-attached: they share a viewBox and pan/zoom together. Renderer controls, popovers, and tooltips are viewport-attached HTML overlays: they are laid out in the renderer box, not in map coordinates. Popovers and tooltips anchor to an area's rendered position and are kept inside that box. Future scene elements must declare the same world-versus-viewport distinction rather than borrowing CSS `background-attachment` semantics.
 
 ## Assets, views, and layers
 

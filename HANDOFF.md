@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #159 — fix(renderer): anchor and contain overlays with Floating UI
+Branch:       claude/kind-albattani-vjpp90
+Started:      2026-09-25
+Last commit:  (claim)
+
+### What's done
+- Claimed #159 (selected by scripts/select-task.mjs).
+
+### What's next
+- Replace positionPopover arithmetic with @floating-ui/dom (offset/flip/shift/size, autoUpdate while open); bboxes for marker/path; test edges of a 320x240 embed.
+
+### Notes / gotchas
+- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/159-*`.
 
 ---
 

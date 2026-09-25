@@ -14,6 +14,19 @@ import { scopeViewCss, validateViewCss } from "../../shared/view-css.js";
 import { validateActionUrl } from "../../shared/validation.js";
 import { resolveSizingMode } from "../../shared/sizing.js";
 import { Emitter } from "./emitter.js";
+import {
+  autoUpdate,
+  computePosition,
+  flip,
+  offset,
+  shift,
+  size,
+  type Placement,
+  type VirtualElement,
+} from "@floating-ui/dom";
+
+/** Keep overlays this far inside the map's clipping box. */
+const OVERLAY_PADDING = 8;
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -221,6 +234,11 @@ class Renderer implements ClickMapInstance {
 
   // Popover state
   private openPopoverId: string | null = null;
+  /** Stops Floating UI tracking; set only while a popover is open. */
+  private stopPopoverTracking: (() => void) | null = null;
+  private popoverPlacement: Placement = "bottom";
+  /** What the visible tooltip is anchored to, so camera changes can re-place it. */
+  private tooltipAnchor: Element | VirtualElement | null = null;
   private popoverReturnFocus: HTMLElement | SVGElement | null = null;
 
   private onDocumentClick = (e: MouseEvent) => {
@@ -1043,6 +1061,7 @@ class Renderer implements ClickMapInstance {
     if (!view) return;
     const base = this.getBaseViewBox(view);
     const { x, y, w, h } = this.currentViewBox;
+    this.refreshOverlays();
     this.emitter.emit({
       type: "camera:change",
       instanceId: this.instanceId,
@@ -1597,21 +1616,44 @@ class Renderer implements ClickMapInstance {
   }
 
   private hideTooltip() {
+    this.tooltipAnchor = null;
     this.tooltipEl.setAttribute("aria-hidden", "true");
     this.tooltipEl.classList.remove("clickmap-tooltip--visible");
   }
 
+  /** Follow the pointer: a zero-size virtual reference at the cursor. */
   private positionTooltip(clientX: number, clientY: number) {
-    const rect = this.container.getBoundingClientRect();
-    this.tooltipEl.style.left = `${clientX - rect.left + 14}px`;
-    this.tooltipEl.style.top = `${clientY - rect.top + 14}px`;
+    this.tooltipAnchor = {
+      contextElement: this.root,
+      getBoundingClientRect: () => ({ x: clientX, y: clientY, left: clientX, top: clientY, right: clientX, bottom: clientY, width: 0, height: 0 }),
+    };
+    this.placeTooltip();
   }
 
+  /** Focus and pinned tooltips anchor to the rendered area element itself. */
   private positionTooltipForArea(area: Area) {
     const el = this.findAreaEl(area.id);
     if (!el) return;
-    const rect = el.getBoundingClientRect();
-    this.positionTooltip(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    this.tooltipAnchor = el;
+    this.placeTooltip();
+  }
+
+  private placeTooltip() {
+    const anchor = this.tooltipAnchor;
+    if (!anchor) return;
+    const boundary = this.root;
+    void computePosition(anchor, this.tooltipEl, {
+      strategy: "absolute",
+      placement: "bottom-start",
+      middleware: [
+        offset(12),
+        flip({ boundary, padding: OVERLAY_PADDING, fallbackPlacements: ["top-start", "bottom-end", "top-end", "right", "left"] }),
+        shift({ boundary, padding: OVERLAY_PADDING, crossAxis: true }),
+      ],
+    }).then(({ x, y }) => {
+      if (this.tooltipAnchor !== anchor) return;
+      Object.assign(this.tooltipEl.style, { left: `${x}px`, top: `${y}px` });
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -1625,7 +1667,13 @@ class Renderer implements ClickMapInstance {
     this.popoverReturnFocus = active instanceof HTMLElement || active instanceof SVGElement
       ? active
       : null;
+    this.stopPopoverTracking?.();
+    this.stopPopoverTracking = null;
     this.popoverEl.innerHTML = "";
+    // Content scrolls inside the popover so Close stays reachable when space is short.
+    const bodyEl = document.createElement("div");
+    bodyEl.className = "clickmap-popover-body";
+    this.popoverEl.appendChild(bodyEl);
 
     // Build content
     if (content.imageUrl) {
@@ -1634,7 +1682,7 @@ class Renderer implements ClickMapInstance {
         img.src = content.imageUrl;
         img.alt = "";
         img.style.cssText = "display:block;width:100%;max-height:120px;object-fit:cover;border-radius:2px 2px 0 0;margin-bottom:6px;";
-        this.popoverEl.appendChild(img);
+        bodyEl.appendChild(img);
       }
     }
 
@@ -1642,14 +1690,14 @@ class Renderer implements ClickMapInstance {
       const h = document.createElement("strong");
       h.style.cssText = "display:block;margin-bottom:4px;";
       h.textContent = content.title;
-      this.popoverEl.appendChild(h);
+      bodyEl.appendChild(h);
     }
 
     if (templatedBody !== null || content.body) {
       const p = document.createElement("div");
       p.innerHTML = sanitiseHtml(templatedBody ?? content.body ?? "");
       p.style.fontSize = "12px";
-      this.popoverEl.appendChild(p);
+      bodyEl.appendChild(p);
     }
 
     if (content.linkHref && validateActionUrl(content.linkHref).valid) {
@@ -1657,26 +1705,22 @@ class Renderer implements ClickMapInstance {
       a.href = content.linkHref;
       a.textContent = content.linkLabel ?? content.linkHref;
       a.style.cssText = "display:block;margin-top:6px;font-size:12px;color:#3b82f6;";
-      this.popoverEl.appendChild(a);
+      bodyEl.appendChild(a);
     }
 
     // Close button
     const closeBtn = document.createElement("button");
     closeBtn.textContent = "×";
     closeBtn.setAttribute("aria-label", "Close");
-    closeBtn.style.cssText =
-      "position:absolute;top:4px;right:6px;background:none;border:none;font-size:16px;cursor:pointer;line-height:1;";
+    closeBtn.className = "clickmap-popover-close";
     closeBtn.addEventListener("click", () => this.closePopover());
     this.popoverEl.appendChild(closeBtn);
 
-    // Position near area
-    const bbox = this.getAreaBBox(area);
-    const position = action.position ?? "auto";
-    this.positionPopover(bbox, position);
-
     this.popoverEl.setAttribute("aria-hidden", "false");
-    this.popoverEl.classList.add("clickmap-popover--visible");
+    this.popoverEl.className = "clickmap-popover clickmap-popover--visible";
     this.openPopoverId = area.id;
+    // After openPopoverId is set: placement results for a closed popover are dropped.
+    this.trackPopover(area, action.position ?? "auto");
     this.emitter.emit({ type: "popup:open", popupId: area.id });
 
     // Aria live announcement
@@ -1687,62 +1731,69 @@ class Renderer implements ClickMapInstance {
     setTimeout(() => closeBtn.focus(), 0);
   }
 
-  private positionPopover(
-    bbox: { cx: number; cy: number; w: number; h: number } | null,
-    position: string
-  ) {
-    if (!bbox || !this.currentViewBox) {
-      this.popoverEl.style.top = "50%";
-      this.popoverEl.style.left = "50%";
-      this.popoverEl.style.transform = "translate(-50%, -50%)";
-      return;
-    }
+  /**
+   * Anchor the open popover to the area's rendered element and keep it inside
+   * the map box: flip to the side with room, shift along the edge, and cap its
+   * size so content scrolls instead of being clipped. autoUpdate follows host
+   * resizes, layout shifts and late-loading images while the popover is open;
+   * camera changes call refreshOverlays() because they move the SVG content
+   * without resizing any element.
+   */
+  private trackPopover(area: Area, position: string) {
+    const areaEl = this.findAreaEl(area.id);
+    const root = this.root;
+    const reference: Element | VirtualElement = areaEl ?? {
+      contextElement: root,
+      getBoundingClientRect: () => {
+        const r = root.getBoundingClientRect();
+        const cx = r.left + r.width / 2;
+        const cy = r.top + r.height / 2;
+        return { x: cx, y: cy, left: cx, top: cy, right: cx, bottom: cy, width: 0, height: 0 };
+      },
+    };
+    this.popoverPlacement = position === "top" || position === "left" || position === "right" ? position : "bottom";
+    const update = () => this.placePopover(reference);
+    this.stopPopoverTracking = autoUpdate(reference, this.popoverEl, update, { animationFrame: false });
+  }
 
-    const containerRect = this.container.getBoundingClientRect();
-    const scaleX = containerRect.width / (this.currentViewBox?.w || 1);
-    const scaleY = containerRect.height / (this.currentViewBox?.h || 1);
-    const offsetX = -(this.currentViewBox?.x ?? 0) * scaleX;
-    const offsetY = -(this.currentViewBox?.y ?? 0) * scaleY;
+  private placePopover(reference: Element | VirtualElement) {
+    const boundary = this.root;
+    const popover = this.popoverEl;
+    const opening = this.openPopoverId;
+    void computePosition(reference, popover, {
+      strategy: "absolute",
+      placement: this.popoverPlacement,
+      middleware: [
+        offset(8),
+        flip({ boundary, padding: OVERLAY_PADDING }),
+        shift({ boundary, padding: OVERLAY_PADDING }),
+        size({
+          boundary,
+          padding: OVERLAY_PADDING,
+          apply({ availableWidth, availableHeight }) {
+            popover.style.maxWidth = `${Math.max(120, Math.min(220, availableWidth))}px`;
+            popover.style.maxHeight = `${Math.max(64, availableHeight)}px`;
+          },
+        }),
+      ],
+    }).then(({ x, y, placement, middlewareData }) => {
+      if (this.openPopoverId !== opening || this.openPopoverId === null) return;
+      const side = placement.split("-")[0];
+      popover.className = `clickmap-popover clickmap-popover--${side} clickmap-popover--visible`;
+      // Keep the arrow pointing at the area after shift() moved the box.
+      const shiftX = middlewareData.shift?.x ?? 0;
+      const shiftY = middlewareData.shift?.y ?? 0;
+      popover.style.setProperty("--clickmap-arrow-shift", `${side === "top" || side === "bottom" ? -shiftX : -shiftY}px`);
+      Object.assign(popover.style, { left: `${x}px`, top: `${y}px`, transform: "" });
+    });
+  }
 
-    const cx = bbox.cx * scaleX + offsetX;
-    const cy = bbox.cy * scaleY + offsetY;
-    const areaH = bbox.h * scaleY;
-
-    let resolved = position;
-    if (resolved === "auto") {
-      const horizontal = (cx / Math.max(containerRect.width, 1)) - 0.5;
-      const vertical = (cy / Math.max(containerRect.height, 1)) - 0.5;
-      if (Math.abs(horizontal) > Math.abs(vertical)) {
-        resolved = horizontal < 0 ? "right" : "left";
-      } else {
-        resolved = vertical < 0 ? "bottom" : "top";
-      }
-    }
-
-    this.popoverEl.style.transform = "";
-    this.popoverEl.className = `clickmap-popover clickmap-popover--${resolved} clickmap-popover--visible`;
-
-    switch (resolved) {
-      case "top":
-        this.popoverEl.style.left = `${cx}px`;
-        this.popoverEl.style.top = `${cy - areaH / 2 - 8}px`;
-        this.popoverEl.style.transform = "translate(-50%, -100%)";
-        break;
-      case "bottom":
-        this.popoverEl.style.left = `${cx}px`;
-        this.popoverEl.style.top = `${cy + areaH / 2 + 8}px`;
-        this.popoverEl.style.transform = "translateX(-50%)";
-        break;
-      case "left":
-        this.popoverEl.style.left = `${cx - bbox.w * scaleX / 2 - 8}px`;
-        this.popoverEl.style.top = `${cy}px`;
-        this.popoverEl.style.transform = "translate(-100%, -50%)";
-        break;
-      case "right":
-        this.popoverEl.style.left = `${cx + bbox.w * scaleX / 2 + 8}px`;
-        this.popoverEl.style.top = `${cy}px`;
-        this.popoverEl.style.transform = "translateY(-50%)";
-        break;
+  /** Re-place visible overlays after the camera or host size changed. */
+  private refreshOverlays() {
+    if (this.tooltipAnchor && this.tooltipEl.classList.contains("clickmap-tooltip--visible")) this.placeTooltip();
+    if (this.openPopoverId !== null) {
+      const areaEl = this.findAreaEl(this.openPopoverId);
+      if (areaEl) this.placePopover(areaEl);
     }
   }
 
@@ -1750,6 +1801,8 @@ class Renderer implements ClickMapInstance {
     if (this.openPopoverId === null) return;
     const popupId = this.openPopoverId;
     this.openPopoverId = null;
+    this.stopPopoverTracking?.();
+    this.stopPopoverTracking = null;
     this.popoverEl.setAttribute("aria-hidden", "true");
     this.popoverEl.classList.remove("clickmap-popover--visible");
     this.popoverEl.innerHTML = "";
@@ -1784,6 +1837,7 @@ class Renderer implements ClickMapInstance {
     if (this.def.settings.areaLabels?.enabled && this.def.settings.areaLabels.hideWhenSmaller !== false) {
       this.updateLabelVisibility();
     }
+    this.refreshOverlays();
   }
 
   // -------------------------------------------------------------------------
@@ -2006,6 +2060,8 @@ class Renderer implements ClickMapInstance {
     if (this.destroyed) return;
     this.destroyed = true;
     this.navigationInProgress = false;
+    this.stopPopoverTracking?.();
+    this.stopPopoverTracking = null;
     this.cancelTransition();
     if (this.roTimer !== null) clearTimeout(this.roTimer);
     this.ro.disconnect();

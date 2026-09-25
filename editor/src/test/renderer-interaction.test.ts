@@ -1187,18 +1187,20 @@ describe("renderer interaction model", () => {
     expect(document.querySelector(".clickmap-popover img")).toBeNull();
   });
 
-  it("auto-positions popovers away from the nearest container edge", () => {
+  it("places popovers with Floating UI and keeps Close outside the scrolling body", async () => {
+    // Real collision placement is covered in e2e/renderer-overlays.spec.ts;
+    // jsdom has no layout, so only the structure and async placement run here.
     const area = createRectArea(0, 40, 10, 10);
-    area.action = { type: "popup", content: { title: "Edge" }, position: "auto" };
-    const map = document.querySelector<HTMLElement>("#map")!;
-    vi.spyOn(map, "getBoundingClientRect").mockReturnValue({
-      x: 0, y: 0, left: 0, top: 0, right: 1000, bottom: 500,
-      width: 1000, height: 500, toJSON: () => ({}),
-    });
+    area.action = { type: "popup", content: { title: "Edge", body: "Long details" }, position: "auto" };
     renderAreas(area);
 
     areaElement(area.id).dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(document.querySelector(".clickmap-popover")).toHaveClass("clickmap-popover--right");
+    const popover = document.querySelector<HTMLElement>(".clickmap-popover")!;
+    expect(popover).toHaveClass("clickmap-popover--visible");
+    expect(popover.querySelector(".clickmap-popover-body")).toHaveTextContent("Long details");
+    expect(popover.querySelector(":scope > .clickmap-popover-close")).not.toBeNull();
+    await vi.waitFor(() => expect(popover.className).toMatch(/clickmap-popover--(top|bottom|left|right)/));
+    expect(popover.style.left).toMatch(/px$/);
   });
 
   it("restores slug deep links and writes view and clicked-area hashes", () => {
