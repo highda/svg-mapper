@@ -1550,7 +1550,7 @@ export function RightSidebar({ mobileOpen = false, onMobileClose }: { mobileOpen
         </span>
         <button type="button" onClick={onMobileClose} className="ml-auto min-h-10 rounded px-3 text-sm text-neutral-300 hover:bg-neutral-800 lg:hidden" aria-label="Close inspector">Close</button>
       </div>
-      <div className="flex-1 overflow-y-auto px-3 py-2">{content}</div>
+      <div className="flex-1 overflow-y-auto overscroll-contain px-3 py-2">{content}</div>
     </aside>
   );
 }

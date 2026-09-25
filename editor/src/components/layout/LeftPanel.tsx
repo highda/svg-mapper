@@ -593,7 +593,7 @@ export function LeftPanel({ workspace = false }: { workspace?: boolean }) {
 
       {/* Search results */}
       {query && (
-        <div className="max-h-48 overflow-y-auto border-b border-neutral-700 p-1">
+        <div className="max-h-48 overflow-y-auto overscroll-contain border-b border-neutral-700 p-1">
           {project.views.flatMap((view) =>
             view.layers.flatMap((layer) =>
               layer.areas
@@ -615,7 +615,7 @@ export function LeftPanel({ workspace = false }: { workspace?: boolean }) {
 
       {/* Tree (hidden when searching) */}
       {!query && (
-        <div role="tree" aria-label="Map hierarchy" className="flex-1 overflow-y-auto p-1.5">
+        <div role="tree" aria-label="Map hierarchy" className="flex-1 overflow-y-auto overscroll-contain p-1.5">
           {project.views.map((view) => (
             <ViewSection key={view.id} view={view} isActive={view.id === activeViewId} onMoveMessage={setMoveMessage} />
           ))}

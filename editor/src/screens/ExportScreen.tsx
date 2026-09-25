@@ -155,7 +155,7 @@ export function ExportScreen() {
 
   return (
     <main className="relative flex min-w-0 flex-1 flex-col bg-neutral-800" data-testid="export-screen">
-      <div className="mx-auto flex min-w-0 w-full max-w-2xl flex-1 flex-col gap-4 overflow-y-auto p-4 sm:p-6">
+      <div className="mx-auto flex min-w-0 w-full max-w-2xl flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-4 sm:p-6">
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-neutral-200">Export</h2>
