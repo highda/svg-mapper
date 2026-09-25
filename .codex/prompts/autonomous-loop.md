@@ -7,9 +7,14 @@ doing anything else. Read .codex/GOAL.md as the only standard for determining
 whether the full loop could ever finish. Do not resume or rely on a previous
 Codex transcript.
 
-If `.codex/runtime/task-brief.md` exists, it is the host-selected task for this
-session. Read it and advance that task; do not use GitHub to rediscover or
-select work before doing so.
+If `.codex/runtime/task-brief.md` exists, the host refreshed it from GitHub
+immediately before this session using `scripts/select-task.mjs`. Read it and
+act on it; do not use GitHub to rediscover or select work first:
+
+- **An assigned task:** resume or claim that issue.
+- **A serial lock conflict:** resolve it per AGENTS.md §2 before any other work.
+- **No eligible task:** perform the goal assessment below, using the listed
+  waits as data rather than an invitation to invent scope.
 
 Run the AGENTS.md GitHub pre-flight as an independent command before optional
 repository inspection. A missing optional file or a failed exploratory command

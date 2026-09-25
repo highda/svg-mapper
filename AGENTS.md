@@ -86,11 +86,20 @@ Read the issue body and most recent comments for context, then continue per §5.
 ### Starting a fresh task
 
 ```sh
-# Pick the top ready issue (highest priority, oldest first)
-gh issue list --label "agent:ready" --state open \
-  --json number,title,labels \
-  --jq 'sort_by((.labels[].name | select(startswith("p")) | .[1:] | tonumber), .number) | .[0]'
+# The same deterministic selection the autonomous loop uses
+gh issue list --state open --limit 500 --json number,title,url,body,labels \
+  | node scripts/select-task.mjs
 ```
+
+`scripts/select-task.mjs` is the only definition of the selection rules:
+
+- **More than one `agent:in-progress`:** it reports a `conflict`; resolve it per §2.
+- **Exactly one:** it reports `resume`.
+- **Otherwise:** it picks the eligible `agent:ready` issue with the lowest exact `p0`–`p3` label, oldest first (`ready`).
+- **No eligible ready issue:** it names the eligible prioritized issue to promote to `agent:ready` (`promote`).
+- **Nothing eligible:** it reports `none`, with the remaining waits.
+
+Eligible means not `agent:blocked`, not a roadmap tracker (title starting with `Roadmap:`), and every issue on its "Depends on" line is closed. A priority label alone never makes an issue claimable. When nothing is eligible, report the waits; do not invent scope.
 
 Or open the Project board:
 
@@ -104,7 +113,8 @@ Then **claim** it (this acquires the lock):
 N=<issue-number>
 SLUG=<short-kebab-slug>
 
-# 1. acquire the lock atomically: swap labels and assign yourself
+# 1. acquire the lock: swap labels and assign yourself (not compare-and-swap;
+#    the race check below is what catches a concurrent claim)
 gh issue edit "$N" \
   --add-label    "agent:in-progress" \
   --remove-label "agent:ready" \

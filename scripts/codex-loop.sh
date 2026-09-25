@@ -101,30 +101,23 @@ if [[ -z "$github_token" ]]; then
   exit 2
 fi
 
+# Select work immediately before each work session so every fresh session sees
+# the repository as the previous one left it. scripts/select-task.mjs holds the
+# only selection rules (also used by the manual AGENTS.md §4 procedure).
 prepare_task_brief() {
   rm -f "$task_brief_file"
   [[ "$skip_task_brief" == "1" ]] && return 0
 
-  local issue_json issue_number
-  issue_json="$(GH_TOKEN="$github_token" gh issue list --label 'agent:in-progress' --state open --limit 1 --json number,title,url,body,labels)"
-  issue_number="$(node -e 'const x=JSON.parse(process.argv[1]); process.stdout.write(x[0]?.number?.toString() ?? "")' "$issue_json")"
-  if [[ -z "$issue_number" ]]; then
-    issue_json="$(GH_TOKEN="$github_token" gh issue list --label 'agent:ready' --state open --limit 1 --json number,title,url,body,labels)"
-    issue_number="$(node -e 'const x=JSON.parse(process.argv[1]); process.stdout.write(x[0]?.number?.toString() ?? "")' "$issue_json")"
+  local issues_json decision kind number
+  issues_json="$(GH_TOKEN="$github_token" gh issue list --state open --limit 500 --json number,title,url,body,labels)"
+  decision="$(node "$repo_root/scripts/select-task.mjs" --brief "$task_brief_file" <<<"$issues_json")"
+  kind="$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).kind)' "$decision")"
+  number="$(node -e 'process.stdout.write(String(JSON.parse(process.argv[1]).number ?? ""))' "$decision")"
+  if [[ "$kind" == "promote" ]]; then
+    GH_TOKEN="$github_token" gh issue edit "$number" --add-label agent:ready >/dev/null
   fi
-  if [[ -z "$issue_number" ]]; then
-    issue_json="$(GH_TOKEN="$github_token" gh issue list --state open --limit 100 --json number,title,url,body,labels)"
-    issue_number="$(node -e 'const x=JSON.parse(process.argv[1]); const p=x.filter(i=>i.labels.some(l=>l.name.startsWith("p"))).sort((a,b)=>a.number-b.number)[0]; process.stdout.write(p?.number?.toString() ?? "")' "$issue_json")"
-    if [[ -n "$issue_number" ]]; then
-      GH_TOKEN="$github_token" gh issue edit "$issue_number" --add-label agent:ready >/dev/null
-      issue_json="$(GH_TOKEN="$github_token" gh issue view "$issue_number" --json number,title,url,body,labels)"
-    fi
-  fi
-  [[ -n "$issue_number" ]] || return 0
-  printf '# Assigned task\n\n%s\n' "$issue_json" >"$task_brief_file"
+  printf 'Task selection: %s\n' "$decision"
 }
-
-prepare_task_brief
 
 # Vite's default config bundler writes into node_modules/.vite-temp, which is
 # intentionally not writable to an unattended agent. The runner config loader
@@ -151,6 +144,10 @@ while ((max_sessions == 0 || session < max_sessions)); do
   if [[ -f "$candidate_file" ]]; then
     prompt_file="$review_prompt_file"
     session_kind="final review"
+    # A completion reviewer must never receive an implementation task.
+    rm -f "$task_brief_file"
+  else
+    prepare_task_brief
   fi
 
   log_file="$runtime_dir/session-${session}.jsonl"

@@ -34,6 +34,7 @@ jobs:
       - run: npm run lint --prefix editor
       - run: npm run build --prefix renderer
       - run: npm run test --prefix editor
+      - run: node --test scripts/test-select-task.mjs
       - run: npm run check:size --prefix renderer
       - run: npm run build --prefix editor
         env:
