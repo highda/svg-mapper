@@ -31,7 +31,7 @@ text unchanged.
 
 ## Deployment
 
-For a standalone map, upload the directory and link to `index.html`. For an existing site, set the upload base path, a host-page-unique container ID, and responsive, fixed, or viewport sizing before downloading. The generated quick-copy snippet, `embed.html`, and README use those settings consistently. Keep `map.json` on the same origin as the page or configure CORS on its server. Configure a different container ID and base path for each map when embedding multiple maps on one page.
+For a standalone map, upload the directory and link to `index.html`. For an existing site, set the upload base path, a host-page-unique container ID, and the map sizing before downloading. Sizing is resolved once: `map.json` always records an explicit `settings.sizingMode`, and the host element in `index.html`, `embed.html`, and the quick-copy snippet gets matching CSS. A `fixed` host gets no size of its own, a `fluid-width` host is `width: 100%`, and a `fill-container` host gets the width and height entered on Export. The README's "Map size" section states the space the host needs. Keep `map.json` on the same origin as the page or configure CORS on its server. Configure a different container ID and base path for each map when embedding multiple maps on one page.
 
 Clipboard permission can be denied by browsers or embedding policies. A failed copy action is never reported as successful: the editor displays the source in a selectable manual-copy field and keeps a retry action available.
 

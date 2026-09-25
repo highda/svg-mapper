@@ -12,6 +12,7 @@ import type {
 } from "../../shared/types.js";
 import { scopeViewCss, validateViewCss } from "../../shared/view-css.js";
 import { validateActionUrl } from "../../shared/validation.js";
+import { resolveSizingMode } from "../../shared/sizing.js";
 import { Emitter } from "./emitter.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -1766,14 +1767,15 @@ class Renderer implements ClickMapInstance {
   // -------------------------------------------------------------------------
 
   private updateScale() {
-    const { settings } = this.def;
-    const mode = settings.sizingMode ??
-      (settings.responsive ? (settings.maintainAspectRatio ? "fluid-width" : "fill-container") : "fixed");
+    const mode = resolveSizingMode(this.def.settings);
     this.root.dataset.sizing = mode;
     this.root.style.width = mode === "fixed" ? `${this.viewW}px` : "100%";
     this.root.style.height = mode === "fixed" ? `${this.viewH}px` : mode === "fill-container" ? "100%" : "auto";
+    // The view's children are absolutely positioned, so it has no intrinsic
+    // height: it must fill the sized root (fixed, fill-container) or derive its
+    // height from the canvas aspect ratio (fluid-width).
     this.viewEl.style.width = "100%";
-    this.viewEl.style.height = mode === "fill-container" ? "100%" : "auto";
+    this.viewEl.style.height = mode === "fluid-width" ? "auto" : "100%";
     if (mode === "fluid-width" && this.viewW > 0 && this.viewH > 0) {
       this.viewEl.style.aspectRatio = `${this.viewW} / ${this.viewH}`;
     } else {

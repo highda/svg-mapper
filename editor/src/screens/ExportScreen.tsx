@@ -2,6 +2,10 @@ import { useMemo, useState } from "react";
 import {
   validateProject,
   hasBlockingErrors,
+  isHostLength,
+  resolveSizingMode,
+  DEFAULT_HOST_SIZE,
+  type ContainerSizingMode,
   type ValidationResult,
 } from "@svg-mapper/shared";
 import { useStore } from "../store";
@@ -86,7 +90,9 @@ export function ExportScreen() {
   const [inlineAssets, setInlineAssets] = useState(true);
   const [basePath, setBasePath] = useState("/maps/my-map");
   const [containerId, setContainerId] = useState("clickmap");
-  const [size, setSize] = useState<"responsive" | "fixed" | "viewport">("responsive");
+  const updateSettings = useStore((s) => s.updateSettings);
+  const [hostWidth, setHostWidth] = useState(DEFAULT_HOST_SIZE.width);
+  const [hostHeight, setHostHeight] = useState(DEFAULT_HOST_SIZE.height);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
@@ -96,26 +102,23 @@ export function ExportScreen() {
   const warnings = results.filter((r) => r.severity === "warning");
   const blocked = hasBlockingErrors(results);
 
-  const sizing = size === "fixed"
-    ? { containerWidth: "800px", containerHeight: "600px" }
-    : size === "viewport"
-      ? { containerWidth: "100vw", containerHeight: "100vh" }
-      : { containerWidth: "100%", containerHeight: "auto" };
+  // The renderer mode is project data (Preview and map.json use it); the host
+  // size only applies to fill-container and is an export-time choice.
+  const sizingMode = resolveSizingMode(project.settings);
+  const initialView = project.views.find((view) => view.id === project.settings.initialViewId) ?? project.views[0];
+  const canvasLabel = initialView ? `${initialView.canvas.width} × ${initialView.canvas.height} px` : "canvas size";
+  const hostSize = useMemo(() => ({ width: hostWidth, height: hostHeight }), [hostWidth, hostHeight]);
   const configError = !/^[A-Za-z][A-Za-z0-9_-]*$/.test(containerId)
     ? "Container ID must start with a letter and contain only letters, numbers, _ or -."
     : !basePath.trim()
       ? "Upload base path is required."
-      : null;
-  const exportOptions = { inlineAssets, basePath, containerId, ...sizing };
+      : sizingMode === "fill-container" && !(isHostLength(hostWidth) && isHostLength(hostHeight))
+        ? "Host width and height must each be one CSS length, such as 100%, 600px, or 100vh."
+        : null;
+  const exportOptions = { inlineAssets, basePath, containerId, hostSize };
   const preview = useMemo(
-    () => generateExportPreview(definition, rendererJs, rendererCss, {
-      inlineAssets,
-      basePath,
-      containerId,
-      containerWidth: sizing.containerWidth,
-      containerHeight: sizing.containerHeight,
-    }),
-    [definition, inlineAssets, basePath, containerId, sizing.containerWidth, sizing.containerHeight],
+    () => generateExportPreview(definition, rendererJs, rendererCss, { inlineAssets, basePath, containerId, hostSize }),
+    [definition, inlineAssets, basePath, containerId, hostSize],
   );
 
   async function doExport() {
@@ -247,13 +250,29 @@ export function ExportScreen() {
             <label className="text-xs text-neutral-300">Container ID
               <input value={containerId} onChange={(event) => setContainerId(event.target.value)} className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100" />
             </label>
-            <label className="text-xs text-neutral-300 sm:col-span-2">Container sizing
-              <select value={size} onChange={(event) => setSize(event.target.value as typeof size)} className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100">
-                <option value="responsive">Responsive — 100% wide, intrinsic height</option>
-                <option value="fixed">Fixed — 800 × 600 px</option>
-                <option value="viewport">Viewport — 100vw × 100vh</option>
+            <label className="text-xs text-neutral-300 sm:col-span-2">Map sizing
+              <select
+                value={sizingMode}
+                onChange={(event) => updateSettings({ sizingMode: event.target.value as ContainerSizingMode })}
+                className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100"
+              >
+                <option value="fluid-width">Fluid width: fills the host's width; height follows the map's shape</option>
+                <option value="fill-container">Fill host: fills a host whose width and height you set</option>
+                <option value="fixed">Canvas size: always {canvasLabel}, whatever the host</option>
               </select>
+              <span className="mt-1 block text-[11px] text-neutral-500">Applies to Preview, index.html, the embed snippet, and map.json. Background fit is set per view.</span>
             </label>
+            {sizingMode === "fill-container" && (
+              <>
+                <label className="text-xs text-neutral-300">Host width
+                  <input value={hostWidth} onChange={(event) => setHostWidth(event.target.value)} placeholder="100%" className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100" />
+                </label>
+                <label className="text-xs text-neutral-300">Host height
+                  <input value={hostHeight} onChange={(event) => setHostHeight(event.target.value)} placeholder="600px" className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100" />
+                </label>
+                <p className="text-[11px] text-neutral-500 sm:col-span-2">The host needs a real height. Use 100vw × 100vh for a full-window map; a percentage height needs sized parents.</p>
+              </>
+            )}
           </div>
           {configError && <p role="alert" className="mt-2 text-xs text-red-300">{configError}</p>}
           <p className="mt-2 text-[11px] leading-relaxed text-neutral-500">

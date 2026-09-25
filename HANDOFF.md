@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #157 — fix(renderer/export): unify host sizing and repair zero-height fixed scenes
+Branch:       claude/kind-albattani-vjpp90
+Started:      2026-09-25
+Last commit:  (claim)
+
+### What's done
+- Claimed #157 (selected by scripts/select-task.mjs).
+
+### What's next
+- Repair fixed-mode zero-height view; make Export sizing choice set definition sizingMode and drive demo/embed/README from one resolution.
+
+### Notes / gotchas
+- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/157-*`.
 
 ---
 
