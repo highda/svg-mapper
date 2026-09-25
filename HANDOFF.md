@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #158 — feat(preview): resize the real embed in both dimensions without resetting it
+Branch:       claude/kind-albattani-vjpp90
+Started:      2026-09-25
+Last commit:  (claim)
+
+### What's done
+- Claimed #158 (selected by scripts/select-task.mjs).
+
+### What's next
+- Numeric host width/height + drag/keyboard resize inside a wide iframe document; resize via postMessage without rebuilding srcdoc; Restart action; source-checked messages.
+
+### Notes / gotchas
+- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/158-*`.
 
 ---
 

@@ -17,6 +17,7 @@ describe("buildPreviewHtml", () => {
   const base = {
     rendererJs: "/* renderer */",
     rendererCss: "/* css */",
+    sizingMode: "fluid-width" as const,
   };
 
   it("embeds the definition, renderer js/css, and message source", () => {
@@ -30,6 +31,14 @@ describe("buildPreviewHtml", () => {
     expect(html).toContain(PREVIEW_MESSAGE_SOURCE);
     expect(html).toContain("ClickMapRenderer.create");
     expect(html).toContain(".clickmap-bg { opacity: .75; }");
+  });
+
+  it("resizes the host only on messages from its parent and passes the sizing mode", () => {
+    const html = buildPreviewHtml({ ...base, sizingMode: "fill-container", definition: toDefinition(createNewProject()), blockUrls: true });
+    expect(html).toContain('var SIZING_MODE = "fill-container"');
+    expect(html).toContain("event.source !== parent");
+    expect(html).toContain('msg.kind === "set-host"');
+    expect(html).toContain('post({ kind: "harness-ready" })');
   });
 
   it("toggles URL blocking", () => {
