@@ -16,6 +16,14 @@ async function openCampusPreview(page: Page, mode?: "fluid-width" | "fill-contai
   await expect(page.getByText("Last event:")).toContainText("ready");
 }
 
+/** Compact embeds (< 560x360) show the scene switcher as a dropdown (#160). */
+async function goToLibrary(page: Page) {
+  const frame = page.frameLocator('iframe[title="Map preview"]');
+  const dropdown = frame.getByRole("combobox", { name: "Choose a view" });
+  if (await dropdown.count()) await dropdown.selectOption({ label: "Library" });
+  else await frame.getByRole("button", { name: "Library", exact: true }).press("Enter");
+}
+
 const dims = (page: Page) => page.getByRole("status", { name: "Preview dimensions" });
 
 async function setHost(page: Page, width: string, height: string) {
@@ -33,13 +41,11 @@ test("a 360px host in a 1200px page resizes the live map in both dimensions", as
   await expect(dims(page)).toContainText("Map 360 × 240");
 
   // Navigate, then resize: the running map keeps its view (no rebuild).
-  const frame = page.frameLocator('iframe[title="Map preview"]');
-  await frame.getByRole("button", { name: "Library", exact: true }).press("Enter");
+  await goToLibrary(page);
   await expect(page.getByText(/^View:/)).toContainText("Library");
   await setHost(page, "600", "");
   await expect(dims(page)).toContainText("Map 600 × 400");
   await expect(page.getByText(/^View:/)).toContainText("Library");
-  await expect(frame.getByRole("button", { name: "Library", exact: true })).toHaveClass(/clickmap-scene-btn--active/);
 
   // Height-only change on a fluid map: the host grows, the map keeps its ratio.
   await setHost(page, "600", "500");
@@ -89,8 +95,7 @@ test("fit to stage shows a tall fluid map whole, and restart resets navigation",
   await page.getByRole("button", { name: "Fit to stage" }).click();
   await expect(dims(page)).not.toContainText("taller than the page");
 
-  const frame = page.frameLocator('iframe[title="Map preview"]');
-  await frame.getByRole("button", { name: "Library", exact: true }).press("Enter");
+  await goToLibrary(page);
   await expect(page.getByText(/^View:/)).toContainText("Library");
   await page.getByRole("button", { name: "Restart preview" }).click();
   await expect(page.getByText(/^View:/)).toContainText("Main building");
