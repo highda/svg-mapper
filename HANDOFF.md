@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #154 — docs: define desktop authoring scope and finite review acceptance
-Branch:       claude/kind-albattani-vjpp90
-Started:      2026-09-25
-Last commit:  (claim)
-
-### What's done
-- Claimed #154.
-
-### What's next
-- Reconcile ASSIGNMENT, .codex goal/prompts, user guide and QA matrix on desktop authoring floor + container-responsive renderer.
-
-### Notes / gotchas
-- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/154-*`.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-25 — closed #154 — split scope into a desktop editor (1024×600 floor) and a container-responsive renderer, made loop completion finite against #180, and documented dependency policy; PR #181.
 - 2026-09-06 — closed #130 — added exported lifecycle hooks, ordered view/camera events, and explicit sandboxed trusted-hook Preview tooling; PR #153.
 - 2026-09-06 — closed #126 — added multi-selection, reusable linked styles, batch editing, arrangement tools, and group geometry workflows; PR #152.
 - 2026-09-06 — closed #125 — added editable bundled samples, guided first-use progress, scoped inspector language, and desktop/mobile walkthrough coverage; PR #151.
