@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #159 — fix(renderer): anchor and contain overlays with Floating UI
-Branch:       claude/kind-albattani-vjpp90
-Started:      2026-09-25
-Last commit:  (claim)
-
-### What's done
-- Claimed #159 (selected by scripts/select-task.mjs).
-
-### What's next
-- Replace positionPopover arithmetic with @floating-ui/dom (offset/flip/shift/size, autoUpdate while open); bboxes for marker/path; test edges of a 320x240 embed.
-
-### Notes / gotchas
-- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/159-*`.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-25 — closed #159 — popovers/tooltips placed by Floating UI against rendered shapes, contained in the map with scrolling body and reachable Close, tracked only while open; renderer 23.7 KB gzip; PR #191.
 - 2026-09-25 — closed #158 — Preview page vs independently resizable map host (fields, drag and keyboard handle), live size readout, fit/restart, resize without rebuild, source-checked messages; PR #189.
 - 2026-09-25 — closed #157 — fixed 800×0 fixed-mode view; one shared sizing resolution now drives renderer, Preview, map.json, index.html, embed and README; Export writes sizingMode; real-layout e2e in light/Shadow DOM; PR #187.
 - 2026-09-25 — closed #155 — not reproducible in headless Chromium; bounded the shell to 100% (not 100vh), stopped root overscroll/chaining, made help dialog scroll, added document-scroll e2e guard; Safari/macOS trackpad confirmation still owed; PR #185.
