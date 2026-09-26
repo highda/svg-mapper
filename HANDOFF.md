@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #161 — fix(editor): normalize SVG asset URLs and share scene geometry with renderer
-Branch:       claude/kind-albattani-vjpp90
-Started:      2026-09-26
-Last commit:  (claim)
-
-### What's done
-- Claimed #161 (selected by scripts/select-task.mjs).
-
-### What's next
-- Shared pure helpers (asset display source, fitted image rect, marker geometry/bounds, rounded rect) used by editor canvas and renderer; clip background to view; fix label fit units.
-
-### Notes / gotchas
-- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/161-*`.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-09-26 — closed #161 — shared scene-geometry helpers (asset display source, fit, markers, rx, bounds) used by editor and renderer; samples show artwork in Design; label fit in user units; PR #198.
 - 2026-09-25 — closed #160 — visitor controls share one slot grid (no overlaps), compact mode from renderer size with Find-a-place toggle and dropdown switcher, scrollable switcher; PR #193.
 - 2026-09-25 — closed #159 — popovers/tooltips placed by Floating UI against rendered shapes, contained in the map with scrolling body and reachable Close, tracked only while open; renderer 23.7 KB gzip; PR #191.
 - 2026-09-25 — closed #158 — Preview page vs independently resizable map host (fields, drag and keyboard handle), live size readout, fit/restart, resize without rebuild, source-checked messages; PR #189.
