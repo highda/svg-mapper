@@ -1,4 +1,5 @@
 import type { Area, AreaStyle, Geometry, MarkerAnchor, RectGeometry } from "@svg-mapper/shared";
+import { geometryBounds, markerPathData, rectPathData } from "@svg-mapper/shared";
 
 export const DEFAULT_AREA_STYLE: AreaStyle = {
   default: { fill: "rgba(59,130,246,0.08)", stroke: "rgba(59,130,246,0.6)", strokeWidth: 2 },
@@ -50,14 +51,6 @@ export function createMarkerArea(x: number, y: number, anchor: MarkerAnchor = "b
   };
 }
 
-const MARKER_WIDTH = 24;
-const MARKER_HEIGHT = 32;
-
-function markerTopLeft(x: number, y: number, anchor: MarkerAnchor): { x: number; y: number } {
-  const horizontal = anchor.endsWith("left") ? 0 : anchor.endsWith("right") ? MARKER_WIDTH : MARKER_WIDTH / 2;
-  const vertical = anchor.startsWith("top") ? 0 : anchor.startsWith("middle") || anchor === "center" ? MARKER_HEIGHT / 2 : MARKER_HEIGHT;
-  return { x: x - horizontal, y: y - vertical };
-}
 
 export function moveGeometry(geo: Geometry, dx: number, dy: number): Geometry {
   switch (geo.type) {
@@ -134,7 +127,8 @@ export function getRectHandles(geo: RectGeometry): Record<RectHandle, { x: numbe
 export function geometryToSvgPath(geo: Geometry): string {
   switch (geo.type) {
     case "rect":
-      return `M${geo.x},${geo.y} h${geo.width} v${geo.height} h${-geo.width}Z`;
+      // Same corners as the renderer's <rect rx>.
+      return rectPathData(geo.x, geo.y, geo.width, geo.height, geo.rx);
     case "polygon":
       if (geo.points.length < 2) return "";
       return geo.points.map(([px, py], i) => `${i === 0 ? "M" : "L"}${px},${py}`).join(" ") + "Z";
@@ -143,33 +137,12 @@ export function geometryToSvgPath(geo: Geometry): string {
     case "path":
       return geo.d;
     case "marker":
-      { const topLeft = markerTopLeft(geo.x, geo.y, geo.anchor);
-        return `M${topLeft.x + 12},${topLeft.y + 32} C${topLeft.x + 10},${topLeft.y + 27} ${topLeft.x + 2},${topLeft.y + 20} ${topLeft.x + 2},${topLeft.y + 12} A10,10 0 1,1 ${topLeft.x + 22},${topLeft.y + 12} C${topLeft.x + 22},${topLeft.y + 20} ${topLeft.x + 14},${topLeft.y + 27} ${topLeft.x + 12},${topLeft.y + 32} Z`;
-      }
+      return markerPathData(geo.x, geo.y, geo.anchor);
   }
 }
 
 export function getGeometryBbox(geo: Geometry): { x: number; y: number; width: number; height: number } | null {
-  switch (geo.type) {
-    case "rect":
-      return { x: geo.x, y: geo.y, width: geo.width, height: geo.height };
-    case "polygon": {
-      if (!geo.points.length) return null;
-      const xs = geo.points.map(([px]) => px);
-      const ys = geo.points.map(([, py]) => py);
-      const minX = Math.min(...xs), maxX = Math.max(...xs);
-      const minY = Math.min(...ys), maxY = Math.max(...ys);
-      return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
-    }
-    case "circle":
-      return { x: geo.cx - geo.r, y: geo.cy - geo.r, width: geo.r * 2, height: geo.r * 2 };
-    case "marker": {
-      const topLeft = markerTopLeft(geo.x, geo.y, geo.anchor);
-      return { ...topLeft, width: MARKER_WIDTH, height: MARKER_HEIGHT };
-    }
-    default:
-      return null;
-  }
+  return geometryBounds(geo);
 }
 
 export function calculateZoomToFit(

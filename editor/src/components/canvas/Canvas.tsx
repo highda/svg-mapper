@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Area, CircleGeometry } from "@svg-mapper/shared";
+import { assetDisplaySource, fitImageRect, geometryBounds } from "@svg-mapper/shared";
 import { useStore } from "../../store";
 import { AreaShape } from "./AreaShape";
 import {
@@ -43,25 +44,10 @@ function contentPoint(
   };
 }
 
+/** Label anchor: the centre of the same bounds the renderer uses. */
 function areaCenter(area: Area): { x: number; y: number; width: number } | null {
-  const geometry = area.geometry;
-  if (geometry.type === "rect") {
-    return { x: geometry.x + geometry.width / 2, y: geometry.y + geometry.height / 2, width: geometry.width };
-  }
-  if (geometry.type === "circle") {
-    return { x: geometry.cx, y: geometry.cy, width: geometry.r * 2 };
-  }
-  if (geometry.type === "polygon" && geometry.points.length) {
-    const xs = geometry.points.map(([x]) => x);
-    const ys = geometry.points.map(([, y]) => y);
-    const minX = Math.min(...xs), maxX = Math.max(...xs);
-    const minY = Math.min(...ys), maxY = Math.max(...ys);
-    return { x: (minX + maxX) / 2, y: (minY + maxY) / 2, width: maxX - minX };
-  }
-  if (geometry.type === "marker") {
-    return { x: geometry.x, y: geometry.y, width: 24 };
-  }
-  return null;
+  const b = geometryBounds(area.geometry);
+  return b ? { x: b.x + b.width / 2, y: b.y + b.height / 2, width: b.width } : null;
 }
 
 // ── Canvas ───────────────────────────────────────────────────────────────────
@@ -141,19 +127,9 @@ export function Canvas() {
     ? project.assets.find((a) => a.id === view.background!.assetId)
     : undefined;
   const backgroundFit = view?.background?.fit ?? "contain";
-  const backgroundPosition = view?.background?.position ?? { x: 0.5, y: 0.5 };
-  let backgroundWidth = canvasSize.width;
-  let backgroundHeight = canvasSize.height;
-  if (backgroundAsset && backgroundFit === "none") {
-    backgroundWidth = backgroundAsset.width;
-    backgroundHeight = backgroundAsset.height;
-  } else if (backgroundAsset && backgroundFit !== "fill" && backgroundAsset.width > 0 && backgroundAsset.height > 0) {
-    const scale = backgroundFit === "cover"
-      ? Math.max(canvasSize.width / backgroundAsset.width, canvasSize.height / backgroundAsset.height)
-      : Math.min(canvasSize.width / backgroundAsset.width, canvasSize.height / backgroundAsset.height);
-    backgroundWidth = backgroundAsset.width * scale;
-    backgroundHeight = backgroundAsset.height * scale;
-  }
+  const backgroundRect = backgroundAsset
+    ? fitImageRect(canvasSize, backgroundAsset, backgroundFit, view?.background?.position)
+    : null;
 
   // ── Non-passive wheel listener (fixes passive event listener console error) ──
 
@@ -741,19 +717,24 @@ export function Canvas() {
             />
           )}
 
-          {/* Background image */}
-          {backgroundAsset && (
-            <image
-              x={(canvasSize.width - backgroundWidth) * backgroundPosition.x}
-              y={(canvasSize.height - backgroundHeight) * backgroundPosition.y}
-              width={backgroundWidth}
-              height={backgroundHeight}
-              href={backgroundAsset.src}
-              preserveAspectRatio={
-                "none"
-              }
-              pointerEvents="none"
-            />
+          {/* Background image, clipped to the view frame like the renderer */}
+          {backgroundAsset && backgroundRect && (
+            <>
+              <clipPath id="clickmap-view-frame">
+                <rect x={0} y={0} width={canvasSize.width} height={canvasSize.height} />
+              </clipPath>
+              <image
+                className="clickmap-editor-bg"
+                x={backgroundRect.x}
+                y={backgroundRect.y}
+                width={backgroundRect.width}
+                height={backgroundRect.height}
+                href={assetDisplaySource(backgroundAsset.src)}
+                preserveAspectRatio="none"
+                clipPath="url(#clickmap-view-frame)"
+                pointerEvents="none"
+              />
+            </>
           )}
 
           {/* Areas — each layer rendered with its opacity */}
