@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Area, CircleGeometry } from "@svg-mapper/shared";
+import { assetDisplaySource } from "@svg-mapper/shared";
 import { geometryToSvgPath, getRectHandles, type RectHandle } from "../../lib/area-utils";
 import { alphaMaskToSvgPath } from "../../lib/alpha-mask";
 import { useStore } from "../../store";
@@ -60,7 +61,7 @@ export function AreaShape({
   return (
     <g style={{ opacity: isDisabled ? 0.6 : 1 }}>
       {imageAsset && rect && area.image?.visible !== false && (
-        <image href={imageAsset.src} x={rect.x} y={rect.y} width={rect.width} height={rect.height} opacity={area.image?.opacity ?? 1} transform={imageRotation ? `rotate(${imageRotation} ${rect.x + rect.width / 2} ${rect.y + rect.height / 2})` : undefined} preserveAspectRatio={imageAspect} style={{ pointerEvents: "none" }} />
+        <image href={assetDisplaySource(imageAsset.src)} x={rect.x} y={rect.y} width={rect.width} height={rect.height} opacity={area.image?.opacity ?? 1} transform={imageRotation ? `rotate(${imageRotation} ${rect.x + rect.width / 2} ${rect.y + rect.height / 2})` : undefined} preserveAspectRatio={imageAspect} style={{ pointerEvents: "none" }} />
       )}
       {/* Main area shape */}
       <path

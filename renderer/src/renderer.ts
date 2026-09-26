@@ -13,6 +13,7 @@ import type {
 import { scopeViewCss, validateViewCss } from "../../shared/view-css.js";
 import { validateActionUrl } from "../../shared/validation.js";
 import { resolveSizingMode } from "../../shared/sizing.js";
+import { assetDisplaySource, fitImageRect, geometryBounds, markerPathData } from "../../shared/scene-geometry.js";
 import { Emitter } from "./emitter.js";
 import {
   autoUpdate,
@@ -45,35 +46,18 @@ function svgEl<T extends SVGElement>(tag: string): T {
   return document.createElementNS(SVG_NS, tag) as T;
 }
 
+/** Rendered bounds for shapes without analytic bounds (free-form paths). */
+function svgBBox(el: Element): { x: number; y: number; width: number; height: number } {
+  try {
+    const b = (el as SVGGraphicsElement).getBBox();
+    return { x: b.x, y: b.y, width: b.width, height: b.height };
+  } catch {
+    return { x: 0, y: 0, width: 1, height: 1 };
+  }
+}
+
 function escId(id: string): string {
   return CSS.escape(id);
-}
-
-function resolveAssetSource(src: string, baseUrl: string): string {
-  if (/^\s*<svg\b/i.test(src)) {
-    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(src)}`;
-  }
-  // Keep already self-contained or explicitly located sources byte-for-byte.
-  if (/^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(src)) return src;
-  try {
-    return new URL(src, baseUrl).href;
-  } catch {
-    return src;
-  }
-}
-
-function areaBounds(geometry: Area["geometry"]): { x: number; y: number; w: number; h: number } {
-  switch (geometry.type) {
-    case "rect": return { x: geometry.x, y: geometry.y, w: geometry.width, h: geometry.height };
-    case "circle": return { x: geometry.cx - geometry.r, y: geometry.cy - geometry.r, w: geometry.r * 2, h: geometry.r * 2 };
-    case "polygon": {
-      const xs = geometry.points.map(([x]) => x);
-      const ys = geometry.points.map(([, y]) => y);
-      return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
-    }
-    case "marker": return { x: geometry.x - 16, y: geometry.y - 32, w: 32, h: 32 };
-    case "path": return { x: 0, y: 0, w: 1, h: 1 };
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -601,7 +585,8 @@ class Renderer implements ClickMapInstance {
     const reveal = () => {
       const el = this.findAreaEl(area.id);
       if (!el) return;
-      const bounds = areaBounds(area.geometry);
+      const shape = geometryBounds(area.geometry) ?? svgBBox(el);
+      const bounds = { x: shape.x, y: shape.y, w: shape.width, h: shape.height };
       const base = this.getBaseViewBox(view);
       const limits = this.getZoomLimits(view);
       const targetZoom = Math.max(limits.min, Math.min(limits.max, Math.min(base.w / Math.max(bounds.w * 2, 1), base.h / Math.max(bounds.h * 2, 1))));
@@ -693,28 +678,14 @@ class Renderer implements ClickMapInstance {
 
     const image = svgEl<SVGImageElement>("image");
     image.setAttribute("class", "clickmap-bg-img");
-    const src = resolveAssetSource(asset.src, this.assetBaseUrl);
+    const src = assetDisplaySource(asset.src, this.assetBaseUrl);
     image.setAttribute("href", src);
 
-    const position = view.background.position ?? { x: 0.5, y: 0.5 };
-    const positionX = Math.max(0, Math.min(1, position.x));
-    const positionY = Math.max(0, Math.min(1, position.y));
-    let imageWidth = width;
-    let imageHeight = height;
-    if (fit === "none") {
-      imageWidth = asset.width;
-      imageHeight = asset.height;
-    } else if (fit !== "fill" && asset.width > 0 && asset.height > 0) {
-      const scale = fit === "cover"
-        ? Math.max(width / asset.width, height / asset.height)
-        : Math.min(width / asset.width, height / asset.height);
-      imageWidth = asset.width * scale;
-      imageHeight = asset.height * scale;
-    }
-    image.setAttribute("x", String((width - imageWidth) * positionX));
-    image.setAttribute("y", String((height - imageHeight) * positionY));
-    image.setAttribute("width", String(imageWidth));
-    image.setAttribute("height", String(imageHeight));
+    const placed = fitImageRect({ width, height }, asset, fit, view.background.position);
+    image.setAttribute("x", String(placed.x));
+    image.setAttribute("y", String(placed.y));
+    image.setAttribute("width", String(placed.width));
+    image.setAttribute("height", String(placed.height));
     image.setAttribute("preserveAspectRatio", "none");
 
     backgroundSvg.appendChild(image);
@@ -793,47 +764,26 @@ class Renderer implements ClickMapInstance {
     if (!view) return;
     const labelsG = this.svgEl.querySelector<SVGGElement>(".clickmap-area-labels");
     if (!labelsG) return;
-    const zoom = this.getViewBoxZoom();
     for (const textEl of Array.from(labelsG.querySelectorAll<SVGTextElement>("[data-label-area]"))) {
       const areaId = textEl.getAttribute("data-label-area")!;
       const area = this.findAreaInView(areaId, view);
       if (!area) continue;
       const bbox = this.getAreaBBox(area);
       if (!bbox) continue;
-      // getBBox() works in SVG coordinate space
+      // getBBox() and the area bounds are both in canvas (user) units, so
+      // the comparison holds at every zoom level.
       try {
         const tb = (textEl as SVGTextElement).getBBox();
-        textEl.setAttribute("visibility", tb.width > bbox.w * zoom ? "hidden" : "visible");
+        textEl.setAttribute("visibility", tb.width > bbox.w ? "hidden" : "visible");
       } catch {
         // getBBox unavailable in non-rendered context (tests) — skip
       }
     }
   }
 
-  private getViewBoxZoom(): number {
-    if (!this.currentViewBox) return 1;
-    const containerW = this.container.clientWidth || 1;
-    return containerW / this.currentViewBox.w;
-  }
-
   private getAreaBBox(area: Area): { cx: number; cy: number; w: number; h: number } | null {
-    const g = area.geometry;
-    switch (g.type) {
-      case "rect":
-        return { cx: g.x + g.width / 2, cy: g.y + g.height / 2, w: g.width, h: g.height };
-      case "circle":
-        return { cx: g.cx, cy: g.cy, w: g.r * 2, h: g.r * 2 };
-      case "polygon": {
-        if (!g.points.length) return null;
-        const xs = g.points.map((p) => p[0]);
-        const ys = g.points.map((p) => p[1]);
-        const minX = Math.min(...xs), maxX = Math.max(...xs);
-        const minY = Math.min(...ys), maxY = Math.max(...ys);
-        return { cx: (minX + maxX) / 2, cy: (minY + maxY) / 2, w: maxX - minX, h: maxY - minY };
-      }
-      default:
-        return null;
-    }
+    const b = geometryBounds(area.geometry);
+    return b ? { cx: b.x + b.width / 2, cy: b.y + b.height / 2, w: b.width, h: b.height } : null;
   }
 
   private renderBackButton(view: View) {
@@ -1187,14 +1137,8 @@ class Renderer implements ClickMapInstance {
         break;
       }
       case "marker": {
-        const width = 24;
-        const height = 32;
-        const horizontal = g.anchor.endsWith("left") ? 0 : g.anchor.endsWith("right") ? width : width / 2;
-        const vertical = g.anchor.startsWith("top") ? 0 : g.anchor.startsWith("middle") || g.anchor === "center" ? height / 2 : height;
-        const x = g.x - horizontal;
-        const y = g.y - vertical;
         const p = svgEl<SVGPathElement>("path");
-        p.setAttribute("d", `M${x + 12},${y + 32} C${x + 10},${y + 27} ${x + 2},${y + 20} ${x + 2},${y + 12} A10,10 0 1,1 ${x + 22},${y + 12} C${x + 22},${y + 20} ${x + 14},${y + 27} ${x + 12},${y + 32} Z`);
+        p.setAttribute("d", markerPathData(g.x, g.y, g.anchor));
         shape = p;
         break;
       }
@@ -1244,7 +1188,7 @@ class Renderer implements ClickMapInstance {
     if (!asset) return null;
     const image = svgEl<SVGImageElement>("image");
     if (area.image.visible === false) return null;
-    image.setAttribute("href", resolveAssetSource(asset.src, this.assetBaseUrl));
+    image.setAttribute("href", assetDisplaySource(asset.src, this.assetBaseUrl));
     image.setAttribute("x", String(area.geometry.x));
     image.setAttribute("y", String(area.geometry.y));
     image.setAttribute("width", String(area.geometry.width));

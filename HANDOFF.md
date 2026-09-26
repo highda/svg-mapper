@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #161 — fix(editor): normalize SVG asset URLs and share scene geometry with renderer
+Branch:       claude/kind-albattani-vjpp90
+Started:      2026-09-26
+Last commit:  (claim)
+
+### What's done
+- Claimed #161 (selected by scripts/select-task.mjs).
+
+### What's next
+- Shared pure helpers (asset display source, fitted image rect, marker geometry/bounds, rounded rect) used by editor canvas and renderer; clip background to view; fix label fit units.
+
+### Notes / gotchas
+- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/161-*`.
 
 ---
 
