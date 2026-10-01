@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #162 — fix(editor): dispatch modifier shortcuts before tool keys
-Branch:       claude/kind-albattani-vjpp90
-Started:      2026-10-01
-Last commit:  (claim)
-
-### What's done
-- Claimed #162 (selected by scripts/select-task.mjs).
-
-### What's next
-- One shared shortcut guard (editable/select/contenteditable/dialog); modifier commands before tool letters; tree selection activates the owning view.
-
-### Notes / gotchas
-- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/162-*`.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-10-01 — closed #162 — Ctrl/Cmd commands dispatch before tool letters (Ctrl+C no longer picks circle); one shared guard keeps shortcuts out of fields, selects, contenteditable, IME and dialogs; hierarchy selection activates its view; PR #200.
 - 2026-09-26 — closed #161 — shared scene-geometry helpers (asset display source, fit, markers, rx, bounds) used by editor and renderer; samples show artwork in Design; label fit in user units; PR #198.
 - 2026-09-25 — closed #160 — visitor controls share one slot grid (no overlaps), compact mode from renderer size with Find-a-place toggle and dropdown switcher, scrollable switcher; PR #193.
 - 2026-09-25 — closed #159 — popovers/tooltips placed by Floating UI against rendered shapes, contained in the map with scrolling body and reachable Close, tracked only while open; renderer 23.7 KB gzip; PR #191.
