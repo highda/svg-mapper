@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #162 — fix(editor): dispatch modifier shortcuts before tool keys
+Branch:       claude/kind-albattani-vjpp90
+Started:      2026-10-01
+Last commit:  (claim)
+
+### What's done
+- Claimed #162 (selected by scripts/select-task.mjs).
+
+### What's next
+- One shared shortcut guard (editable/select/contenteditable/dialog); modifier commands before tool letters; tree selection activates the owning view.
+
+### Notes / gotchas
+- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/162-*`.
 
 ---
 
