@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../../store";
 import type { Layer, View } from "@svg-mapper/shared";
+import { shouldIgnoreShortcut } from "../../lib/shortcut-guard";
 
 // ---------------------------------------------------------------------------
 // Inline-rename input
@@ -542,7 +543,7 @@ export function LeftPanel({ workspace = false }: { workspace?: boolean }) {
   // "/" shortcut focuses the search input (issue #28 I5)
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "/" && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+      if (e.key === "/" && !e.metaKey && !e.ctrlKey && !e.altKey && !shouldIgnoreShortcut(e)) {
         e.preventDefault();
         searchRef.current?.focus();
       }

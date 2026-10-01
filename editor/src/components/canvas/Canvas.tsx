@@ -3,6 +3,7 @@ import type { Area, CircleGeometry } from "@svg-mapper/shared";
 import { assetDisplaySource, fitImageRect, geometryBounds } from "@svg-mapper/shared";
 import { useStore } from "../../store";
 import { AreaShape } from "./AreaShape";
+import { isActivatableTarget, shouldIgnoreShortcut } from "../../lib/shortcut-guard";
 import {
   createRectArea,
   createPolygonArea,
@@ -160,9 +161,38 @@ export function Canvas() {
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (shouldIgnoreShortcut(e)) return;
+
+      // Ctrl/Cmd commands first, so Ctrl+C never reaches the C (circle) tool.
+      // Only handled commands prevent the browser default.
+      if (e.metaKey || e.ctrlKey) {
+        const key = e.key.toLowerCase();
+        if (key === "d" && selectedAreaId) {
+          e.preventDefault();
+          if (selectedAreaIds.length > 1) duplicateAreas(selectedAreaIds);
+          else duplicateArea(selectedAreaId);
+        } else if (key === "c" && selectedAreaId && !e.shiftKey && !e.altKey) {
+          // Leave native copy alone when nothing is selected or text is selected.
+          if (window.getSelection()?.toString()) return;
+          e.preventDefault();
+          copyArea(selectedAreaId);
+        } else if (key === "v" && !e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          pasteArea();
+        } else if (key === "z" && e.shiftKey) {
+          e.preventDefault();
+          redo();
+        } else if (key === "z") {
+          e.preventDefault();
+          undo();
+        }
+        return;
+      }
+      if (e.altKey) return;
 
       if (e.key === " ") {
+        // Space activates a focused button or link; it only pans from the workspace.
+        if (isActivatableTarget(e)) return;
         spaceHeld.current = true;
         setIsSpaceDown(true);
         e.preventDefault();
@@ -201,34 +231,6 @@ export function Canvas() {
         deleteArea(selectedAreaId);
         return;
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === "d" && selectedAreaId) {
-        e.preventDefault();
-        if (selectedAreaIds.length > 1) duplicateAreas(selectedAreaIds);
-        else duplicateArea(selectedAreaId);
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === "c" && selectedAreaId) {
-        e.preventDefault();
-        copyArea(selectedAreaId);
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === "v") {
-        e.preventDefault();
-        pasteArea();
-        return;
-      }
-      // Redo: Cmd/Ctrl+Shift+Z (e.key is "Z" when Shift is held on most platforms)
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "z" || e.key === "Z")) {
-        e.preventDefault();
-        redo();
-        return;
-      }
-      // Undo: Cmd/Ctrl+Z (must come after redo check to avoid stealing Shift+Z)
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === "z" || e.key === "Z")) {
-        e.preventDefault();
-        undo();
-        return;
-      }
       if (e.key === "Escape") {
         if (activeTool === "polygon" && polyPts.length > 0) {
           setPolyPts([]);
@@ -264,11 +266,19 @@ export function Canvas() {
         lastSpacePanPos.current = null;
       }
     }
+    // A Space released outside the window never sends keyup; drop the pan state.
+    function onBlur() {
+      spaceHeld.current = false;
+      setIsSpaceDown(false);
+      lastSpacePanPos.current = null;
+    }
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
     };
   }, [
     activeTool,

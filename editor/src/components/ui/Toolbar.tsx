@@ -25,6 +25,7 @@ export function Toolbar() {
           key={t.id}
           title={t.title}
           aria-label={t.title}
+          aria-pressed={activeTool === t.id}
           onClick={() => setActiveTool(t.id)}
           className={`flex h-8 w-8 items-center justify-center rounded text-sm font-medium transition-colors ${
             activeTool === t.id

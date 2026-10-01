@@ -195,6 +195,12 @@ function ensureDefaultLayer(view: View): View {
   return { ...view, layers: [layer] };
 }
 
+/** The view that contains an area, or null when the id is unknown. */
+function owningViewOfArea(project: ProjectFile, areaId: string): string | null {
+  const location = findAreaLocation(project.views as unknown as View[], areaId);
+  return location ? project.views[location.viewIdx]!.id : null;
+}
+
 function deriveActiveViewId(project: ProjectFile): string {
   return project.settings.initialViewId || project.views[0]?.id || "";
 }
@@ -393,8 +399,11 @@ export const useStore = create<AppState>()(
       });
     },
 
+    // Selecting an item from another view activates that view, so the canvas
+    // and the inspector always refer to the same view (#162).
     setSelectedAreaId(id: string | null) {
       set((s) => {
+        if (id !== null) s.activeViewId = owningViewOfArea(s.project, id) ?? s.activeViewId;
         s.selectedAreaId = id;
         s.selectedAreaIds = id === null ? [] : [id];
         if (id !== null) s.selectedLayerId = null;
@@ -403,7 +412,12 @@ export const useStore = create<AppState>()(
 
     setSelectedAreaIds(ids: string[]) {
       set((s) => {
-        s.selectedAreaIds = [...new Set(ids)];
+        const unique = [...new Set(ids)];
+        const primary = unique.at(-1);
+        const viewId = primary ? owningViewOfArea(s.project, primary) : null;
+        if (viewId) s.activeViewId = viewId;
+        // A multi-selection never spans views.
+        s.selectedAreaIds = viewId ? unique.filter((candidate) => owningViewOfArea(s.project, candidate) === viewId) : unique;
         s.selectedAreaId = s.selectedAreaIds.at(-1) ?? null;
         if (s.selectedAreaIds.length > 0) s.selectedLayerId = null;
       });
@@ -411,9 +425,13 @@ export const useStore = create<AppState>()(
 
     toggleSelectedAreaId(id: string) {
       set((s) => {
-        const selected = s.selectedAreaIds.includes(id)
-          ? s.selectedAreaIds.filter((candidate) => candidate !== id)
-          : [...s.selectedAreaIds, id];
+        const viewId = owningViewOfArea(s.project, id);
+        const sameView = viewId === null || viewId === s.activeViewId;
+        const current = sameView ? s.selectedAreaIds : [];
+        if (viewId) s.activeViewId = viewId;
+        const selected = current.includes(id)
+          ? current.filter((candidate) => candidate !== id)
+          : [...current, id];
         s.selectedAreaIds = selected;
         s.selectedAreaId = selected.at(-1) ?? null;
         if (selected.length > 0) s.selectedLayerId = null;
@@ -422,6 +440,10 @@ export const useStore = create<AppState>()(
 
     setSelectedLayerId(id: string | null) {
       set((s) => {
+        if (id !== null) {
+          const view = s.project.views.find((candidate) => candidate.layers.some((layer) => layer.id === id));
+          if (view) s.activeViewId = view.id;
+        }
         s.selectedLayerId = id;
         if (id !== null) {
           s.selectedAreaId = null;

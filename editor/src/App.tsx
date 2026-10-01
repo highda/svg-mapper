@@ -10,6 +10,7 @@ import { ShortcutsHelp } from "./components/ui/ShortcutsHelp";
 import { readDraft, removeDraft, type StoredDraft, writeDraft } from "./lib/draft-storage";
 import { projectSnapshot } from "./store";
 import { FirstUseGuide } from "./components/ui/FirstUseGuide";
+import { isEditableTarget, isModalOpen } from "./lib/shortcut-guard";
 
 function storageError(error: unknown, fallback: string): string {
   return typeof error === "object" && error !== null && "message" in error && typeof error.message === "string"
@@ -76,7 +77,10 @@ export function App() {
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.isComposing || isEditableTarget(e)) return;
+      // An open dialog owns the keyboard; "?" may only close the help dialog itself.
+      const helpOpen = document.querySelector('[role="dialog"][aria-label="Keyboard shortcuts"]') !== null;
+      if (isModalOpen() && !(helpOpen && e.key === "?")) return;
 
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault();
@@ -88,7 +92,7 @@ export function App() {
         setScreen("export");
         return;
       }
-      if (e.key === "?" && !e.metaKey && !e.ctrlKey) {
+      if (e.key === "?" && !e.metaKey && !e.ctrlKey && !e.altKey) {
         setShowHelp((v) => !v);
         return;
       }
