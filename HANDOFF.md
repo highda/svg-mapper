@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #163 — fix(editor): make drag history atomic and restore a valid active view
+Branch:       claude/kind-albattani-vjpp90
+Started:      2026-10-02
+Last commit:  (claim)
+
+### What's done
+- Claimed #163 (selected by scripts/select-task.mjs).
+
+### What's next
+- Transaction baseline at pointerdown; one history entry per drag; rollback on cancel/Escape/blur; reconcile activeViewId after undo/redo.
+
+### Notes / gotchas
+- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/163-*`.
 
 ---
 
