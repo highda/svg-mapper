@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #163 — fix(editor): make drag history atomic and restore a valid active view
-Branch:       claude/kind-albattani-vjpp90
-Started:      2026-10-02
-Last commit:  (claim)
-
-### What's done
-- Claimed #163 (selected by scripts/select-task.mjs).
-
-### What's next
-- Transaction baseline at pointerdown; one history entry per drag; rollback on cancel/Escape/blur; reconcile activeViewId after undo/redo.
-
-### Notes / gotchas
-- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/163-*`.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-10-02 — closed #163 — move/resize/circle drags are one undo entry restored from a pointerdown baseline; cancel/lost capture/Escape/blur roll back with no history; no-op clicks record nothing; undo/redo keep a valid active view; PR #202.
 - 2026-10-01 — closed #162 — Ctrl/Cmd commands dispatch before tool letters (Ctrl+C no longer picks circle); one shared guard keeps shortcuts out of fields, selects, contenteditable, IME and dialogs; hierarchy selection activates its view; PR #200.
 - 2026-09-26 — closed #161 — shared scene-geometry helpers (asset display source, fit, markers, rx, bounds) used by editor and renderer; samples show artwork in Design; label fit in user units; PR #198.
 - 2026-09-25 — closed #160 — visitor controls share one slot grid (no overlaps), compact mode from renderer size with Find-a-place toggle and dropdown switcher, scrollable switcher; PR #193.
