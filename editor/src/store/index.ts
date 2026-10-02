@@ -201,6 +201,16 @@ function owningViewOfArea(project: ProjectFile, areaId: string): string | null {
   return location ? project.views[location.viewIdx]!.id : null;
 }
 
+/**
+ * After history restores views, keep the active view if it still exists;
+ * otherwise fall back to the initial or first view (#163).
+ */
+function reconcileActiveView(s: AppState): void {
+  if (s.project.views.some((view) => view.id === s.activeViewId)) return;
+  s.activeViewId = deriveActiveViewId(s.project as ProjectFile);
+  if (!s.project.views.some((view) => view.id === s.activeViewId)) s.activeViewId = s.project.views[0]?.id ?? "";
+}
+
 function deriveActiveViewId(project: ProjectFile): string {
   return project.settings.initialViewId || project.views[0]?.id || "";
 }
@@ -944,8 +954,10 @@ export const useStore = create<AppState>()(
       set((s) => {
         const loc = findAreaLocation(s.project.views as unknown as View[], areaId);
         if (!loc) return;
-        pushHistory(s);
         const area = s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx];
+        // A click on a handle without movement is not an edit.
+        if (JSON.stringify(current(area.geometry)) === JSON.stringify(geometry)) return;
+        pushHistory(s);
         area.geometry = geometry as typeof area.geometry;
       });
     },
@@ -1259,6 +1271,7 @@ export const useStore = create<AppState>()(
         s.project.assets = prev.assets;
         s.project.settings = prev.settings as typeof s.project.settings;
         s.project.sharedStyles = prev.sharedStyles as typeof s.project.sharedStyles;
+        reconcileActiveView(s);
         s.selectedAreaId = null;
         s.selectedAreaIds = [];
         s.selectedLayerId = null;
@@ -1275,6 +1288,7 @@ export const useStore = create<AppState>()(
         s.project.assets = next.assets;
         s.project.settings = next.settings as typeof s.project.settings;
         s.project.sharedStyles = next.sharedStyles as typeof s.project.sharedStyles;
+        reconcileActiveView(s);
         s.selectedAreaId = null;
         s.selectedAreaIds = [];
         s.selectedLayerId = null;

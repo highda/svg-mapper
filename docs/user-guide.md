@@ -24,7 +24,7 @@ Use multiple views for drill-down maps. Each view has a unique slug, viewport li
 
 ## 3. Draw and configure areas
 
-Select Rectangle (`R`), Circle (`C`), or Polygon (`P`) and draw over the background. Press Enter to finish a polygon or Escape to cancel. Select (`V`) to move and resize shapes; Delete removes the selection. Shift-click, Shift-select in the tree, or drag a marquee to select several regions. Dragging any selected region moves the unlocked group together; the Inspector can align, distribute, or duplicate the selection as one undoable change. Locked layers are left untouched.
+Select Rectangle (`R`), Circle (`C`), or Polygon (`P`) and draw over the background. Press Enter to finish a polygon or Escape to cancel. Select (`V`) to move and resize shapes; Delete removes the selection. Shift-click, Shift-select in the tree, or drag a marquee to select several regions. Dragging any selected region moves the unlocked group together, and each move or resize is one undo step; press Escape mid-drag (or switch windows) to put the shape back where it started; the Inspector can align, distribute, or duplicate the selection as one undoable change. Locked layers are left untouched.
 
 The sidebar edits exact geometry, name, styles, label, metadata, tooltip, accessibility, trigger, highlight/disabled state, and action. With multiple regions selected it identifies mixed styles and actions and can apply the primary region's value to the group. Named style presets can be applied as a one-time copy or linked; updating a preset changes only regions that remain linked, while directly editing a linked region detaches it.
 

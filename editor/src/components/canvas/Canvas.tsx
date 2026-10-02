@@ -119,6 +119,8 @@ export function Canvas() {
   } | null>(null);
 
   const spaceHeld = useRef(false);
+  // Lets the window key/blur listeners cancel the drag owned by pointer handlers.
+  const cancelDragRef = useRef<() => void>(() => {});
 
   const view = project.views.find((v) => v.id === activeViewId);
   const canvasWidth = Number(view?.canvas.width ?? 1);
@@ -162,6 +164,16 @@ export function Canvas() {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (shouldIgnoreShortcut(e)) return;
+
+      // While a pointer drag is active, Escape abandons it and other editing
+      // shortcuts wait, so undo or delete never interleave with a drag (#163).
+      if (drag.current && drag.current.type !== "pan") {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          cancelDragRef.current();
+        }
+        return;
+      }
 
       // Ctrl/Cmd commands first, so Ctrl+C never reaches the C (circle) tool.
       // Only handled commands prevent the browser default.
@@ -268,6 +280,7 @@ export function Canvas() {
     }
     // A Space released outside the window never sends keyup; drop the pan state.
     function onBlur() {
+      cancelDragRef.current();
       spaceHeld.current = false;
       setIsSpaceDown(false);
       lastSpacePanPos.current = null;
@@ -322,6 +335,35 @@ export function Canvas() {
     // The renderer's SVG viewBox uses top-left origin; areas must match.
     return { x: pt.x + canvasWidth / 2, y: pt.y + canvasHeight / 2 };
   }
+
+  // A transform drag (move/resize) previews geometry directly in the store
+  // without history. Its pointerdown baseline is restored before the single
+  // committed edit, or on cancel, so one drag is one undo entry (#163).
+  function restoreDragBaseline(d: NonNullable<typeof drag.current>) {
+    const baseline = d.areaGeometriesBefore;
+    if (!baseline?.length) return;
+    useStore.setState((s) => {
+      for (const v of s.project.views) for (const layer of v.layers) for (const area of layer.areas) {
+        const entry = baseline.find((candidate) => candidate.id === area.id);
+        if (entry) (area as Area).geometry = entry.geometry as typeof area.geometry;
+      }
+    });
+  }
+
+  /** Abandon the active drag: roll back previewed geometry and clear transient state. */
+  function cancelDrag() {
+    const d = drag.current;
+    if (!d) return;
+    drag.current = null;
+    restoreDragBaseline(d);
+    if (d.type === "marquee") setMarqueeRect(null);
+    if (d.type === "draw-rect") setPreviewRect(null);
+    if (d.type === "draw-circle") setCirclePreview(null);
+    setIsPanning(false);
+  }
+  useEffect(() => {
+    cancelDragRef.current = cancelDrag;
+  });
 
   function onSvgPointerDown(e: React.PointerEvent<SVGSVGElement>) {
     // Give the SVG keyboard focus so shortcuts work even after clicking inspector inputs.
@@ -442,6 +484,7 @@ export function Canvas() {
       areaId,
       handle,
       areaGeoBefore: geoSnapshot,
+      areaGeometriesBefore: geoSnapshot ? [{ id: areaId, geometry: geoSnapshot }] : [],
     };
   }
 
@@ -466,6 +509,7 @@ export function Canvas() {
       startContent: cp,
       areaId,
       areaGeoBefore: geoSnapshot,
+      areaGeometriesBefore: geoSnapshot ? [{ id: areaId, geometry: geoSnapshot }] : [],
     };
   }
 
@@ -622,18 +666,14 @@ export function Canvas() {
     } else if (d.type === "move" && d.areaGeometriesBefore?.length) {
       const dx = grid.enabled ? snapValue(cp.x - d.startContent.x, grid.size) : cp.x - d.startContent.x;
       const dy = grid.enabled ? snapValue(cp.y - d.startContent.y, grid.size) : cp.y - d.startContent.y;
-      useStore.setState((s) => {
-        for (const v of s.project.views) for (const layer of v.layers) for (const area of layer.areas) {
-          const baseline = d.areaGeometriesBefore!.find((entry) => entry.id === area.id);
-          if (baseline) (area as Area).geometry = baseline.geometry as typeof area.geometry;
-        }
-      });
+      restoreDragBaseline(d);
       useStore.getState().moveAreas(d.areaGeometriesBefore.map(({ id }) => id), dx, dy);
     } else if (d.type === "resize" && d.areaId && d.handle && d.areaGeoBefore) {
       if (d.areaGeoBefore.type !== "rect") return;
       const dx = cp.x - d.startContent.x;
       const dy = cp.y - d.startContent.y;
       const finalGeo = snapGeometry(resizeRect(d.areaGeoBefore, d.handle, dx, dy));
+      restoreDragBaseline(d);
       useStore.getState().updateAreaGeometry(d.areaId, finalGeo);
     } else if (d.type === "draw-circle") {
       const r = Math.sqrt(
@@ -649,6 +689,7 @@ export function Canvas() {
       if (d.areaGeoBefore.type !== "circle") return;
       const geo = d.areaGeoBefore as CircleGeometry & { type: "circle" };
       const newR = grid.enabled ? Math.max(grid.size, snapValue(cp.x - geo.cx, grid.size)) : Math.max(1, cp.x - geo.cx);
+      restoreDragBaseline(d);
       useStore.getState().updateAreaGeometry(d.areaId, { ...geo, r: newR });
     }
   }
@@ -689,6 +730,8 @@ export function Canvas() {
         onPointerDown={onSvgPointerDown}
         onPointerMove={onSvgPointerMove}
         onPointerUp={onSvgPointerUp}
+        onPointerCancel={cancelDrag}
+        onLostPointerCapture={cancelDrag}
       >
         {/* Canvas group with pan/zoom transform */}
         <g
