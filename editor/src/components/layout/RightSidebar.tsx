@@ -45,7 +45,8 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-// Uncontrolled text input — commits on blur/Enter; resets via key at parent level.
+// Uncontrolled text input — commits on blur/Enter. Keyed by its persisted value,
+// so only this field resets when the value changes elsewhere (#165).
 function TextField({
   defaultValue,
   onCommit,
@@ -63,6 +64,7 @@ function TextField({
   }
   return (
     <input
+      key={defaultValue}
       type="text"
       defaultValue={defaultValue}
       readOnly={readOnly}
@@ -76,7 +78,7 @@ function TextField({
   );
 }
 
-// Uncontrolled number input — commits on blur/Enter; resets via key at parent level.
+// Uncontrolled number input — commits on blur/Enter. Keyed by its persisted value.
 function NumberField({
   defaultValue,
   onCommit,
@@ -101,6 +103,7 @@ function NumberField({
   }
   return (
     <input
+      key={defaultValue}
       type="number"
       defaultValue={defaultValue}
       min={min}
@@ -142,6 +145,12 @@ function CheckToggle({
 function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   const id = useId();
   const [draft, setDraft] = useState(value);
+  // Follow the persisted value when it changes elsewhere (undo, picker, preset).
+  const [synced, setSynced] = useState(value);
+  if (synced !== value) {
+    setSynced(value);
+    setDraft(value);
+  }
   const valid = isValidCssColor(draft);
   const parsed = parseCssColor(value);
 
@@ -360,6 +369,7 @@ function ViewInspector({ view }: { view: View }) {
         HTML with {"{{name}}"}, {"{{id}}"}, {"{{viewName}}"}, or {"{{metadata.key}}"} variables.
       </p>
       <textarea
+        key={project.settings.contentTemplate ?? ""}
         aria-label="Content Template"
         defaultValue={project.settings.contentTemplate ?? ""}
         onBlur={(e) => updateSettings({ contentTemplate: e.target.value || undefined })}
@@ -441,6 +451,7 @@ function ViewInspector({ view }: { view: View }) {
       <label className="block text-[10px] text-neutral-500">
         Category legend (one value = label per line)
         <textarea
+          key={(project.settings.directory?.categories ?? []).map((item) => `${item.value} = ${item.label}`).join("\n")}
           aria-label="Directory Categories"
           defaultValue={(project.settings.directory?.categories ?? []).map((item) => `${item.value} = ${item.label}`).join("\n")}
           onBlur={(event) => updateSettings({
@@ -517,7 +528,7 @@ function ViewInspector({ view }: { view: View }) {
       <CheckToggle
         checked={project.settings.zoomControls?.enabled ?? false}
         onChange={(enabled) => updateSettings({
-          zoomControls: { enabled, position: project.settings.zoomControls?.position ?? "top-right" },
+          zoomControls: { ...project.settings.zoomControls, enabled, position: project.settings.zoomControls?.position ?? "top-right" },
         })}
         label="Show zoom controls"
       />
@@ -528,6 +539,7 @@ function ViewInspector({ view }: { view: View }) {
           disabled={!project.settings.zoomControls?.enabled}
           onChange={(e) => updateSettings({
             zoomControls: {
+              ...project.settings.zoomControls,
               enabled: project.settings.zoomControls?.enabled ?? false,
               position: e.target.value as ZoomControlsPosition,
             },
@@ -817,6 +829,12 @@ function UrlField({
   onCommit: (v: string) => void;
 }) {
   const [value, setValue] = useState(defaultValue);
+  // Follow the persisted URL when it changes elsewhere (undo, another field).
+  const [synced, setSynced] = useState(defaultValue);
+  if (synced !== defaultValue) {
+    setSynced(defaultValue);
+    setValue(defaultValue);
+  }
   const validation = value === "" ? { valid: true } : validateActionUrl(value);
 
   function commit() {
@@ -871,6 +889,7 @@ function PopupContentEditor({
       </Row>
       <Row label="Body">
         <textarea
+          key={action.content.body ?? ""}
           defaultValue={action.content.body ?? ""}
           onBlur={(e) => update({ body: e.target.value })}
           rows={3}
@@ -1103,7 +1122,7 @@ function TooltipEditor({ areaId, tooltip }: { areaId: string; tooltip: Tooltip |
   const { updateAreaTooltip } = useStore();
 
   function setEnabled(enabled: boolean) {
-    updateAreaTooltip(areaId, { enabled, title: tooltip?.title ?? "", body: tooltip?.body ?? "" });
+    updateAreaTooltip(areaId, { ...tooltip, enabled, title: tooltip?.title ?? "", body: tooltip?.body ?? "" });
   }
 
   return (
@@ -1123,6 +1142,7 @@ function TooltipEditor({ areaId, tooltip }: { areaId: string; tooltip: Tooltip |
           </Row>
           <Row label="Body (HTML)">
             <textarea
+              key={tooltip.body ?? ""}
               defaultValue={tooltip.body ?? ""}
               onBlur={(e) => updateAreaTooltip(areaId, { ...tooltip, body: e.target.value })}
               rows={3}
@@ -1187,11 +1207,16 @@ function ImageRegionEditor({ area }: { area: import("@svg-mapper/shared").Area }
     try {
       setError("");
       const hitMask = await createAlphaHitMask(asset, threshold);
-      updateAreaImage(area.id, { assetId: asset.id, hitMask });
+      updateAreaImage(area.id, { ...currentImage(), assetId: asset.id, hitMask });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not read image pixels; using rectangular fallback.");
-      updateAreaImage(area.id, { assetId: asset.id });
+      updateAreaImage(area.id, { ...currentImage(), assetId: asset.id, hitMask: undefined });
     }
+  }
+  // Fit, opacity, rotation, visibility and lock survive mask generation (#165).
+  function currentImage() {
+    const views = useStore.getState().project.views;
+    return views.flatMap((view) => view.layers.flatMap((layer) => layer.areas)).find((candidate) => candidate.id === area.id)?.image;
   }
   return <div className="space-y-1.5">
     <Row label="Visual">
@@ -1255,9 +1280,11 @@ function MetadataEditor({ areaId, metadata }: { areaId: string; metadata: Record
 
   return (
     <div className="space-y-1">
-      {entries.map(([k, v]) => (
-        <div key={k} className="flex items-center gap-1">
+      {entries.map(([k, v], index) => (
+        // Rows keyed by position so renaming a key keeps focus in its value field.
+        <div key={index} className="flex items-center gap-1">
           <input
+            key={k}
             type="text"
             aria-label={`Metadata key ${k}`}
             defaultValue={k}
@@ -1266,6 +1293,7 @@ function MetadataEditor({ areaId, metadata }: { areaId: string; metadata: Record
             className="w-16 shrink-0 rounded border border-neutral-700 bg-neutral-800 px-1 py-0.5 text-[10px] text-neutral-400 outline-none focus:border-blue-500"
           />
           <input
+            key={String(v)}
             type="text"
             aria-label={`Metadata value ${k}`}
             defaultValue={String(v)}

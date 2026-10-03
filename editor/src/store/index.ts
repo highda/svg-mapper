@@ -174,12 +174,13 @@ function snapshot(state: AppState): HistorySnapshot {
   };
 }
 
-// Push a history entry and bump historyVersion so inspector inputs reset.
-// Call this before any mutation that should be undoable.
+// Push a history entry. Call this before any mutation that should be undoable.
+// It does not bump historyVersion: ordinary commits must not remount the
+// inspector (that drops focus and slider capture, #165). Only undo/redo and
+// document replacement bump it, so local drafts reset to restored values.
 function pushHistory(s: AppState): void {
   s.past.push(snapshot(s));
   s.future = [];
-  s.historyVersion += 1;
 }
 
 function ensureDefaultLayer(view: View): View {
@@ -301,6 +302,7 @@ export const useStore = create<AppState>()(
         s.activeTool = "select";
         s.past = [];
         s.future = [];
+        s.historyVersion += 1;
         s.openError = null;
         s.canvasSizeSuggestion = null;
       });
@@ -319,6 +321,7 @@ export const useStore = create<AppState>()(
           s.activeTool = "select";
           s.past = [];
           s.future = [];
+          s.historyVersion += 1;
           s.openError = null;
           s.canvasSizeSuggestion = null;
         });
@@ -341,6 +344,7 @@ export const useStore = create<AppState>()(
         s.activeTool = "select";
         s.past = [];
         s.future = [];
+        s.historyVersion += 1;
         s.openError = null;
       });
     },
@@ -1029,6 +1033,8 @@ export const useStore = create<AppState>()(
           const area = s.project.views[location.viewIdx].layers[location.layerIdx].areas[location.areaIdx];
           if (patch.style !== undefined) {
             area.style = patch.style as unknown as typeof area.style;
+            // Same rule as a direct style edit: the area leaves its linked preset.
+            area.sharedStyleId = undefined;
           }
           if (patch.action !== undefined) {
             area.action = patch.action as typeof area.action;
