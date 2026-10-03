@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #165 — fix(editor): preserve field focus and unrelated settings during commits
+Branch:       claude/kind-albattani-vjpp90
+Started:      2026-10-03
+Last commit:  (claim)
+
+### What's done
+- Claimed #165 (selected by scripts/select-task.mjs).
+
+### What's next
+- Stop remounting the inspector on every commit (resync only on undo/redo/selection); semantic patches for zoom controls, tooltip, mask generation; batch style edits detach shared styles.
+
+### Notes / gotchas
+- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/165-*`.
 
 ---
 
