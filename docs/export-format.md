@@ -40,3 +40,7 @@ The host page must allow scripts and styles under its Content Security Policy. I
 For protection from host CSS, enable `shadowDom: true`. Default styles are bundled into the script in this mode, and optional `css` is appended inside the shadow root. See the [Renderer API](renderer-api.md) for lifecycle and events.
 
 Static hosts, object storage, and CDNs are all suitable. No SVG Mapper backend is required.
+
+## Supported browsers
+
+Exported maps support Chrome and Edge 99+, Firefox 97+, Safari 16+ (macOS and iOS). The renderer is compiled for exactly this target, and `README.txt` in every package states the same floor. It follows from platform features used without polyfills: CSS `aspect-ratio` for fluid-width sizing, cascade layers for scoped view CSS, `:focus-visible`, and `overscroll-behavior` for popups and lists that scroll inside the map. Continuous integration exercises the extracted package in Chromium only; Firefox, Safari, and touch devices are release-time manual checks in the [human test plan](human-test-plan.md).

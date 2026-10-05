@@ -12,7 +12,11 @@ const opts = {
   format: "iife",
   globalName: "ClickMapRenderer",
   outfile: "dist/clickmap-renderer.js",
-  target: ["chrome90", "firefox90", "safari14", "edge90"],
+  // The supported floor, set by platform features used without polyfills:
+  // CSS aspect-ratio (fluid-width sizing), cascade layers (scoped view CSS),
+  // :focus-visible, and overscroll-behavior (Safari 16). esbuild only lowers
+  // syntax. Keep in step with SUPPORTED_BROWSERS in editor/src/lib/export-package.ts.
+  target: ["chrome99", "edge99", "firefox97", "safari16", "ios16"],
   minify: !watch,
   sourcemap: watch ? "inline" : false,
   alias: {
