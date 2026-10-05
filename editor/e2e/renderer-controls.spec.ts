@@ -146,7 +146,8 @@ test("the compact directory opens and closes by pointer and keyboard and returns
   await search.fill("Circle");
   await page.locator(".clickmap-directory-result").first().click();
   await expect(search).toBeHidden();
-  await expect(page.locator('.clickmap-area[data-area-id="circle-popup"]')).toBeVisible();
+  // The result is in another view: wait for its fade to finish and reveal it.
+  await expect(page.locator('.clickmap-area[data-area-id="circle-popup"]')).toHaveAttribute("aria-current", "true");
   await page.locator('[data-area-id="circle-popup"]').dispatchEvent("click");
   await expect(page.locator(".clickmap-popover--visible")).toBeVisible();
 });

@@ -24,6 +24,7 @@ import { validateActionUrl } from "../../lib/url-validate";
 import { createAlphaHitMask, MAX_ALPHA_MASK_DIMENSION } from "../../lib/alpha-mask";
 import { colorToHex, isValidCssColor, parseCssColor, withHexColor, withOpacity } from "../../lib/css-color";
 import { validateViewCss } from "../../lib/view-css";
+import { DetailsSettingsSection, PopupPresentationField } from "../details/DetailsInspector";
 import { InspectorSection } from "../inspector/InspectorSection";
 import { useLayoutPrefs } from "../../store/layout-prefs";
 
@@ -397,6 +398,9 @@ function ViewInspector({ view }: { view: View }) {
             onCommit={(v) => setCanvasSize(canvasSize.width, v)}
           />
         </Row>
+      </InspectorSection>
+      <InspectorSection id="project.details" title="Popup details" scope="Project" summary={project.settings.details?.presentation ?? "popover"}>
+        <DetailsSettingsSection />
       </InspectorSection>
       <InspectorSection id="project.labels" title="Area labels" scope="Project" summary={project.settings.areaLabels?.enabled ? "On" : "Off"}>
         <CheckToggle
@@ -1026,6 +1030,7 @@ function PopupContentEditor({
           <option value="right">Right</option>
         </FieldSelect>
       </Row>
+      <PopupPresentationField areaId={areaId} action={action} />
     </div>
   );
 }

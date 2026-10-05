@@ -10,11 +10,13 @@ import type {
   Action,
   Layer,
   AreaStyleState,
+  DetailsPresentation,
+  PopupAction,
 } from "../../shared/types.js";
 import { scopeViewCss, validateViewCss } from "../../shared/view-css.js";
 import { validateActionUrl } from "../../shared/validation.js";
 import { sanitizeRichHtml } from "../../shared/sanitize.js";
-import { decodeDefinition } from "../../shared/schema.js";
+import { decodeDefinition, DETAILS_SIZE_PATTERN } from "../../shared/schema.js";
 import { resolveSizingMode } from "../../shared/sizing.js";
 import { assetDisplaySource, fitImageRect, geometryBounds, markerPathData } from "../../shared/scene-geometry.js";
 import { alphaMaskHit, areaImagePlacement, imagePreserveAspectRatio, imageRotationTransform, isAreaHidden } from "../../shared/area-image.js";
@@ -41,6 +43,8 @@ const OVERLAY_PADDING = 8;
  */
 const COMPACT_WIDTH = 560;
 const COMPACT_HEIGHT = 360;
+/** A press that moves less than this (CSS px) is a click, not a pan. */
+const PAN_THRESHOLD = 4;
 
 type ControlSlot = "top-left" | "top-center" | "top-right" | "bottom-left" | "bottom-center" | "bottom-right";
 
@@ -70,7 +74,7 @@ function escId(id: string): string {
 
 function renderTemplate(
   template: string,
-  vars: { name: string; id: string; metadata?: Record<string, unknown>; viewName?: string }
+  vars: { name: string; id: string; metadata?: Record<string, unknown>; viewName?: string | undefined }
 ): string {
   const escapeHtml = (value: unknown) =>
     String(value ?? "")
@@ -177,6 +181,14 @@ class Renderer implements ClickMapInstance {
   private svgEl!: SVGSVGElement;
   private tooltipEl!: HTMLDivElement;
   private popoverEl!: HTMLDivElement;
+  /** Docked details panel; only built when some popup uses the panel presentation. */
+  private panelEl: HTMLElement | null = null;
+  /** Lazily built `<dialog>` for the modal presentation. */
+  private modalEl: HTMLDialogElement | null = null;
+  /** Presentation of the open popup (`openPopoverId`). */
+  private openMode: DetailsPresentation = "popover";
+  /** The visitor closed the panel's default content; it returns after the next details. */
+  private panelDismissed = false;
   private backBtn: HTMLButtonElement | null = null;
   private breadcrumbsEl: HTMLElement | null = null;
   private sceneSwitcherEl: HTMLDivElement | null = null;
@@ -208,10 +220,12 @@ class Renderer implements ClickMapInstance {
   private choroplethData: Map<string, number> = new Map();
   private choroplethOptions: ChoroplethOptions | null = null;
 
-  // Spacebar pan state
+  // Pointer pan (#215): one path for mouse, pen and Space-drag; touch joins it in #113.
   private spaceHeld = false;
-  private panStart: { x: number; y: number } | null = null;
-  private panStartViewBox: { x: number; y: number; w: number; h: number } | null = null;
+  /** The press that may become a pan; `scale` is screen px per SVG unit at its start. */
+  private pan: { id: number; x: number; y: number; vb: { x: number; y: number }; scale: number; moved: boolean } | null = null;
+  /** Set when a drag ends so its trailing click activates nothing. */
+  private suppressClick = false;
   private currentViewBox: { x: number; y: number; w: number; h: number } | null = null;
   private navigationInProgress = false;
 
@@ -241,7 +255,8 @@ class Renderer implements ClickMapInstance {
       if (this.focusedId === null && this.hoveredId === null) this.hideTooltip();
     }
 
-    if (this.openPopoverId === null || path.includes(this.popoverEl)) return;
+    // The panel is persistent: only selection changes close it, never an outside click.
+    if (this.openPopoverId === null || this.openMode === "panel" || path.includes(this.detailsHost())) return;
 
     if (targetArea?.getAttribute("data-area-id") === this.openPopoverId) return;
     this.closePopover();
@@ -335,6 +350,8 @@ class Renderer implements ClickMapInstance {
       this.roTimer = setTimeout(() => { this.roTimer = null; this.updateScale(); }, 16);
     });
     this.ro.observe(this.container);
+    // A panel that grows with its content moves the map in fluid layouts.
+    if (this.panelEl) this.ro.observe(this.panelEl);
   }
 
   // -------------------------------------------------------------------------
@@ -380,6 +397,7 @@ class Renderer implements ClickMapInstance {
     this.viewEl.appendChild(this.bgEl);
     this.viewEl.appendChild(this.svgEl);
     this.root.appendChild(this.viewEl);
+    this.buildPanel();
     this.controlsEl = document.createElement("div");
     this.controlsEl.className = "clickmap-controls";
     for (const slot of ["top-left", "top-center", "top-right", "bottom-left", "bottom-center", "bottom-right"] as const) {
@@ -424,13 +442,15 @@ class Renderer implements ClickMapInstance {
     this.svgEl.addEventListener("focusout", (e) => this.onFocusOut(e));
     this.svgEl.addEventListener("wheel", this.onWheel, { passive: false });
 
-    // Spacebar pan (issue #27 G3)
+    // Drag and Space-drag pan (issues #27 G3, #215)
     window.addEventListener("keydown", this.onWindowKeyDown);
     window.addEventListener("keyup", this.onWindowKeyUp);
     this.svgEl.addEventListener("pointerdown", (e) => this.onPanStart(e));
     this.root.addEventListener("keydown", (e) => this.onRootKeyDown(e));
     window.addEventListener("pointermove", this.onWindowPointerMove);
     window.addEventListener("pointerup", this.onWindowPointerUp);
+    window.addEventListener("pointercancel", this.onWindowPointerUp);
+    this.svgEl.addEventListener("lostpointercapture", () => this.endPan());
 
     // Close popover on outside click
     document.addEventListener("click", this.onDocumentClick);
@@ -637,6 +657,7 @@ class Renderer implements ClickMapInstance {
     this.closePopover();
     this.viewW = view.canvas.width;
     this.viewH = view.canvas.height;
+    this.renderIdlePanel();
     this.applyViewCss(view);
 
     this.renderBackground(view);
@@ -711,6 +732,7 @@ class Renderer implements ClickMapInstance {
   }
 
   private resetCameraForView(view: View) {
+    this.endPan();
     const base = this.getBaseViewBox(view);
     this.currentViewBox = this.zoomedViewBox(base, this.getZoomLimits(view).initial);
     this.applyViewBox();
@@ -1097,15 +1119,41 @@ class Renderer implements ClickMapInstance {
     };
   }
 
+  /**
+   * Clamp the camera so the canvas (plus padding) never leaves the renderer
+   * box, then apply it. Bounds use the region the SVG actually shows, so a
+   * letterboxed host neither reveals empty bands nor pans an axis that fits.
+   */
   private applyViewBox() {
-    if (!this.currentViewBox) return;
-    const { x, y, w, h } = this.currentViewBox;
+    const vb = this.currentViewBox;
+    const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
+    if (!vb || !view) return;
+    const base = this.getBaseViewBox(view);
+    const rect = this.svgEl.getBoundingClientRect();
+    const s = Math.min(rect.width / vb.w, rect.height / vb.h);
+    vb.x = clampAxis(vb.x, vb.w, s > 0 ? rect.width / s : vb.w, base.x, base.w);
+    vb.y = clampAxis(vb.y, vb.h, s > 0 ? rect.height / s : vb.h, base.y, base.h);
+    // Only a zoomed-in, pan-enabled map grabs drags and takes a keyboard stop.
+    const pannable = view.viewport.panEnabled && (vb.w < base.w || vb.h < base.h);
+    if (pannable !== this.root.classList.contains("clickmap-root--pannable")) {
+      this.root.classList.toggle("clickmap-root--pannable", pannable);
+      if (pannable) {
+        this.svgEl.setAttribute("tabindex", "0");
+        this.svgEl.setAttribute("role", "group");
+        this.svgEl.setAttribute("aria-label", "Map, arrow keys pan");
+      } else {
+        this.svgEl.removeAttribute("tabindex");
+        this.svgEl.removeAttribute("aria-label");
+        this.svgEl.setAttribute("role", "presentation");
+      }
+    }
+    const { x, y, w, h } = vb;
     this.svgEl.setAttribute("viewBox", `${x} ${y} ${w} ${h}`);
     this.bgSvgEl?.setAttribute("viewBox", `${x} ${y} ${w} ${h}`);
   }
 
   // -------------------------------------------------------------------------
-  // Spacebar pan (issue #27 G3)
+  // Pan: drag, Space-drag and arrow keys (issues #27 G3, #215)
   // -------------------------------------------------------------------------
 
   private onWindowKeyDown = (e: KeyboardEvent) => {
@@ -1128,52 +1176,58 @@ class Renderer implements ClickMapInstance {
   };
 
   private onWindowKeyUp = (e: KeyboardEvent) => {
-    if (e.code === "Space") {
-      this.spaceHeld = false;
-      this.panStart = null;
-      this.panStartViewBox = null;
-    }
+    if (e.code === "Space") this.spaceHeld = false;
   };
 
-  private onWindowPointerMove = (e: PointerEvent) => this.onPanMove(e);
-  private onWindowPointerUp = () => this.onPanEnd();
-
   private onPanStart(e: PointerEvent) {
-    if (!this.spaceHeld || !this.currentViewBox) return;
-    const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
-    if (!view?.viewport.panEnabled || !this.isZoomedIn()) return;
-    this.panStart = { x: e.clientX, y: e.clientY };
-    this.panStartViewBox = { ...this.currentViewBox };
-    this.svgEl.setPointerCapture(e.pointerId);
-    e.preventDefault();
+    this.suppressClick = false;
+    // Touch keeps the page's gestures until #113 adds its gesture policy.
+    if (e.button !== 0 || e.pointerType === "touch" || !this.currentViewBox ||
+      !this.root.classList.contains("clickmap-root--pannable")) return;
+    const { x, y } = this.currentViewBox;
+    // The SVG's screen transform includes letterboxing, so pans track the pointer 1:1.
+    this.pan = { id: e.pointerId, x: e.clientX, y: e.clientY, vb: { x, y }, scale: this.svgEl.getScreenCTM?.()?.a || 1, moved: false };
+    if (this.spaceHeld) {
+      this.beginDrag();
+      e.preventDefault();
+    }
   }
 
-  private onPanMove(e: PointerEvent) {
-    if (!this.panStart || !this.panStartViewBox || !this.currentViewBox) return;
-    const containerW = this.container.clientWidth || 1;
-    const scale = this.panStartViewBox.w / containerW;
-    const dx = (e.clientX - this.panStart.x) * scale;
-    const dy = (e.clientY - this.panStart.y) * scale;
-    this.currentViewBox = {
-      ...this.panStartViewBox,
-      x: this.panStartViewBox.x - dx,
-      y: this.panStartViewBox.y - dy,
-    };
+  private beginDrag() {
+    this.pan!.moved = true;
+    try { this.svgEl.setPointerCapture(this.pan!.id); } catch { /* pointer already gone */ }
+    this.root.classList.add("clickmap-root--panning");
+  }
+
+  private onWindowPointerMove = (e: PointerEvent) => {
+    const pan = this.pan;
+    if (!pan || e.pointerId !== pan.id) return;
+    const dx = e.clientX - pan.x;
+    const dy = e.clientY - pan.y;
+    if (!pan.moved) {
+      if (Math.hypot(dx, dy) < PAN_THRESHOLD) return;
+      this.beginDrag();
+    }
+    this.panTo(pan.vb.x - dx / pan.scale, pan.vb.y - dy / pan.scale);
+  };
+
+  private onWindowPointerUp = (e: PointerEvent) => {
+    if (e.pointerId === this.pan?.id) this.endPan(e.type === "pointerup");
+  };
+
+  /** Finish or cancel a press. A completed drag swallows the click that follows. */
+  private endPan(dragged = false) {
+    if (dragged && this.pan?.moved) this.suppressClick = true;
+    this.pan = null;
+    this.root.classList.remove("clickmap-root--panning");
+  }
+
+  private panTo(x: number, y: number) {
+    const vb = this.currentViewBox!;
+    const before = vb.x + "," + vb.y;
+    this.currentViewBox = { ...vb, x, y };
     this.applyViewBox();
-    this.emitCameraChange("pan");
-  }
-
-  private onPanEnd() {
-    this.panStart = null;
-    this.panStartViewBox = null;
-  }
-
-  private isZoomedIn() {
-    if (!this.currentViewBox) return false;
-    const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
-    if (!view) return false;
-    const base = this.getBaseViewBox(view);
-    return this.currentViewBox.w < base.w || this.currentViewBox.h < base.h;
+    if (before !== this.currentViewBox.x + "," + this.currentViewBox.y) this.emitCameraChange("pan");
   }
 
   private emitCameraChange(reason: "zoom" | "pan" | "reset" | "reveal") {
@@ -1419,7 +1473,7 @@ class Renderer implements ClickMapInstance {
    * `aria-current` and (optionally) an enabled deep link, and emits
    * `area:select`. Unknown, hidden and disabled areas cannot be selected.
    */
-  private setSelection(id: string | null, updateHash = true) {
+  private setSelection(id: string | null, updateHash = true, showDetails = true) {
     const area = id === null ? null : this.findAreaInCurrentView(id);
     const el = id === null ? null : this.findAreaEl(id);
     if (id !== null && (!area || !el || area.disabled)) return;
@@ -1444,6 +1498,12 @@ class Renderer implements ClickMapInstance {
       areaId: id,
       areaName: area?.name ?? null,
     });
+    // The panel follows the selection: it closes when the selection moves away,
+    // and shows a newly selected area's panel content (directory, deep link, API).
+    if (this.openMode === "panel" && this.openPopoverId !== null && this.openPopoverId !== id) this.closePopover();
+    if (showDetails && area?.action.type === "popup" && this.presentationOf(area.action) === "panel") {
+      this.openPopover(area.action, area);
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -1608,6 +1668,12 @@ class Renderer implements ClickMapInstance {
   }
 
   private onClick(e: MouseEvent) {
+    if (this.suppressClick && e.detail > 0) {
+      // The release of a drag is not a click on the map, an area or the page.
+      this.suppressClick = false;
+      e.stopPropagation();
+      return;
+    }
     const hit = this.getAreaFromEvent(e);
     if (!hit) {
       // Activating empty map space (including transparent pixels of an
@@ -1640,7 +1706,8 @@ class Renderer implements ClickMapInstance {
 
   /** Select the area, announce the click, then run its action. */
   private activateArea(area: Area) {
-    this.setSelection(area.id);
+    // The action below opens any details, after area:click.
+    this.setSelection(area.id, true, false);
     this.emit({
       type: "area:click",
       areaId: area.id,
@@ -1652,6 +1719,15 @@ class Renderer implements ClickMapInstance {
   }
 
   private onKeyDown(e: KeyboardEvent) {
+    // Arrow keys pan when the map itself (not an area) has focus.
+    const arrow = /^Arrow(Left|Right|Up|Down)$/.exec(e.key)?.[1];
+    if (arrow && e.target === this.svgEl && this.root.classList.contains("clickmap-root--pannable")) {
+      e.preventDefault();
+      const vb = this.currentViewBox!;
+      const step = (a: string, b: string, size: number) => (arrow === a ? -size : arrow === b ? size : 0) / 10;
+      this.panTo(vb.x + step("Left", "Right", vb.w), vb.y + step("Up", "Down", vb.h));
+      return;
+    }
     if (e.key !== "Enter" && e.key !== " ") return;
     const hit = this.getAreaFromEvent(e);
     if (!hit) return;
@@ -1922,54 +1998,106 @@ class Renderer implements ClickMapInstance {
   // Popover (issue #23 B1)
   // -------------------------------------------------------------------------
 
-  private openPopover(action: import("../../shared/types.js").PopupAction, area: Area) {
-    const content = action.content;
-    const templatedBody = this.resolveAreaTemplate(area);
-    const active = this.getActiveElement();
-    this.popoverReturnFocus = active instanceof HTMLElement || active instanceof SVGElement
-      ? active
-      : null;
-    this.stopPopoverTracking?.();
-    this.stopPopoverTracking = null;
-    this.popoverEl.innerHTML = "";
-    // Content scrolls inside the popover so Close stays reachable when space is short.
-    const bodyEl = document.createElement("div");
-    bodyEl.className = "clickmap-popover-body";
-    this.popoverEl.appendChild(bodyEl);
+  private presentationOf(action: PopupAction): DetailsPresentation {
+    const mode = action.presentation ?? this.def.settings.details?.presentation ?? "popover";
+    // Without native <dialog> (Firefox 97) a modal falls back to the popover.
+    return (mode === "panel" && !this.panelEl) || (mode === "modal" && !window.HTMLDialogElement?.prototype.showModal)
+      ? "popover"
+      : mode;
+  }
 
-    // Build content
-    if (content.imageUrl) {
-      if (validateActionUrl(content.imageUrl).valid) {
-        const img = document.createElement("img");
-        img.src = content.imageUrl;
-        img.alt = "";
-        img.style.cssText = "display:block;width:100%;max-height:120px;object-fit:cover;border-radius:2px 2px 0 0;margin-bottom:6px;";
-        bodyEl.appendChild(img);
-      }
+  /** The element that holds the open popup's content. */
+  private detailsHost(): HTMLElement {
+    return this.openMode === "panel" ? this.panelEl! : this.openMode === "modal" ? this.modalEl! : this.popoverEl;
+  }
+
+  /**
+   * Show an area's popup content in its presentation: the anchored popover,
+   * the docked panel, or the modal dialog. Opening another area's details
+   * replaces (and reports closing) whatever was open.
+   */
+  private openPopover(action: PopupAction, area: Area) {
+    const mode = this.presentationOf(action);
+    const previous = this.openPopoverId;
+    const previousMode = this.openMode;
+    if (mode === "panel" && previous === area.id && previousMode === "panel") return;
+    const active = this.getActiveElement();
+    this.dismissDetails();
+    if (previous !== null && (previous !== area.id || previousMode !== mode)) {
+      if (previousMode === "panel") this.renderIdlePanel();
+      this.emit({ type: "popup:close", popupId: previous, presentation: previousMode });
+    }
+    this.popoverReturnFocus = active instanceof HTMLElement || active instanceof SVGElement ? active : null;
+    const host = mode === "panel" ? this.panelEl! : mode === "modal" ? this.ensureModal() : this.popoverEl;
+    const closeBtn = this.fillDetails(host, mode, action.content, area);
+    this.openPopoverId = area.id;
+    this.openMode = mode;
+    if (mode === "panel") {
+      this.panelDismissed = false;
+      this.setPanelVisible(true);
+    } else if (mode === "modal") {
+      // A real modal: the rest of the page is inert until the dialog closes.
+      (host as HTMLDialogElement).showModal();
+    } else {
+      host.setAttribute("aria-hidden", "false");
+      host.className = "clickmap-popover clickmap-popover--visible";
+      // After openPopoverId is set: placement results for a closed popover are dropped.
+      this.trackPopover(area, action.position ?? "auto");
+    }
+    this.emit({ type: "popup:open", popupId: area.id, presentation: mode });
+
+    // A polite announcement; the panel leaves focus where the visitor is.
+    this.ariaLiveEl.textContent = (this.resolveAreaTemplate(area) === null && action.content.title) || area.name;
+    setTimeout(() => { this.ariaLiveEl.textContent = ""; }, 1000);
+    // Popover and modal move focus into the popup so its content is read and Escape reaches it.
+    if (mode !== "panel") setTimeout(() => { if (this.openPopoverId === area.id) closeBtn.focus(); }, 0);
+  }
+
+  /**
+   * Replace `host`'s content with popup content and its Close button. The host
+   * is named by the visible title, else by the area's accessible name (or,
+   * for the panel's default content, `settings.details.label`), and described
+   * by the body. Content templates apply to area content as in tooltips.
+   */
+  private fillDetails(host: HTMLElement, mode: DetailsPresentation, content: PopupAction["content"], area: Area | null) {
+    const cls = mode === "panel" ? "clickmap-details" : `clickmap-${mode}`;
+    const prefix = `${this.instanceId}-${mode === "popover" ? "popup" : mode}`;
+    const templated = area ? this.resolveAreaTemplate(area) : null;
+    host.replaceChildren();
+    for (const attr of ["aria-label", "aria-labelledby", "aria-describedby"]) host.removeAttribute(attr);
+    // Content scrolls inside the host so Close stays reachable when space is short.
+    const bodyEl = document.createElement("div");
+    bodyEl.className = `${cls}-body`;
+    host.appendChild(bodyEl);
+
+    if (content.imageUrl && validateActionUrl(content.imageUrl).valid) {
+      const img = document.createElement("img");
+      img.src = content.imageUrl;
+      img.alt = "";
+      img.style.cssText = "display:block;width:100%;max-height:240px;object-fit:cover;border-radius:2px;margin-bottom:6px;";
+      if (mode === "popover") img.style.maxHeight = "120px";
+      bodyEl.appendChild(img);
     }
 
-    // Name and describe the dialog from its visible content; a templated popup
-    // shows no title, so the area's accessible name labels it instead.
-    for (const attr of ["aria-label", "aria-labelledby", "aria-describedby"]) this.popoverEl.removeAttribute(attr);
-    if (content.title && templatedBody === null) {
+    if (content.title && templated === null) {
       const h = document.createElement("strong");
-      h.id = `${this.instanceId}-popup-title`;
-      this.popoverEl.setAttribute("aria-labelledby", h.id);
+      h.id = `${prefix}-title`;
+      host.setAttribute("aria-labelledby", h.id);
       h.style.cssText = "display:block;margin-bottom:4px;";
       h.textContent = content.title;
       bodyEl.appendChild(h);
+    } else {
+      host.setAttribute("aria-label", area
+        ? area.accessibility?.ariaLabel?.trim() || area.name
+        : this.def.settings.details?.label?.trim() || "Details");
     }
 
-    if (!this.popoverEl.hasAttribute("aria-labelledby")) {
-      this.popoverEl.setAttribute("aria-label", area.accessibility?.ariaLabel?.trim() || area.name);
-    }
-
-    if (templatedBody !== null || content.body) {
+    if (templated !== null || content.body) {
       const p = document.createElement("div");
-      p.id = `${this.instanceId}-popup-body`;
-      this.popoverEl.setAttribute("aria-describedby", p.id);
-      p.append(sanitizeRichHtml(templatedBody ?? content.body ?? "", p.ownerDocument));
-      p.style.fontSize = "12px";
+      p.id = `${prefix}-body`;
+      host.setAttribute("aria-describedby", p.id);
+      p.append(sanitizeRichHtml(templated ?? content.body ?? "", p.ownerDocument));
+      if (mode === "popover") p.style.fontSize = "12px";
       bodyEl.appendChild(p);
     }
 
@@ -1977,31 +2105,104 @@ class Renderer implements ClickMapInstance {
       const a = document.createElement("a");
       a.href = content.linkHref;
       a.textContent = content.linkLabel ?? content.linkHref;
-      a.style.cssText = "display:block;margin-top:6px;font-size:12px;color:#3b82f6;";
+      a.style.cssText = "display:block;margin-top:6px;color:#2563eb;";
       bodyEl.appendChild(a);
     }
 
-    // Close button
     const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
     closeBtn.textContent = "×";
     closeBtn.setAttribute("aria-label", "Close");
-    closeBtn.className = "clickmap-popover-close";
-    closeBtn.addEventListener("click", () => this.closePopover(true));
-    this.popoverEl.appendChild(closeBtn);
+    closeBtn.className = `${cls}-close`;
+    closeBtn.addEventListener("click", () => {
+      if (area) {
+        this.closePopover(true);
+        return;
+      }
+      // Closing the panel's default content hides the panel until the next details.
+      this.panelDismissed = true;
+      this.renderIdlePanel();
+      this.svgEl.querySelector<SVGElement>('[tabindex="0"]')?.focus();
+    });
+    host.appendChild(closeBtn);
+    return closeBtn;
+  }
 
-    this.popoverEl.setAttribute("aria-hidden", "false");
-    this.popoverEl.className = "clickmap-popover clickmap-popover--visible";
-    this.openPopoverId = area.id;
-    // After openPopoverId is set: placement results for a closed popover are dropped.
-    this.trackPopover(area, action.position ?? "auto");
-    this.emit({ type: "popup:open", popupId: area.id });
+  /** Build the details panel when the map uses the panel presentation anywhere. */
+  private buildPanel() {
+    const details = this.def.settings.details;
+    const used = details?.presentation === "panel" || this.def.views.some((view) => view.layers.some((layer) =>
+      layer.areas.some((area) => area.action.type === "popup" && area.action.presentation === "panel")));
+    if (!used) return;
+    const side = details?.side ?? "right";
+    const size = details?.size;
+    const panel = document.createElement("section");
+    panel.className = `clickmap-details clickmap-details--${side}`;
+    panel.hidden = true;
+    this.root.classList.add("clickmap-root--details", `clickmap-root--details-${side}`);
+    this.root.style.setProperty("--clickmap-details-size", typeof size === "number"
+      ? `${size * 100}%`
+      : size && DETAILS_SIZE_PATTERN.test(size) ? size : "35%");
+    this.root.appendChild(panel);
+    this.panelEl = panel;
+  }
 
-    // Aria live announcement
-    this.ariaLiveEl.textContent = templatedBody === null ? (content.title ?? "Popup opened") : area.name;
-    setTimeout(() => { this.ariaLiveEl.textContent = ""; }, 1000);
+  /** Show the default content in the panel, or hide the panel when there is none to show. */
+  private renderIdlePanel() {
+    const panel = this.panelEl;
+    if (!panel) return;
+    const details = this.def.settings.details;
+    const content = details?.defaultContent;
+    const show = Boolean(content?.title || content?.body) && !details?.hideWhenIdle && !this.panelDismissed;
+    if (show) {
+      const viewName = this.def.views.find((view) => view.id === this.currentViewId)?.name;
+      // fillDetails skips empty fields, so undefined values are fine here.
+      this.fillDetails(panel, "panel", {
+        title: content!.title,
+        body: content!.body && renderTemplate(content!.body, { name: "", id: "", viewName }),
+      } as PopupAction["content"], null);
+    } else {
+      panel.replaceChildren();
+    }
+    panel.classList.add("clickmap-details--idle");
+    this.setPanelVisible(show);
+  }
 
-    // Move focus into the popup so its content is read and Escape reaches it.
-    setTimeout(() => { if (this.openPopoverId === area.id) closeBtn.focus(); }, 0);
+  private setPanelVisible(visible: boolean) {
+    const panel = this.panelEl!;
+    panel.hidden = !visible;
+    if (this.openPopoverId !== null) panel.classList.remove("clickmap-details--idle");
+    this.syncStage();
+  }
+
+  private ensureModal(): HTMLDialogElement {
+    if (this.modalEl) return this.modalEl;
+    const modal = document.createElement("dialog");
+    modal.className = "clickmap-modal";
+    // Escape or a platform back gesture: close through the normal path so focus returns to the trigger.
+    modal.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      this.closePopover(true);
+    });
+    // A click on the backdrop targets the dialog itself; its content fills the box.
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) this.closePopover(true);
+    });
+    this.root.appendChild(modal);
+    return (this.modalEl = modal);
+  }
+
+  /**
+   * Keep the visitor controls on the map itself: beside a docked panel, and
+   * above an overlaid bottom sheet.
+   */
+  private syncStage() {
+    const panel = this.panelEl;
+    if (!panel) return;
+    const view = this.viewEl;
+    const covered = !panel.hidden && getComputedStyle(panel).position === "absolute" ? panel.offsetHeight : 0;
+    this.controlsEl.style.cssText =
+      `inset:${view.offsetTop + 10}px auto auto ${view.offsetLeft + 10}px;width:${Math.max(0, view.offsetWidth - 20)}px;height:${Math.max(0, view.offsetHeight - covered - 20)}px`;
   }
 
   /**
@@ -2064,7 +2265,7 @@ class Renderer implements ClickMapInstance {
   /** Re-place visible overlays after the camera or host size changed. */
   private refreshOverlays() {
     if (this.tooltipAnchor && this.tooltipEl.classList.contains("clickmap-tooltip--visible")) this.placeTooltip();
-    if (this.openPopoverId !== null) {
+    if (this.openPopoverId !== null && this.openMode === "popover") {
       const areaEl = this.findAreaEl(this.openPopoverId);
       if (areaEl) this.placePopover(areaEl);
     }
@@ -2076,21 +2277,34 @@ class Renderer implements ClickMapInstance {
    * By default focus is only returned when it would otherwise be lost inside
    * the closing popup, so a host control the visitor moved to keeps focus.
    */
-  private closePopover(restoreFocus = this.popoverEl.contains(this.getActiveElement())) {
+  private closePopover(restoreFocus = this.detailsHost().contains(this.getActiveElement())) {
     if (this.openPopoverId === null) return;
     const popupId = this.openPopoverId;
-    this.openPopoverId = null;
-    this.stopPopoverTracking?.();
-    this.stopPopoverTracking = null;
-    this.popoverEl.setAttribute("aria-hidden", "true");
-    this.popoverEl.classList.remove("clickmap-popover--visible");
-    this.popoverEl.innerHTML = "";
+    const presentation = this.openMode;
+    this.dismissDetails();
+    if (presentation === "panel") this.renderIdlePanel();
     const trigger = this.popoverReturnFocus?.isConnected ? this.popoverReturnFocus : this.findAreaEl(popupId);
     if (restoreFocus) trigger?.focus();
     this.popoverReturnFocus = null;
-    this.emit({ type: "popup:close", popupId });
+    this.emit({ type: "popup:close", popupId, presentation });
     // Closing an area's details ends its selection.
     if (this.selectedId === popupId) this.setSelection(null);
+  }
+
+  /** Hide the open popup without events, focus or selection changes; the panel keeps its content. */
+  private dismissDetails() {
+    if (this.openPopoverId === null) return;
+    this.openPopoverId = null;
+    this.stopPopoverTracking?.();
+    this.stopPopoverTracking = null;
+    if (this.openMode === "popover") {
+      this.popoverEl.setAttribute("aria-hidden", "true");
+      this.popoverEl.classList.remove("clickmap-popover--visible");
+      this.popoverEl.innerHTML = "";
+    } else if (this.openMode === "modal") {
+      this.modalEl!.close();
+      this.modalEl!.replaceChildren();
+    }
   }
 
   /** Focused element in the tree that owns this map (its shadow root or the document). */
@@ -2121,6 +2335,9 @@ class Renderer implements ClickMapInstance {
     if (this.def.settings.areaLabels?.enabled && this.def.settings.areaLabels.hideWhenSmaller !== false) {
       this.updateLabelVisibility();
     }
+    // A resized host shows a different region, so re-apply the camera bounds.
+    this.applyViewBox();
+    this.syncStage();
     this.refreshOverlays();
   }
 
@@ -2129,6 +2346,10 @@ class Renderer implements ClickMapInstance {
     const { width, height } = this.root.getBoundingClientRect();
     // A zero-size host (hidden, not laid out yet) keeps its current mode.
     if (width === 0 && height === 0) return;
+    // Width only: the sheet changes the root's height in fluid-width maps.
+    if (this.panelEl) {
+      this.root.classList.toggle("clickmap-root--sheet", width < (this.def.settings.details?.sheetBelow ?? COMPACT_WIDTH));
+    }
     const compact = width < COMPACT_WIDTH || height < COMPACT_HEIGHT;
     if (compact === this.compact) return;
     this.compact = compact;
@@ -2348,6 +2569,7 @@ class Renderer implements ClickMapInstance {
     this.setSelection(null, false);
     this.navigationStack = [];
     this.layerVisibility.clear();
+    this.panelDismissed = false;
     this.currentViewId = this.def.settings.initialViewId;
     this.renderView(this.currentViewId);
     this.refreshDirectory?.();
@@ -2393,6 +2615,7 @@ class Renderer implements ClickMapInstance {
     window.removeEventListener("keyup", this.onWindowKeyUp);
     window.removeEventListener("pointermove", this.onWindowPointerMove);
     window.removeEventListener("pointerup", this.onWindowPointerUp);
+    window.removeEventListener("pointercancel", this.onWindowPointerUp);
     window.removeEventListener("popstate", this.onPopState);
     document.removeEventListener("click", this.onDocumentClick);
     this.svgEl?.removeEventListener("wheel", this.onWheel);
@@ -2480,10 +2703,24 @@ function failureMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/**
+ * Keep a camera axis inside the canvas: the visible span (the view box plus any
+ * letterbox) stays within the canvas, or is centred on it when wider.
+ */
+function clampAxis(pos: number, size: number, visible: number, start: number, extent: number): number {
+  const pad = (visible - size) / 2;
+  const eps = extent * 1e-9;
+  if (visible >= extent - eps) return start + (extent - size) / 2;
+  const lo = start + pad;
+  const hi = start + extent - visible + pad;
+  return pos < lo - eps ? lo : pos > hi + eps ? hi : pos;
+}
+
 function areaCursor(area: Area): string {
   if (area.disabled) return "not-allowed";
   const trigger = area.trigger ?? "both";
-  return area.action.type !== "none" && trigger !== "hover" ? "pointer" : "default";
+  // Inert areas inherit the map cursor: `grab` while it can pan.
+  return area.action.type !== "none" && trigger !== "hover" ? "pointer" : "";
 }
 
 /** The instance returned when a definition cannot be shown: visible, observable, inert. */
