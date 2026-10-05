@@ -122,7 +122,6 @@ function attachClickMapHooks(map) {
 }
 `;
 
-// Derive a safe filename slug from an asset name, deduplicating with a counter map.
 function assetExtension(type: string): string {
   const mime = type.toLowerCase().split(";", 1)[0];
   const extensions: Record<string, string> = {
@@ -135,16 +134,26 @@ function assetExtension(type: string): string {
   return extensions[mime] ?? "bin";
 }
 
+function assetSlug(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+}
+
+// Allocates one globally unique packaged path per embedded asset. Every emitted
+// path is reserved, so a generated suffix ("a-1.svg") can never collide with a
+// later original name, and paths that differ only in letter case are treated as
+// the same file because case-insensitive filesystems would merge them on extract.
 function makeAssetFilenamer() {
-  const seen = new Map<string, number>();
+  const used = new Set<string>();
   return function assetFilename(asset: Asset): string {
     const ext = assetExtension(asset.type);
     const withoutExtension = asset.name.replace(/\.[a-z0-9]+$/i, "");
-    const safeName = withoutExtension.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || asset.id;
-    const base = `assets/${safeName}.${ext}`;
-    const count = seen.get(base) ?? 0;
-    seen.set(base, count + 1);
-    return count === 0 ? base : `assets/${safeName}-${count}.${ext}`;
+    const safeName = assetSlug(withoutExtension) || assetSlug(asset.id) || "asset";
+    let candidate = `assets/${safeName}.${ext}`;
+    for (let counter = 1; used.has(candidate.toLowerCase()); counter++) {
+      candidate = `assets/${safeName}-${counter}.${ext}`;
+    }
+    used.add(candidate.toLowerCase());
+    return candidate;
   };
 }
 
