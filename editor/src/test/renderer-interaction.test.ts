@@ -574,6 +574,45 @@ describe("renderer interaction model", () => {
     expect(areaElement(area.id)).toHaveAttribute("aria-label", area.name);
   });
 
+  it("removes a hidden image element from the scene, keyboard order, labels and directory", () => {
+    const project = createNewProject();
+    project.assets.push({ id: "cutout", name: "cutout.png", type: "image/png", src: "cutout.png", width: 2, height: 2, inline: false });
+    const hidden = createRectArea(10, 20, 30, 40);
+    hidden.name = "Hidden statue";
+    hidden.action = { type: "url", href: "https://example.com", target: "_blank" };
+    hidden.image = { assetId: "cutout", visible: false, hitMask: { mode: "alpha", assetId: "cutout", threshold: 0.5, width: 2, height: 2, data: "DQ==" } };
+    const shown = createRectArea(100, 20, 30, 40);
+    shown.name = "Shown statue";
+    project.settings.areaLabels = { enabled: true };
+    project.settings.directory = { enabled: true };
+    project.views[0].layers = [{ id: "layer", name: "Layer", visible: true, locked: false, opacity: 1, areas: [hidden, shown] }];
+    create({ container: "#map", definition: toDefinition(project) });
+
+    expect(document.querySelector(`[data-area-id="${hidden.id}"]`)).toBeNull();
+    expect(document.querySelector(".clickmap-area-image")).toBeNull();
+    expect(document.querySelector(`[data-area-id="${shown.id}"]`)).not.toBeNull();
+    expect(document.querySelector(".clickmap-area-labels")?.textContent).not.toContain("Hidden statue");
+    const directory = document.querySelector(".clickmap-directory")?.textContent ?? "";
+    expect(directory).toContain("Shown statue");
+    expect(directory).not.toContain("Hidden statue");
+  });
+
+  it("activates a masked image region from assistive-technology clicks without pixel hit testing", () => {
+    const project = createNewProject();
+    project.assets.push({ id: "cutout", name: "cutout.png", type: "image/png", src: "cutout.png", width: 2, height: 2, inline: false });
+    const area = createRectArea(10, 20, 30, 40);
+    area.action = { type: "customEvent", eventName: "statue" };
+    // Fully transparent mask: no pointer position could ever hit it.
+    area.image = { assetId: "cutout", hitMask: { mode: "alpha", assetId: "cutout", threshold: 0.5, width: 2, height: 2, data: "AA==" } };
+    project.views[0].layers = [{ id: "layer", name: "Layer", visible: true, locked: false, opacity: 1, areas: [area] }];
+    const map = create({ container: "#map", definition: toDefinition(project) });
+    const clicks: string[] = [];
+    map.on("area:click", (event) => clicks.push(event.areaId));
+    areaElement(area.id).dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 0 }));
+    areaElement(area.id).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    expect(clicks).toEqual([area.id, area.id]);
+  });
+
   it("renders marker geometry as an accessible interactive pin", () => {
     const project = createNewProject();
     const area = createRectArea(0, 0, 1, 1);

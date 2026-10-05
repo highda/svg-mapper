@@ -50,19 +50,3 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     image.src = src;
   });
 }
-
-export function alphaMaskToSvgPath(mask: AlphaHitMask, x: number, y: number, width: number, height: number): string {
-  const binary = atob(mask.data);
-  const sx = width / mask.width;
-  const sy = height / mask.height;
-  const parts: string[] = [];
-  for (let row = 0; row < mask.height; row++) {
-    for (let col = 0; col < mask.width; col++) {
-      const index = row * mask.width + col;
-      if (((binary.charCodeAt(index >> 3) >> (index & 7)) & 1) !== 0) {
-        parts.push(`M${x + col * sx} ${y + row * sy}h${sx}v${sy}h-${sx}z`);
-      }
-    }
-  }
-  return parts.join("");
-}

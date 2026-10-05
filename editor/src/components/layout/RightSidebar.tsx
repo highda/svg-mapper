@@ -25,18 +25,21 @@ import { createAlphaHitMask, MAX_ALPHA_MASK_DIMENSION } from "../../lib/alpha-ma
 import { colorToHex, isValidCssColor, parseCssColor, withHexColor, withOpacity } from "../../lib/css-color";
 import { validateViewCss } from "../../lib/view-css";
 import { DetailsSettingsSection, PopupPresentationField } from "../details/DetailsInspector";
+import { InspectorSection } from "../inspector/InspectorSection";
+import { useLayoutPrefs } from "../../store/layout-prefs";
+
+const ACTION_LABELS: Record<Action["type"], string> = {
+  none: "None",
+  url: "URL",
+  popup: "Popup",
+  goToView: "Go to view",
+  toggleLayer: "Toggle layer",
+  customEvent: "Custom event",
+};
 
 // ---------------------------------------------------------------------------
 // Shared primitives
 // ---------------------------------------------------------------------------
-
-function SectionHeader({ title, scope }: { title: string; scope?: "Project" | "View" | "Layer" | "Area" }) {
-  return (
-    <div className="mb-1 flex items-center border-b border-neutral-700 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
-      <span>{title}</span>{scope && <span className="ml-auto rounded bg-neutral-800 px-1.5 py-0.5 text-[9px] tracking-normal text-neutral-400">{scope}</span>}
-    </div>
-  );
-}
 
 // Row labels are real <label>s (#174): the field inside a Row takes the Row's id
 // from context, so every inspector control has a programmatic name.
@@ -45,9 +48,9 @@ const useFieldId = () => useContext(FieldIdContext);
 
 function Row({ label, children, plain }: { label: string; children: React.ReactNode; plain?: boolean }) {
   const id = useId();
-  const labelClass = "w-20 shrink-0 text-[10px] text-neutral-500";
+  const labelClass = "w-24 shrink-0 text-xs text-neutral-300";
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-2">
       {plain ? <span className={labelClass}>{label}</span> : <label htmlFor={id} className={labelClass}>{label}</label>}
       <div className="min-w-0 flex-1">
         <FieldIdContext.Provider value={plain ? undefined : id}>{children}</FieldIdContext.Provider>
@@ -100,7 +103,7 @@ function TextField({
       onKeyDown={(e) => {
         if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); }
       }}
-      className={`w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500 ${readOnly ? "cursor-default opacity-60" : ""}`}
+      className={`w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500 ${readOnly ? "cursor-default opacity-60" : ""}`}
     />
   );
 }
@@ -139,7 +142,7 @@ function NumberField({
       step={step ?? 1}
       onBlur={handleBlur}
       onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } }}
-      className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+      className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
     />
   );
 }
@@ -212,9 +215,9 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
           if (event.key === "Enter") { event.preventDefault(); commit(); event.currentTarget.blur(); }
           if (event.key === "Escape") { setDraft(value); event.currentTarget.blur(); }
         }}
-        className={`min-w-0 rounded border bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500 ${valid ? "border-neutral-700" : "border-red-500"}`}
+        className={`min-w-0 rounded border bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500 ${valid ? "border-neutral-700" : "border-red-500"}`}
       />
-      <label htmlFor={`${id}-opacity`} className="col-span-2 grid grid-cols-[4rem_minmax(0,1fr)_2.5rem] items-center gap-1 text-[10px] text-neutral-500">
+      <label htmlFor={`${id}-opacity`} className="col-span-2 grid grid-cols-[4rem_minmax(0,1fr)_2.5rem] items-center gap-1 text-xs text-neutral-400">
         Opacity
         <input
           id={`${id}-opacity`}
@@ -229,7 +232,7 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
         />
         <span className="text-right text-neutral-300">{Math.round((parsed?.a ?? 1) * 100)}%</span>
       </label>
-      {!valid && <span id={`${id}-error`} role="alert" className="col-span-2 text-[10px] text-red-400">Enter a valid CSS color. The saved value is unchanged.</span>}
+      {!valid && <span id={`${id}-error`} role="alert" className="col-span-2 text-xs text-red-400">Enter a valid CSS color. The saved value is unchanged.</span>}
     </fieldset>
   );
 }
@@ -247,8 +250,8 @@ function StyleStateEditor({
 }) {
   return (
     <div className="space-y-1">
-      <div className="text-[10px] font-medium text-neutral-400">{label}</div>
-      {hint && <p className="text-[10px] text-neutral-500">{hint}</p>}
+      <div className="text-xs font-medium text-neutral-400">{label}</div>
+      {hint && <p className="text-xs text-neutral-400">{hint}</p>}
       <Row label="Fill">
         <ColorField label={`${label} fill`} value={styleState.fill} onChange={(fill) => onChange({ ...styleState, fill })} />
       </Row>
@@ -285,20 +288,20 @@ function StylePreviewPicker({ disabled }: { disabled: boolean }) {
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-1" role="group" aria-label="Canvas style preview">
-        <span className="mr-1 text-[10px] text-neutral-400">Preview</span>
+        <span className="mr-1 text-xs text-neutral-400">Preview</span>
         {PREVIEW_STATES.map((option) => (
           <button
             key={option.id}
             type="button"
             aria-pressed={previewState === option.id}
             onClick={() => setPreviewState(option.id)}
-            className={`rounded px-2 py-0.5 text-[10px] ${previewState === option.id ? "bg-blue-600 text-white" : "bg-neutral-700 text-neutral-300 hover:bg-neutral-600"}`}
+            className={`rounded px-2 py-0.5 text-xs ${previewState === option.id ? "bg-blue-600 text-white" : "bg-neutral-700 text-neutral-300 hover:bg-neutral-600"}`}
           >
             {option.label}
           </button>
         ))}
       </div>
-      {disabled && <p className="text-[10px] text-neutral-500">Disabled areas always show the Disabled style and cannot be selected.</p>}
+      {disabled && <p className="text-xs text-neutral-400">Disabled areas always show the Disabled style and cannot be selected.</p>}
     </div>
   );
 }
@@ -319,363 +322,363 @@ function ViewInspector({ view }: { view: View }) {
   }
 
   return (
-    <div className="space-y-3">
-      <SectionHeader title="Basics" scope="View" />
-
-      <Row label="Name">
-        <TextField
-          defaultValue={view.name}
-          onCommit={(name) => { const t = name.trim(); if (t && t !== view.name) renameView(view.id, t); }}
-        />
-      </Row>
-      {view.background && (
-        <>
-        <Row label="Fit">
+    <div className="space-y-2">
+      <InspectorSection id="view.basics" title="Basics" scope="View">
+        <Row label="Name">
+          <TextField
+            defaultValue={view.name}
+            onCommit={(name) => { const t = name.trim(); if (t && t !== view.name) renameView(view.id, t); }}
+          />
+        </Row>
+        <Row label="Background">
           <FieldSelect
-            aria-label="Background Fit"
-            value={view.background.fit}
-            onChange={(e) => setViewBackgroundFit(view.id, e.target.value as BackgroundFit)}
-            className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+            value={view.background?.assetId ?? ""}
+            onChange={handleAssetChange}
+            className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
           >
-            {(["contain", "cover", "fill", "none"] as const).map((fit) => (
-              <option key={fit} value={fit}>{fit}</option>
+            <option value="">— none —</option>
+            {project.assets.map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
             ))}
           </FieldSelect>
         </Row>
-        <Row label="Position">
-          <FieldSelect
-            aria-label="Background Position"
-            value={`${view.background.position?.x ?? 0.5},${view.background.position?.y ?? 0.5}`}
-            onChange={(e) => {
-              const [x, y] = e.target.value.split(",").map(Number);
-              setViewBackgroundPosition(view.id, { x, y });
-            }}
-            className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
-          >
-            <option value="0,0">Top left</option><option value="0.5,0">Top</option><option value="1,0">Top right</option>
-            <option value="0,0.5">Left</option><option value="0.5,0.5">Center</option><option value="1,0.5">Right</option>
-            <option value="0,1">Bottom left</option><option value="0.5,1">Bottom</option><option value="1,1">Bottom right</option>
-          </FieldSelect>
-        </Row>
-        </>
-      )}
 
-      <Row label="Background">
-        <FieldSelect
-          value={view.background?.assetId ?? ""}
-          onChange={handleAssetChange}
-          className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
-        >
-          <option value="">— none —</option>
-          {project.assets.map((a) => (
-            <option key={a.id} value={a.id}>{a.name}</option>
-          ))}
-        </FieldSelect>
-      </Row>
-
-      <SectionHeader title="Advanced: custom CSS" scope="View" />
-      <p className="text-[10px] text-neutral-500">
-        Scoped to this view. Use renderer classes such as <code>.clickmap-bg</code>, <code>[data-area-id]</code>, <code>.clickmap-area-label</code>, <code>.clickmap-popover</code>, and <code>.clickmap-zoom-controls</code>.
-      </p>
-      <label className="block text-[10px] text-neutral-400" htmlFor={`view-css-${view.id}`}>View CSS</label>
-      <textarea
-        id={`view-css-${view.id}`}
-        aria-label="View CSS"
-        aria-invalid={customCssError ? "true" : undefined}
-        aria-describedby={customCssError ? `view-css-${view.id}-error` : undefined}
-        value={customCss}
-        onChange={(event) => setCustomCss(event.target.value)}
-        onBlur={() => { if (!customCssError) setViewCustomCss(view.id, customCss.trim() || undefined); }}
-        rows={7}
-        spellCheck={false}
-        className="w-full resize-y rounded border border-neutral-700 bg-neutral-950 p-2 font-mono text-[11px] text-neutral-200 outline-none focus:border-blue-500"
-        placeholder={".clickmap-bg { opacity: .8; }"}
-      />
-      {customCssError ? <p id={`view-css-${view.id}-error`} role="alert" className="text-[10px] text-red-400">{customCssError}</p> : <p className="text-[10px] text-emerald-500">CSS syntax is ready to apply.</p>}
-      <button
-        type="button"
-        onClick={() => { setCustomCss(""); setViewCustomCss(view.id, undefined); }}
-        disabled={!customCss && !view.customCss}
-        className="rounded border border-neutral-700 px-2 py-1 text-[10px] text-neutral-300 disabled:opacity-40"
-      >Reset view CSS</button>
-
-      <SectionHeader title="Canvas size" scope="View" />
-      <p className="text-[10px] text-neutral-600 -mt-1">Independent for this view.</p>
-      <Row label="Width">
-        <NumberField
-          defaultValue={canvasSize.width}
-          min={1}
-          max={10000}
-          onCommit={(v) => setCanvasSize(v, canvasSize.height)}
-        />
-      </Row>
-      <Row label="Height">
-        <NumberField
-          defaultValue={canvasSize.height}
-          min={1}
-          max={10000}
-          onCommit={(v) => setCanvasSize(canvasSize.width, v)}
-        />
-      </Row>
-
-      <SectionHeader title="Grid" scope="Project" />
-      <CheckToggle
-        checked={grid.enabled}
-        onChange={(enabled) => setEditorState({ grid: { ...grid, enabled } })}
-        label="Snap to grid"
-      />
-      <Row label="Grid size">
-        <NumberField
-          defaultValue={grid.size}
-          min={1}
-          max={1000}
-          onCommit={(size) => setEditorState({ grid: { ...grid, size } })}
-        />
-      </Row>
-
-      <SectionHeader title="Advanced: HTML template" scope="Project" />
-      <p className="text-[10px] text-neutral-600 -mt-1">
-        HTML with {"{{name}}"}, {"{{id}}"}, {"{{viewName}}"}, or {"{{metadata.key}}"} variables.
-      </p>
-      <textarea
-        key={project.settings.contentTemplate ?? ""}
-        aria-label="Content Template"
-        defaultValue={project.settings.contentTemplate ?? ""}
-        onBlur={(e) => updateSettings({ contentTemplate: e.target.value || undefined })}
-        rows={4}
-        placeholder={'<h3>{{name}}</h3>'}
-        className="w-full resize-y rounded border border-neutral-700 bg-neutral-800 px-1.5 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
-      />
-
-      <SectionHeader title="Popup details" scope="Project" />
-      <DetailsSettingsSection />
-
-      <SectionHeader title="Area labels" scope="Project" />
-      <CheckToggle
-        checked={project.settings.areaLabels?.enabled ?? false}
-        onChange={(enabled) => updateSettings({
-          areaLabels: { ...project.settings.areaLabels, enabled },
-        })}
-        label="Show area labels"
-      />
-      <Row label="Font size">
-        <NumberField
-          defaultValue={project.settings.areaLabels?.fontSize ?? 14}
-          min={1}
-          max={200}
-          onCommit={(fontSize) => updateSettings({
-            areaLabels: { enabled: project.settings.areaLabels?.enabled ?? false, ...project.settings.areaLabels, fontSize },
-          })}
-        />
-      </Row>
-      <Row label="Color">
-        <FieldInput
-          aria-label="Area Label Color"
-          type="color"
-          value={project.settings.areaLabels?.color ?? "#000000"}
-          onChange={(e) => updateSettings({
-            areaLabels: { enabled: project.settings.areaLabels?.enabled ?? false, ...project.settings.areaLabels, color: e.target.value },
-          })}
-          className="h-6 w-full cursor-pointer rounded border border-neutral-700 bg-neutral-800"
-        />
-      </Row>
-      <CheckToggle
-        checked={project.settings.areaLabels?.hideWhenSmaller ?? true}
-        onChange={(hideWhenSmaller) => updateSettings({
-          areaLabels: { enabled: project.settings.areaLabels?.enabled ?? false, ...project.settings.areaLabels, hideWhenSmaller },
-        })}
-        label="Hide labels that do not fit"
-      />
-
-      <SectionHeader title="Place directory" scope="Project" />
-      <p className="text-[10px] text-neutral-600 -mt-1">
-        Adds searchable, keyboard-friendly place discovery to Preview and exports. Hidden layers stay private; disabled places are listed as unavailable.
-      </p>
-      <CheckToggle
-        checked={project.settings.directory?.enabled ?? false}
-        onChange={(enabled) => updateSettings({
-          directory: { ...project.settings.directory, enabled },
-        })}
-        label="Show place directory"
-      />
-      <Row label="Search fields">
-        <TextField
-          defaultValue={project.settings.directory?.metadataKeys?.join(", ") ?? ""}
-          placeholder="amenity, address"
-          onCommit={(value) => updateSettings({
-            directory: {
-              ...project.settings.directory,
-              enabled: project.settings.directory?.enabled ?? false,
-              metadataKeys: value.split(",").map((key) => key.trim()).filter(Boolean),
-            },
-          })}
-        />
-      </Row>
-      <Row label="Category field">
-        <TextField
-          defaultValue={project.settings.directory?.categoryKey ?? ""}
-          placeholder="category"
-          onCommit={(categoryKey) => updateSettings({
-            directory: { ...project.settings.directory, enabled: project.settings.directory?.enabled ?? false, categoryKey: categoryKey.trim() || undefined },
-          })}
-        />
-      </Row>
-      <label className="block text-[10px] text-neutral-500">
-        Category legend (one value = label per line)
-        <textarea
-          key={(project.settings.directory?.categories ?? []).map((item) => `${item.value} = ${item.label}`).join("\n")}
-          aria-label="Directory Categories"
-          defaultValue={(project.settings.directory?.categories ?? []).map((item) => `${item.value} = ${item.label}`).join("\n")}
-          onBlur={(event) => updateSettings({
-            directory: {
-              ...project.settings.directory,
-              enabled: project.settings.directory?.enabled ?? false,
-              categories: event.target.value.split("\n").map((line) => {
-                const [value, ...label] = line.split("=");
-                return { value: value?.trim() ?? "", label: label.join("=").trim() };
-              }).filter((item) => item.value && item.label),
-            },
-          })}
-          rows={3}
-          placeholder={'toilet = Toilets\nplay = Playgrounds'}
-          className="mt-1 w-full resize-y rounded border border-neutral-700 bg-neutral-800 px-1.5 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
-        />
-      </label>
-
-      <SectionHeader title="Scene switcher" scope="Project" />
-      <CheckToggle
-        checked={project.settings.sceneSwitcher?.enabled ?? false}
-        onChange={(enabled) => updateSettings({
-          sceneSwitcher: {
-            enabled,
-            position: project.settings.sceneSwitcher?.position ?? "bottom-center",
-            style: project.settings.sceneSwitcher?.style ?? "buttons",
-          },
-        })}
-        label="Show view switcher"
-      />
-      <Row label="Position">
-        <FieldSelect
-          aria-label="Scene Switcher Position"
-          value={project.settings.sceneSwitcher?.position ?? "bottom-center"}
-          disabled={!project.settings.sceneSwitcher?.enabled}
-          onChange={(e) => updateSettings({
-            sceneSwitcher: {
-              enabled: project.settings.sceneSwitcher?.enabled ?? false,
-              position: e.target.value as SceneSwitcherPosition,
-              style: project.settings.sceneSwitcher?.style ?? "buttons",
-            },
-          })}
-          className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500 disabled:opacity-50"
-        >
-          {(["top-left", "top-center", "top-right", "bottom-left", "bottom-center", "bottom-right"] as const).map((position) => (
-            <option key={position} value={position}>{position.replace("-", " ")}</option>
-          ))}
-        </FieldSelect>
-      </Row>
-      <Row label="Style">
-        <FieldSelect
-          aria-label="Scene Switcher Style"
-          value={project.settings.sceneSwitcher?.style ?? "buttons"}
-          disabled={!project.settings.sceneSwitcher?.enabled}
-          onChange={(e) => updateSettings({
-            sceneSwitcher: {
-              enabled: project.settings.sceneSwitcher?.enabled ?? false,
-              position: project.settings.sceneSwitcher?.position ?? "bottom-center",
-              style: e.target.value as "buttons" | "tabs" | "dropdown",
-            },
-          })}
-          className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500 disabled:opacity-50"
-        >
-          <option value="buttons">Buttons</option>
-          <option value="tabs">Tabs</option>
-          <option value="dropdown">Dropdown</option>
-        </FieldSelect>
-      </Row>
-
-      <SectionHeader title="Advanced: camera" scope="View" />
-      <ViewportEditor viewport={view.viewport} viewId={view.id} />
-
-      <SectionHeader title="Visitor controls" scope="Project" />
-      <CheckToggle
-        checked={project.settings.zoomControls?.enabled ?? false}
-        onChange={(enabled) => updateSettings({
-          zoomControls: { ...project.settings.zoomControls, enabled, position: project.settings.zoomControls?.position ?? "top-right" },
-        })}
-        label="Show zoom controls"
-      />
-      <Row label="Position">
-        <FieldSelect
-          aria-label="Zoom Controls Position"
-          value={project.settings.zoomControls?.position ?? "top-right"}
-          disabled={!project.settings.zoomControls?.enabled}
-          onChange={(e) => updateSettings({
-            zoomControls: {
-              ...project.settings.zoomControls,
-              enabled: project.settings.zoomControls?.enabled ?? false,
-              position: e.target.value as ZoomControlsPosition,
-            },
-          })}
-          className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500 disabled:opacity-50"
-        >
-          {(["top-left", "top-right", "bottom-left", "bottom-right"] as const).map((position) => (
-            <option key={position} value={position}>{position.replace("-", " ")}</option>
-          ))}
-        </FieldSelect>
-      </Row>
-      <Row label="Zoom step">
-        <NumberField
-          defaultValue={project.settings.zoomControls?.step ?? 0.2}
-          min={0.05}
-          max={4}
-          step={0.05}
-          onCommit={(step) => updateSettings({ zoomControls: { ...project.settings.zoomControls, enabled: project.settings.zoomControls?.enabled ?? false, step } })}
-        />
-      </Row>
-      <Row label="Reset to">
-        <FieldSelect
-          aria-label="Zoom Reset Behavior"
-          value={project.settings.zoomControls?.resetBehavior ?? "initial"}
-          onChange={(e) => updateSettings({ zoomControls: { ...project.settings.zoomControls, enabled: project.settings.zoomControls?.enabled ?? false, resetBehavior: e.target.value as "initial" | "fit" } })}
-          className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
-        >
-          <option value="initial">Initial zoom</option>
-          <option value="fit">Fit view</option>
-        </FieldSelect>
-      </Row>
-      <Row label="Wheel zoom">
-        <FieldSelect
-          aria-label="Wheel Zoom Mode"
-          value={project.settings.zoomControls?.wheelMode ?? "off"}
-          onChange={(e) => updateSettings({ zoomControls: { ...project.settings.zoomControls, enabled: project.settings.zoomControls?.enabled ?? false, wheelMode: e.target.value as "off" | "ctrl" | "meta" | "alt" | "shift" | "always" } })}
-          className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
-        >
-          <option value="off">Off</option>
-          <option value="ctrl">Ctrl / pinch</option>
-          <option value="meta">Command</option>
-          <option value="alt">Alt</option>
-          <option value="shift">Shift</option>
-          <option value="always">Always</option>
-        </FieldSelect>
-      </Row>
-      {(["top", "right", "bottom", "left"] as const).map((side) => (
-        <Row key={side} label={`Padding ${side}`}>
+        {view.background && (
+          <>
+          <Row label="Fit">
+            <FieldSelect
+              aria-label="Background Fit"
+              value={view.background.fit}
+              onChange={(e) => setViewBackgroundFit(view.id, e.target.value as BackgroundFit)}
+              className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
+            >
+              {(["contain", "cover", "fill", "none"] as const).map((fit) => (
+                <option key={fit} value={fit}>{fit}</option>
+              ))}
+            </FieldSelect>
+          </Row>
+          <Row label="Position">
+            <FieldSelect
+              aria-label="Background Position"
+              value={`${view.background.position?.x ?? 0.5},${view.background.position?.y ?? 0.5}`}
+              onChange={(e) => {
+                const [x, y] = e.target.value.split(",").map(Number);
+                setViewBackgroundPosition(view.id, { x, y });
+              }}
+              className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
+            >
+              <option value="0,0">Top left</option><option value="0.5,0">Top</option><option value="1,0">Top right</option>
+              <option value="0,0.5">Left</option><option value="0.5,0.5">Center</option><option value="1,0.5">Right</option>
+              <option value="0,1">Bottom left</option><option value="0.5,1">Bottom</option><option value="1,1">Bottom right</option>
+            </FieldSelect>
+          </Row>
+          </>
+        )}
+      </InspectorSection>
+      <InspectorSection id="view.canvas" title="Canvas size" scope="View">
+        <p className="text-xs text-neutral-400 ">Independent for this view.</p>
+        <Row label="Width">
           <NumberField
-            defaultValue={project.settings.padding?.[side] ?? 0}
-            min={0}
+            defaultValue={canvasSize.width}
+            min={1}
             max={10000}
+            onCommit={(v) => setCanvasSize(v, canvasSize.height)}
+          />
+        </Row>
+        <Row label="Height">
+          <NumberField
+            defaultValue={canvasSize.height}
+            min={1}
+            max={10000}
+            onCommit={(v) => setCanvasSize(canvasSize.width, v)}
+          />
+        </Row>
+      </InspectorSection>
+      <InspectorSection id="project.details" title="Popup details" scope="Project" summary={project.settings.details?.presentation ?? "popover"}>
+        <DetailsSettingsSection />
+      </InspectorSection>
+      <InspectorSection id="project.labels" title="Area labels" scope="Project" summary={project.settings.areaLabels?.enabled ? "On" : "Off"}>
+        <CheckToggle
+          checked={project.settings.areaLabels?.enabled ?? false}
+          onChange={(enabled) => updateSettings({
+            areaLabels: { ...project.settings.areaLabels, enabled },
+          })}
+          label="Show area labels"
+        />
+        <Row label="Font size">
+          <NumberField
+            defaultValue={project.settings.areaLabels?.fontSize ?? 14}
+            min={1}
+            max={200}
+            onCommit={(fontSize) => updateSettings({
+              areaLabels: { enabled: project.settings.areaLabels?.enabled ?? false, ...project.settings.areaLabels, fontSize },
+            })}
+          />
+        </Row>
+        <Row label="Color">
+          <FieldInput
+            aria-label="Area Label Color"
+            type="color"
+            value={project.settings.areaLabels?.color ?? "#000000"}
+            onChange={(e) => updateSettings({
+              areaLabels: { enabled: project.settings.areaLabels?.enabled ?? false, ...project.settings.areaLabels, color: e.target.value },
+            })}
+            className="h-6 w-full cursor-pointer rounded border border-neutral-700 bg-neutral-800"
+          />
+        </Row>
+        <CheckToggle
+          checked={project.settings.areaLabels?.hideWhenSmaller ?? true}
+          onChange={(hideWhenSmaller) => updateSettings({
+            areaLabels: { enabled: project.settings.areaLabels?.enabled ?? false, ...project.settings.areaLabels, hideWhenSmaller },
+          })}
+          label="Hide labels that do not fit"
+        />
+      </InspectorSection>
+      <InspectorSection id="project.directory" title="Place directory" scope="Project" defaultOpen={false} summary={project.settings.directory?.enabled ? "On" : "Off"}>
+        <p className="text-xs text-neutral-400 ">
+          Adds searchable, keyboard-friendly place discovery to Preview and exports. Hidden layers stay private; disabled places are listed as unavailable.
+        </p>
+        <CheckToggle
+          checked={project.settings.directory?.enabled ?? false}
+          onChange={(enabled) => updateSettings({
+            directory: { ...project.settings.directory, enabled },
+          })}
+          label="Show place directory"
+        />
+        <Row label="Search fields">
+          <TextField
+            defaultValue={project.settings.directory?.metadataKeys?.join(", ") ?? ""}
+            placeholder="amenity, address"
             onCommit={(value) => updateSettings({
-              padding: {
-                top: project.settings.padding?.top ?? 0,
-                right: project.settings.padding?.right ?? 0,
-                bottom: project.settings.padding?.bottom ?? 0,
-                left: project.settings.padding?.left ?? 0,
-                [side]: value,
+              directory: {
+                ...project.settings.directory,
+                enabled: project.settings.directory?.enabled ?? false,
+                metadataKeys: value.split(",").map((key) => key.trim()).filter(Boolean),
               },
             })}
           />
         </Row>
-      ))}
+        <Row label="Category field">
+          <TextField
+            defaultValue={project.settings.directory?.categoryKey ?? ""}
+            placeholder="category"
+            onCommit={(categoryKey) => updateSettings({
+              directory: { ...project.settings.directory, enabled: project.settings.directory?.enabled ?? false, categoryKey: categoryKey.trim() || undefined },
+            })}
+          />
+        </Row>
+        <label className="block text-xs text-neutral-400">
+          Category legend (one value = label per line)
+          <textarea
+            key={(project.settings.directory?.categories ?? []).map((item) => `${item.value} = ${item.label}`).join("\n")}
+            aria-label="Directory Categories"
+            defaultValue={(project.settings.directory?.categories ?? []).map((item) => `${item.value} = ${item.label}`).join("\n")}
+            onBlur={(event) => updateSettings({
+              directory: {
+                ...project.settings.directory,
+                enabled: project.settings.directory?.enabled ?? false,
+                categories: event.target.value.split("\n").map((line) => {
+                  const [value, ...label] = line.split("=");
+                  return { value: value?.trim() ?? "", label: label.join("=").trim() };
+                }).filter((item) => item.value && item.label),
+              },
+            })}
+            rows={3}
+            placeholder={'toilet = Toilets\nplay = Playgrounds'}
+            className="mt-1 w-full resize-y rounded border border-neutral-700 bg-neutral-800 px-1.5 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
+          />
+        </label>
+      </InspectorSection>
+      <InspectorSection id="project.sceneSwitcher" title="Scene switcher" scope="Project" defaultOpen={false} summary={project.settings.sceneSwitcher?.enabled ? "On" : "Off"}>
+        <CheckToggle
+          checked={project.settings.sceneSwitcher?.enabled ?? false}
+          onChange={(enabled) => updateSettings({
+            sceneSwitcher: {
+              enabled,
+              position: project.settings.sceneSwitcher?.position ?? "bottom-center",
+              style: project.settings.sceneSwitcher?.style ?? "buttons",
+            },
+          })}
+          label="Show view switcher"
+        />
+        <Row label="Position">
+          <FieldSelect
+            aria-label="Scene Switcher Position"
+            value={project.settings.sceneSwitcher?.position ?? "bottom-center"}
+            disabled={!project.settings.sceneSwitcher?.enabled}
+            onChange={(e) => updateSettings({
+              sceneSwitcher: {
+                enabled: project.settings.sceneSwitcher?.enabled ?? false,
+                position: e.target.value as SceneSwitcherPosition,
+                style: project.settings.sceneSwitcher?.style ?? "buttons",
+              },
+            })}
+            className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500 disabled:opacity-50"
+          >
+            {(["top-left", "top-center", "top-right", "bottom-left", "bottom-center", "bottom-right"] as const).map((position) => (
+              <option key={position} value={position}>{position.replace("-", " ")}</option>
+            ))}
+          </FieldSelect>
+        </Row>
+        <Row label="Style">
+          <FieldSelect
+            aria-label="Scene Switcher Style"
+            value={project.settings.sceneSwitcher?.style ?? "buttons"}
+            disabled={!project.settings.sceneSwitcher?.enabled}
+            onChange={(e) => updateSettings({
+              sceneSwitcher: {
+                enabled: project.settings.sceneSwitcher?.enabled ?? false,
+                position: project.settings.sceneSwitcher?.position ?? "bottom-center",
+                style: e.target.value as "buttons" | "tabs" | "dropdown",
+              },
+            })}
+            className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500 disabled:opacity-50"
+          >
+            <option value="buttons">Buttons</option>
+            <option value="tabs">Tabs</option>
+            <option value="dropdown">Dropdown</option>
+          </FieldSelect>
+        </Row>
+      </InspectorSection>
+      <InspectorSection id="project.visitorControls" title="Visitor controls" scope="Project" defaultOpen={false} summary={project.settings.zoomControls?.enabled ? "Zoom on" : "Zoom off"}>
+        <CheckToggle
+          checked={project.settings.zoomControls?.enabled ?? false}
+          onChange={(enabled) => updateSettings({
+            zoomControls: { ...project.settings.zoomControls, enabled, position: project.settings.zoomControls?.position ?? "top-right" },
+          })}
+          label="Show zoom controls"
+        />
+        <Row label="Position">
+          <FieldSelect
+            aria-label="Zoom Controls Position"
+            value={project.settings.zoomControls?.position ?? "top-right"}
+            disabled={!project.settings.zoomControls?.enabled}
+            onChange={(e) => updateSettings({
+              zoomControls: {
+                ...project.settings.zoomControls,
+                enabled: project.settings.zoomControls?.enabled ?? false,
+                position: e.target.value as ZoomControlsPosition,
+              },
+            })}
+            className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500 disabled:opacity-50"
+          >
+            {(["top-left", "top-right", "bottom-left", "bottom-right"] as const).map((position) => (
+              <option key={position} value={position}>{position.replace("-", " ")}</option>
+            ))}
+          </FieldSelect>
+        </Row>
+        <Row label="Zoom step">
+          <NumberField
+            defaultValue={project.settings.zoomControls?.step ?? 0.2}
+            min={0.05}
+            max={4}
+            step={0.05}
+            onCommit={(step) => updateSettings({ zoomControls: { ...project.settings.zoomControls, enabled: project.settings.zoomControls?.enabled ?? false, step } })}
+          />
+        </Row>
+        <Row label="Reset to">
+          <FieldSelect
+            aria-label="Zoom Reset Behavior"
+            value={project.settings.zoomControls?.resetBehavior ?? "initial"}
+            onChange={(e) => updateSettings({ zoomControls: { ...project.settings.zoomControls, enabled: project.settings.zoomControls?.enabled ?? false, resetBehavior: e.target.value as "initial" | "fit" } })}
+            className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
+          >
+            <option value="initial">Initial zoom</option>
+            <option value="fit">Fit view</option>
+          </FieldSelect>
+        </Row>
+        <Row label="Wheel zoom">
+          <FieldSelect
+            aria-label="Wheel Zoom Mode"
+            value={project.settings.zoomControls?.wheelMode ?? "off"}
+            onChange={(e) => updateSettings({ zoomControls: { ...project.settings.zoomControls, enabled: project.settings.zoomControls?.enabled ?? false, wheelMode: e.target.value as "off" | "ctrl" | "meta" | "alt" | "shift" | "always" } })}
+            className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
+          >
+            <option value="off">Off</option>
+            <option value="ctrl">Ctrl / pinch</option>
+            <option value="meta">Command</option>
+            <option value="alt">Alt</option>
+            <option value="shift">Shift</option>
+            <option value="always">Always</option>
+          </FieldSelect>
+        </Row>
+        {(["top", "right", "bottom", "left"] as const).map((side) => (
+          <Row key={side} label={`Padding ${side}`}>
+            <NumberField
+              defaultValue={project.settings.padding?.[side] ?? 0}
+              min={0}
+              max={10000}
+              onCommit={(value) => updateSettings({
+                padding: {
+                  top: project.settings.padding?.top ?? 0,
+                  right: project.settings.padding?.right ?? 0,
+                  bottom: project.settings.padding?.bottom ?? 0,
+                  left: project.settings.padding?.left ?? 0,
+                  [side]: value,
+                },
+              })}
+            />
+          </Row>
+        ))}
+      </InspectorSection>
+      <InspectorSection id="project.grid" title="Editor grid" scope="Project" summary={grid.enabled ? `Snap ${grid.size}px` : "Off"}>
+        <CheckToggle
+          checked={grid.enabled}
+          onChange={(enabled) => setEditorState({ grid: { ...grid, enabled } })}
+          label="Snap to grid"
+        />
+        <Row label="Grid size">
+          <NumberField
+            defaultValue={grid.size}
+            min={1}
+            max={1000}
+            onCommit={(size) => setEditorState({ grid: { ...grid, size } })}
+          />
+        </Row>
+      </InspectorSection>
+      <InspectorSection id="view.camera" title="Camera limits" scope="View" advanced defaultOpen={false}>
+        <ViewportEditor viewport={view.viewport} viewId={view.id} />
+      </InspectorSection>
+      <InspectorSection id="view.css" title="Custom CSS" scope="View" advanced defaultOpen={false} summary={view.customCss ? "Set" : undefined}>
+        <p className="text-xs text-neutral-400">
+          Scoped to this view. Use renderer classes such as <code>.clickmap-bg</code>, <code>[data-area-id]</code>, <code>.clickmap-area-label</code>, <code>.clickmap-popover</code>, and <code>.clickmap-zoom-controls</code>.
+        </p>
+        <label className="block text-xs text-neutral-400" htmlFor={`view-css-${view.id}`}>View CSS</label>
+        <textarea
+          id={`view-css-${view.id}`}
+          aria-label="View CSS"
+          aria-invalid={customCssError ? "true" : undefined}
+          aria-describedby={customCssError ? `view-css-${view.id}-error` : undefined}
+          value={customCss}
+          onChange={(event) => setCustomCss(event.target.value)}
+          onBlur={() => { if (!customCssError) setViewCustomCss(view.id, customCss.trim() || undefined); }}
+          rows={7}
+          spellCheck={false}
+          className="w-full resize-y rounded border border-neutral-700 bg-neutral-950 p-2 font-mono text-[11px] text-neutral-200 outline-none focus:border-blue-500"
+          placeholder={".clickmap-bg { opacity: .8; }"}
+        />
+        {customCssError ? <p id={`view-css-${view.id}-error`} role="alert" className="text-xs text-red-400">{customCssError}</p> : <p className="text-xs text-emerald-500">CSS syntax is ready to apply.</p>}
+        <button
+          type="button"
+          onClick={() => { setCustomCss(""); setViewCustomCss(view.id, undefined); }}
+          disabled={!customCss && !view.customCss}
+          className="rounded border border-neutral-700 px-2 py-1 text-xs text-neutral-300 disabled:opacity-40"
+        >Reset view CSS</button>
+      </InspectorSection>
+      <InspectorSection id="project.template" title="HTML template" scope="Project" advanced defaultOpen={false} summary={project.settings.contentTemplate ? "Set" : undefined}>
+        <p className="text-xs text-neutral-400 ">
+          HTML with {"{{name}}"}, {"{{id}}"}, {"{{viewName}}"}, or {"{{metadata.key}}"} variables.
+        </p>
+        <textarea
+          key={project.settings.contentTemplate ?? ""}
+          aria-label="Content Template"
+          defaultValue={project.settings.contentTemplate ?? ""}
+          onBlur={(e) => updateSettings({ contentTemplate: e.target.value || undefined })}
+          rows={4}
+          placeholder={'<h3>{{name}}</h3>'}
+          className="w-full resize-y rounded border border-neutral-700 bg-neutral-800 px-1.5 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
+        />
+      </InspectorSection>
     </div>
   );
 }
@@ -758,49 +761,50 @@ function LayerInspector() {
   const l = layer;
 
   return (
-    <div className="space-y-3">
-      <SectionHeader title="Basics" scope="Layer" />
+    <div className="space-y-2">
+      <InspectorSection id="layer.basics" title="Basics" scope="Layer">
 
-      <Row label="Name">
-        <TextField
-          defaultValue={l.name}
-          onCommit={(name) => { const t = name.trim(); if (t) renameLayer(l.id, t); }}
-        />
-      </Row>
-
-      <div className="space-y-1.5">
-        <CheckToggle
-          checked={l.visible}
-          onChange={() => toggleLayerVisibility(l.id)}
-          label="Visible"
-        />
-        <CheckToggle
-          checked={l.locked}
-          onChange={() => toggleLayerLock(l.id)}
-          label="Locked"
-        />
-      </div>
-
-      <Row label="Opacity">
-        <div className="flex items-center gap-1.5">
-          <FieldInput
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={l.opacity}
-            onChange={(e) => setLayerOpacity(l.id, parseFloat(e.target.value))}
-            className="flex-1 accent-blue-500"
+        <Row label="Name">
+          <TextField
+            defaultValue={l.name}
+            onCommit={(name) => { const t = name.trim(); if (t) renameLayer(l.id, t); }}
           />
-          <span className="w-8 text-right text-xs text-neutral-400">
-            {Math.round(l.opacity * 100)}%
-          </span>
-        </div>
-      </Row>
+        </Row>
 
-      <Row label="Areas" plain>
-        <span className="text-xs text-neutral-400">{l.areas.length}</span>
-      </Row>
+        <div className="space-y-1.5">
+          <CheckToggle
+            checked={l.visible}
+            onChange={() => toggleLayerVisibility(l.id)}
+            label="Visible"
+          />
+          <CheckToggle
+            checked={l.locked}
+            onChange={() => toggleLayerLock(l.id)}
+            label="Locked"
+          />
+        </div>
+
+        <Row label="Opacity">
+          <div className="flex items-center gap-1.5">
+            <FieldInput
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={l.opacity}
+              onChange={(e) => setLayerOpacity(l.id, parseFloat(e.target.value))}
+              className="flex-1 accent-blue-500"
+            />
+            <span className="w-8 text-right text-xs text-neutral-400">
+              {Math.round(l.opacity * 100)}%
+            </span>
+          </div>
+        </Row>
+
+        <Row label="Areas" plain>
+          <span className="text-xs text-neutral-400">{l.areas.length}</span>
+        </Row>
+      </InspectorSection>
     </div>
   );
 }
@@ -873,7 +877,7 @@ function GeometryEditor({
             aria-label="Marker anchor"
             value={g.anchor}
             onChange={(event) => setMarker({ anchor: event.target.value as MarkerAnchor })}
-            className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200"
+            className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200"
           >
             {(["bottom-center", "center", "top-left", "top-center", "top-right", "bottom-left", "bottom-right", "middle-left", "middle-right"] as MarkerAnchor[]).map((anchor) => (
               <option key={anchor} value={anchor}>{anchor}</option>
@@ -885,7 +889,7 @@ function GeometryEditor({
   }
 
   return (
-    <div className="text-xs text-neutral-500 italic">
+    <div className="text-xs text-neutral-400 italic">
       {geometry.type} — no editable fields
     </div>
   );
@@ -930,14 +934,14 @@ function UrlField({
         onKeyDown={(e) => {
           if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); }
         }}
-        className={`w-full rounded border bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none ${
+        className={`w-full rounded border bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none ${
           validation.valid
             ? "border-neutral-700 focus:border-blue-500"
             : "border-red-500 focus:border-red-500"
         }`}
       />
       {!validation.valid && (
-        <p id={errorId} className="text-[10px] leading-tight text-red-400">{validation.error}</p>
+        <p id={errorId} className="text-xs leading-tight text-red-400">{validation.error}</p>
       )}
     </div>
   );
@@ -970,7 +974,7 @@ function PopupContentEditor({
           onBlur={(e) => update({ body: e.target.value })}
           rows={3}
           placeholder="HTML allowed"
-          className="w-full resize-none rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+          className="w-full resize-none rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
         />
       </Row>
       <Row label="Image URL">
@@ -999,7 +1003,7 @@ function PopupContentEditor({
           onChange={(e) =>
             updateAreaAction(areaId, { ...action, position: e.target.value as PopupAction["position"] })
           }
-          className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+          className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
         >
           <option value="auto">Auto</option>
           <option value="top">Top</option>
@@ -1082,7 +1086,7 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
         <FieldSelect
           value={action.type}
           onChange={(e) => setType(e.target.value as Action["type"])}
-          className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+          className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
         >
           <option value="none">None</option>
           <option value="url">URL</option>
@@ -1107,7 +1111,7 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
               onChange={(e) =>
                 updateAreaAction(areaId, { ...action, target: e.target.value as "_blank" | "_self" })
               }
-              className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+              className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
             >
               <option value="_blank">New tab</option>
               <option value="_self">Same tab</option>
@@ -1128,7 +1132,7 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
               onChange={(e) =>
                 updateAreaAction(areaId, { ...action, targetViewId: e.target.value })
               }
-              className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+              className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
             >
               {views.map((v) => (
                 <option key={v.id} value={v.id}>{v.name}</option>
@@ -1141,7 +1145,7 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
               onChange={(e) =>
                 updateAreaAction(areaId, { ...action, transition: e.target.value as "fade" | "none" })
               }
-              className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+              className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
             >
               <option value="fade">Fade</option>
               <option value="none">None</option>
@@ -1156,7 +1160,7 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
             aria-label="Target layer"
             value={action.targetLayerId}
             onChange={(e) => updateAreaAction(areaId, { ...action, targetLayerId: e.target.value })}
-            className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+            className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
           >
             {!layers.some((layer) => layer.id === action.targetLayerId) && (
               <option value={action.targetLayerId}>Missing layer ({action.targetLayerId || "none"})</option>
@@ -1175,7 +1179,7 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
               onCommit={(eventName) => updateAreaAction(areaId, { ...action, eventName: eventName.trim() })}
             />
           </Row>
-          <label className="block text-[10px] text-neutral-500">
+          <label className="block text-xs text-neutral-400">
             JSON payload (optional)
             <textarea
               aria-label="Custom event JSON payload"
@@ -1189,7 +1193,7 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
               className={`mt-1 w-full resize-y rounded border bg-neutral-800 px-1.5 py-1 font-mono text-xs text-neutral-200 outline-none focus:border-blue-500 ${payloadError ? "border-red-500" : "border-neutral-700"}`}
             />
           </label>
-          {payloadError && <p id={`${areaId}-payload-error`} role="alert" className="text-[10px] text-red-400">{payloadError}</p>}
+          {payloadError && <p id={`${areaId}-payload-error`} role="alert" className="text-xs text-red-400">{payloadError}</p>}
         </>
       )}
     </div>
@@ -1225,7 +1229,7 @@ function TooltipEditor({ areaId, tooltip }: { areaId: string; tooltip: Tooltip |
               onBlur={(e) => updateAreaTooltip(areaId, { ...tooltip, body: e.target.value })}
               rows={3}
               placeholder="HTML allowed"
-              className="w-full resize-none rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+              className="w-full resize-none rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
             />
           </Row>
           <Row label="Image URL">
@@ -1252,7 +1256,7 @@ function InteractionEditor({ areaId, area }: { areaId: string; area: { trigger?:
           onChange={(e) =>
             updateAreaInteraction(areaId, { trigger: e.target.value as AreaTrigger })
           }
-          className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+          className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
         >
           <option value="both">Both (hover + click)</option>
           <option value="hover">Hover only</option>
@@ -1277,7 +1281,7 @@ function ImageRegionEditor({ area }: { area: import("@svg-mapper/shared").Area }
   const { project, updateAreaImage } = useStore();
   const [threshold, setThreshold] = useState(area.image?.hitMask?.threshold ?? 0.2);
   const [error, setError] = useState("");
-  if (area.geometry.type !== "rect") return <p className="text-[10px] text-neutral-500">Image regions require rectangle geometry.</p>;
+  if (area.geometry.type !== "rect") return <p className="text-xs text-neutral-400">Image regions require rectangle geometry.</p>;
   const asset = area.image ? project.assets.find((candidate) => candidate.id === area.image?.assetId) : undefined;
   const supportsAlphaMask = asset?.type === "image/png" || asset?.type === "image/webp";
   async function generate() {
@@ -1298,13 +1302,13 @@ function ImageRegionEditor({ area }: { area: import("@svg-mapper/shared").Area }
   }
   return <div className="space-y-1.5">
     <Row label="Visual">
-      <FieldSelect aria-label="Area image" value={area.image?.assetId ?? ""} onChange={(event) => updateAreaImage(area.id, event.target.value ? { assetId: event.target.value } : undefined)} className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200">
+      <FieldSelect aria-label="Area image" value={area.image?.assetId ?? ""} onChange={(event) => updateAreaImage(area.id, event.target.value ? { assetId: event.target.value } : undefined)} className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200">
         <option value="">— none —</option>
         {project.assets.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}
       </FieldSelect>
     </Row>
     {asset && <>
-      <Row label="Fit"><FieldSelect aria-label="Image fit" value={area.image?.fit ?? "fill"} onChange={(event) => updateAreaImage(area.id, { ...area.image!, fit: event.target.value as "fill" | "contain" | "cover" })} className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200"><option value="fill">Fill</option><option value="contain">Contain</option><option value="cover">Cover</option></FieldSelect></Row>
+      <Row label="Fit"><FieldSelect aria-label="Image fit" value={area.image?.fit ?? "fill"} onChange={(event) => updateAreaImage(area.id, { ...area.image!, fit: event.target.value as "fill" | "contain" | "cover" })} className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200"><option value="fill">Fill</option><option value="contain">Contain</option><option value="cover">Cover</option></FieldSelect></Row>
       <Row label="Opacity"><NumberField defaultValue={area.image?.opacity ?? 1} min={0} max={1} step={0.05} onCommit={(opacity) => updateAreaImage(area.id, { ...area.image!, opacity })} /></Row>
       <Row label="Rotation"><NumberField defaultValue={area.image?.rotation ?? 0} min={-360} max={360} onCommit={(rotation) => updateAreaImage(area.id, { ...area.image!, rotation })} /></Row>
       <CheckToggle checked={area.image?.visible !== false} onChange={(visible) => updateAreaImage(area.id, { ...area.image!, visible })} label="Visible" />
@@ -1313,10 +1317,10 @@ function ImageRegionEditor({ area }: { area: import("@svg-mapper/shared").Area }
       {supportsAlphaMask ? <>
         <Row label="Threshold"><FieldInput aria-label="Alpha threshold" type="range" min="0" max="1" step="0.05" value={threshold} onChange={(event) => setThreshold(Number(event.target.value))} className="w-full" /></Row>
         <button type="button" onClick={generate} className="w-full rounded bg-blue-700 px-2 py-1 text-xs text-white hover:bg-blue-600">Generate alpha mask</button>
-        <p className="text-[10px] text-neutral-500">{area.image?.hitMask ? `${area.image.hitMask.width}×${area.image.hitMask.height} cached mask` : `Rectangle fallback · max ${MAX_ALPHA_MASK_DIMENSION}px`}</p>
+        <p className="text-xs text-neutral-400">{area.image?.hitMask ? `${area.image.hitMask.width}×${area.image.hitMask.height} cached mask` : `Rectangle fallback · max ${MAX_ALPHA_MASK_DIMENSION}px`}</p>
         {area.image?.hitMask && <CheckToggle checked={area.image.hitMask.debug ?? false} onChange={(debug) => updateAreaImage(area.id, { ...area.image!, hitMask: { ...area.image!.hitMask!, debug } })} label="Show mask overlay" />}
-      </> : <p className="text-[10px] text-neutral-500">Rectangle hit area · alpha masks require PNG or WebP.</p>}
-      {error && <p role="alert" className="text-[10px] text-amber-400">{error}</p>}
+      </> : <p className="text-xs text-neutral-400">Rectangle hit area · alpha masks require PNG or WebP.</p>}
+      {error && <p role="alert" className="text-xs text-amber-400">{error}</p>}
     </>}
   </div>;
 }
@@ -1368,7 +1372,7 @@ function MetadataEditor({ areaId, metadata }: { areaId: string; metadata: Record
             defaultValue={k}
             onBlur={(e) => renameRow(k, e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-            className="w-16 shrink-0 rounded border border-neutral-700 bg-neutral-800 px-1 py-0.5 text-[10px] text-neutral-400 outline-none focus:border-blue-500"
+            className="w-24 shrink-0 rounded border border-neutral-700 bg-neutral-800 px-1.5 py-1 text-xs text-neutral-300 outline-none focus:border-blue-500"
           />
           <input
             key={String(v)}
@@ -1381,7 +1385,7 @@ function MetadataEditor({ areaId, metadata }: { areaId: string; metadata: Record
           />
           <button
             onClick={() => deleteRow(k)}
-            className="text-[10px] text-neutral-600 hover:text-red-400"
+            className="text-xs text-neutral-400 hover:text-red-400"
             title="Delete"
           >✕</button>
         </div>
@@ -1394,7 +1398,7 @@ function MetadataEditor({ areaId, metadata }: { areaId: string; metadata: Record
           onKeyDown={(e) => { if (e.key === "Enter") addRow(); }}
           placeholder="key"
           aria-label="New metadata key"
-          className="w-16 shrink-0 rounded border border-neutral-700 bg-neutral-800 px-1 py-0.5 text-[10px] text-neutral-400 outline-none focus:border-blue-500"
+          className="w-24 shrink-0 rounded border border-neutral-700 bg-neutral-800 px-1.5 py-1 text-xs text-neutral-300 outline-none focus:border-blue-500"
         />
         <input
           type="text"
@@ -1403,11 +1407,11 @@ function MetadataEditor({ areaId, metadata }: { areaId: string; metadata: Record
           onKeyDown={(e) => { if (e.key === "Enter") addRow(); }}
           placeholder="value"
           aria-label="New metadata value"
-          className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-800 px-1 py-0.5 text-[10px] text-neutral-400 outline-none focus:border-blue-500"
+          className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-800 px-1 py-0.5 text-xs text-neutral-400 outline-none focus:border-blue-500"
         />
         <button
           onClick={addRow}
-          className="rounded px-1.5 py-0.5 text-[10px] text-neutral-500 hover:bg-neutral-700 hover:text-neutral-200"
+          className="rounded px-2 py-1 text-xs text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200"
         >+ Add</button>
       </div>
     </div>
@@ -1436,7 +1440,7 @@ function LabelEditor({ areaId, label }: { areaId: string; label: AreaLabel | und
               visible: v === "show" ? true : v === "hide" ? false : undefined,
             });
           }}
-          className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
+          className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
         >
           <option value="inherit">Follow project setting</option>
           <option value="show">Always show</option>
@@ -1471,7 +1475,7 @@ function AccessibilityEditor({ area }: { area: import("@svg-mapper/shared").Area
           onCommit={(value) => { if (value.trim() !== ariaLabel.trim()) save(value, tabIndex); }}
         />
       </Row>
-      <p id={hintId} className="text-[10px] text-neutral-500">
+      <p id={hintId} className="text-xs text-neutral-400">
         Screen readers announce “{announced}” in Preview and exports. Leave blank to use the area name.
       </p>
       <CheckToggle
@@ -1479,8 +1483,8 @@ function AccessibilityEditor({ area }: { area: import("@svg-mapper/shared").Area
         onChange={(skip) => save(ariaLabel, skip ? -1 : 0)}
         label="Skip when pressing Tab"
       />
-      {tabIndex > 0 && <p className="text-[10px] text-neutral-500">Custom tab order {tabIndex} from the imported project is kept.</p>}
-      {area.disabled && <p className="text-[10px] text-amber-400">Disabled areas are never reachable with Tab.</p>}
+      {tabIndex > 0 && <p className="text-xs text-neutral-400">Custom tab order {tabIndex} from the imported project is kept.</p>}
+      {area.disabled && <p className="text-xs text-amber-400">Disabled areas are never reachable with Tab.</p>}
     </div>
   );
 }
@@ -1521,161 +1525,168 @@ function AreaInspector() {
   const hasMixedStyles = selectedAreas.some((candidate) => JSON.stringify(candidate.style) !== JSON.stringify(a.style));
   const hasMixedActions = selectedAreas.some((candidate) => JSON.stringify(candidate.action) !== JSON.stringify(a.action));
 
+  const metadataCount = Object.keys(a.metadata ?? {}).length;
+
   function updateStyleState(stateKey: keyof AreaStyle, styleState: AreaStyleState) {
     updateAreaStyle(a.id, { ...style, [stateKey]: styleState });
   }
 
   return (
-    <div className="space-y-3">
-      <SectionHeader title="Basics" scope="Area" />
-
-      <Row label="Name">
-        <TextField
-          defaultValue={a.name}
-          onCommit={(name) => { const t = name.trim(); if (t) renameArea(a.id, t); }}
-        />
-      </Row>
-      <Row label="ID">
-        <TextField defaultValue={a.id} readOnly />
-      </Row>
-
-      <SectionHeader title="Geometry" scope="Area" />
-      {selectedAreas.length > 1 && (
-        <div className="space-y-1 rounded border border-neutral-700 bg-neutral-800/60 p-2">
-          <p className="text-[10px] text-neutral-400">Arrange {selectedAreas.length} selected areas</p>
-          {lockedSelectionCount > 0 && (
-            <p className="text-[10px] text-amber-400">
-              {lockedSelectionCount} locked {lockedSelectionCount === 1 ? "area keeps its" : "areas keep their"} position.
+    <div className="space-y-2">
+      <InspectorSection id="area.basics" title="Basics" scope="Area">
+        <Row label="Name">
+          <TextField
+            defaultValue={a.name}
+            onCommit={(name) => { const t = name.trim(); if (t) renameArea(a.id, t); }}
+          />
+        </Row>
+        <Row label="ID">
+          <TextField defaultValue={a.id} readOnly />
+        </Row>
+        <Row label="Layer" plain>
+          <span className="block truncate text-xs text-neutral-200" title={areaLayer.name}>{areaLayer.name}{areaLayer.locked ? " (locked)" : ""}</span>
+        </Row>
+      </InspectorSection>
+      <InspectorSection id="area.action" title="Action" scope="Area" summary={ACTION_LABELS[a.action.type]}>
+        {selectedAreas.length > 1 && (
+          <div className="rounded border border-neutral-700 bg-neutral-800/60 p-2 text-xs text-neutral-400">
+            <p>{hasMixedActions ? "Mixed actions. Controls show the primary area." : "All selected areas share this action."}</p>
+            <button
+              type="button"
+              onClick={() => updateAreas(selectedAreaIds, { action: a.action })}
+              className="mt-1 w-full rounded bg-blue-700 px-2 py-1 text-xs text-white hover:bg-blue-600"
+            >
+              Apply primary action to {selectedAreas.length} areas
+            </button>
+          </div>
+        )}
+        <ActionEditor key={`${a.id}-${a.action.type}`} areaId={a.id} action={a.action} />
+      </InspectorSection>
+      <InspectorSection id="area.details" title="Details" scope="Area" summary={tooltip?.enabled ? "Tooltip on" : "Tooltip off"}>
+        <TooltipEditor areaId={a.id} tooltip={tooltip} />
+      </InspectorSection>
+      <InspectorSection id="area.geometry" title="Geometry" scope="Area" summary={a.geometry.type}>
+        {selectedAreas.length > 1 && (
+          <div className="space-y-1 rounded border border-neutral-700 bg-neutral-800/60 p-2">
+            <p className="text-xs text-neutral-400">Arrange {selectedAreas.length} selected areas</p>
+            {lockedSelectionCount > 0 && (
+              <p className="text-xs text-amber-400">
+                {lockedSelectionCount} locked {lockedSelectionCount === 1 ? "area keeps its" : "areas keep their"} position.
+              </p>
+            )}
+            <div className="grid grid-cols-3 gap-1">
+              {(["left", "center", "right", "top", "middle", "bottom"] as const).map((alignment) => (
+                <button key={alignment} type="button" onClick={() => alignAreas(selectedAreaIds, alignment)} className="rounded bg-neutral-700 px-1 py-1 text-xs capitalize text-white hover:bg-neutral-600">
+                  {alignment}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-1">
+              <button type="button" disabled={selectedAreas.length < 3} onClick={() => distributeAreas(selectedAreaIds, "horizontal")} className="rounded bg-neutral-700 px-1 py-1 text-xs text-white disabled:opacity-40">Distribute ↔</button>
+              <button type="button" disabled={selectedAreas.length < 3} onClick={() => distributeAreas(selectedAreaIds, "vertical")} className="rounded bg-neutral-700 px-1 py-1 text-xs text-white disabled:opacity-40">Distribute ↕</button>
+            </div>
+            <button type="button" onClick={() => duplicateAreas(selectedAreaIds)} className="w-full rounded bg-blue-700 px-2 py-1 text-xs text-white hover:bg-blue-600">Duplicate selection</button>
+          </div>
+        )}
+        {/* Locked geometry stays readable; the store refuses edits regardless (#164). */}
+        <fieldset disabled={geometryLock !== null} className="min-w-0 space-y-1 disabled:opacity-60" aria-describedby={geometryLock ? "geometry-lock-note" : undefined}>
+          {geometryLock && (
+            <p id="geometry-lock-note" className="text-xs text-amber-400">
+              {geometryLock}. Unlock it to move or resize this area.
             </p>
           )}
-          <div className="grid grid-cols-3 gap-1">
-            {(["left", "center", "right", "top", "middle", "bottom"] as const).map((alignment) => (
-              <button key={alignment} type="button" onClick={() => alignAreas(selectedAreaIds, alignment)} className="rounded bg-neutral-700 px-1 py-1 text-[10px] capitalize text-white hover:bg-neutral-600">
-                {alignment}
-              </button>
+          <GeometryEditor areaId={a.id} geometry={a.geometry as unknown as { type: string }} />
+        </fieldset>
+      </InspectorSection>
+      <InspectorSection id="area.style" title="Style" scope="Area">
+        <div className="space-y-1 rounded border border-neutral-700 bg-neutral-800/60 p-2">
+          <label className="block text-xs text-neutral-400" htmlFor="shared-style-select">Named style preset</label>
+          <select
+            id="shared-style-select"
+            value={presetId}
+            onChange={(event) => setPresetId(event.target.value)}
+            className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-1 text-xs text-neutral-200"
+          >
+            <option value="">Choose a preset…</option>
+            {Object.entries(project.sharedStyles).map(([id, preset]) => (
+              <option key={id} value={id}>{preset.name}</option>
             ))}
+          </select>
+          <div className="flex gap-1">
+            <input
+              aria-label="New style preset name"
+              value={presetName}
+              onChange={(event) => setPresetName(event.target.value)}
+              placeholder="Preset name"
+              className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-800 px-1.5 py-1 text-xs text-neutral-200"
+            />
+            <button type="button" disabled={!presetName.trim()} onClick={() => {
+              const id = createSharedStyle(presetName.trim(), style);
+              setPresetId(id);
+              setPresetName("");
+            }} className="rounded bg-neutral-700 px-2 text-xs text-neutral-100 disabled:opacity-40">Save</button>
           </div>
-          <div className="grid grid-cols-2 gap-1">
-            <button type="button" disabled={selectedAreas.length < 3} onClick={() => distributeAreas(selectedAreaIds, "horizontal")} className="rounded bg-neutral-700 px-1 py-1 text-[10px] text-white disabled:opacity-40">Distribute ↔</button>
-            <button type="button" disabled={selectedAreas.length < 3} onClick={() => distributeAreas(selectedAreaIds, "vertical")} className="rounded bg-neutral-700 px-1 py-1 text-[10px] text-white disabled:opacity-40">Distribute ↕</button>
-          </div>
-          <button type="button" onClick={() => duplicateAreas(selectedAreaIds)} className="w-full rounded bg-blue-700 px-2 py-1 text-xs text-white hover:bg-blue-600">Duplicate selection</button>
+          {presetId && project.sharedStyles[presetId] && (
+            <div className="grid grid-cols-3 gap-1">
+              <button type="button" onClick={() => applySharedStyle(selectedAreaIds, presetId, false)} className="rounded bg-neutral-700 px-1 py-1 text-xs text-white">Apply once</button>
+              <button type="button" onClick={() => applySharedStyle(selectedAreaIds, presetId, true)} className="rounded bg-blue-700 px-1 py-1 text-xs text-white">Apply linked</button>
+              <button type="button" onClick={() => updateSharedStyle(presetId, project.sharedStyles[presetId]!.name, style)} className="rounded bg-neutral-700 px-1 py-1 text-xs text-white">Update preset</button>
+            </div>
+          )}
+          {a.sharedStyleId && <p className="text-xs text-blue-300">Linked to {project.sharedStyles[a.sharedStyleId]?.name ?? a.sharedStyleId}. Editing directly unlinks it.</p>}
         </div>
-      )}
-      {/* Locked geometry stays readable; the store refuses edits regardless (#164). */}
-      <fieldset disabled={geometryLock !== null} className="min-w-0 space-y-1 disabled:opacity-60" aria-describedby={geometryLock ? "geometry-lock-note" : undefined}>
-        {geometryLock && (
-          <p id="geometry-lock-note" className="text-[10px] text-amber-400">
-            {geometryLock}. Unlock it to move or resize this area.
-          </p>
-        )}
-        <GeometryEditor areaId={a.id} geometry={a.geometry as unknown as { type: string }} />
-      </fieldset>
-
-      <SectionHeader title="Style" scope="Area" />
-      <div className="space-y-1 rounded border border-neutral-700 bg-neutral-800/60 p-2">
-        <label className="block text-[10px] text-neutral-400" htmlFor="shared-style-select">Named style preset</label>
-        <select
-          id="shared-style-select"
-          value={presetId}
-          onChange={(event) => setPresetId(event.target.value)}
-          className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-1 text-xs text-neutral-200"
-        >
-          <option value="">Choose a preset…</option>
-          {Object.entries(project.sharedStyles).map(([id, preset]) => (
-            <option key={id} value={id}>{preset.name}</option>
-          ))}
-        </select>
-        <div className="flex gap-1">
-          <input
-            aria-label="New style preset name"
-            value={presetName}
-            onChange={(event) => setPresetName(event.target.value)}
-            placeholder="Preset name"
-            className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-800 px-1.5 py-1 text-xs text-neutral-200"
-          />
-          <button type="button" disabled={!presetName.trim()} onClick={() => {
-            const id = createSharedStyle(presetName.trim(), style);
-            setPresetId(id);
-            setPresetName("");
-          }} className="rounded bg-neutral-700 px-2 text-xs text-neutral-100 disabled:opacity-40">Save</button>
-        </div>
-        {presetId && project.sharedStyles[presetId] && (
-          <div className="grid grid-cols-3 gap-1">
-            <button type="button" onClick={() => applySharedStyle(selectedAreaIds, presetId, false)} className="rounded bg-neutral-700 px-1 py-1 text-[10px] text-white">Apply once</button>
-            <button type="button" onClick={() => applySharedStyle(selectedAreaIds, presetId, true)} className="rounded bg-blue-700 px-1 py-1 text-[10px] text-white">Apply linked</button>
-            <button type="button" onClick={() => updateSharedStyle(presetId, project.sharedStyles[presetId]!.name, style)} className="rounded bg-neutral-700 px-1 py-1 text-[10px] text-white">Update preset</button>
+        {selectedAreas.length > 1 && (
+          <div className="rounded border border-neutral-700 bg-neutral-800/60 p-2 text-xs text-neutral-400">
+            <p>{hasMixedStyles ? "Mixed styles. Controls show the primary area." : "All selected areas share this style."}</p>
+            <button
+              type="button"
+              onClick={() => updateAreas(selectedAreaIds, { style })}
+              className="mt-1 w-full rounded bg-blue-700 px-2 py-1 text-xs text-white hover:bg-blue-600"
+            >
+              Apply primary style to {selectedAreas.length} areas
+            </button>
           </div>
         )}
-        {a.sharedStyleId && <p className="text-[10px] text-blue-300">Linked to {project.sharedStyles[a.sharedStyleId]?.name ?? a.sharedStyleId}. Editing directly unlinks it.</p>}
-      </div>
-      {selectedAreas.length > 1 && (
-        <div className="rounded border border-neutral-700 bg-neutral-800/60 p-2 text-[10px] text-neutral-400">
-          <p>{hasMixedStyles ? "Mixed styles. Controls show the primary area." : "All selected areas share this style."}</p>
-          <button
-            type="button"
-            onClick={() => updateAreas(selectedAreaIds, { style })}
-            className="mt-1 w-full rounded bg-blue-700 px-2 py-1 text-xs text-white hover:bg-blue-600"
-          >
-            Apply primary style to {selectedAreas.length} areas
-          </button>
-        </div>
-      )}
-      <StylePreviewPicker disabled={a.disabled === true} />
-      <StyleStateEditor
-        label="Default"
-        styleState={style.default}
-        onChange={(s) => updateStyleState("default", s)}
-      />
-      <StyleStateEditor
-        label="Hover"
-        styleState={style.hover}
-        onChange={(s) => updateStyleState("hover", s)}
-      />
-      <StyleStateEditor
-        label="Active"
-        hint="Selected: shown after a visitor chooses the area, until Escape, empty space, closing its popup, or another view."
-        styleState={style.active}
-        onChange={(s) => updateStyleState("active", s)}
-      />
-      <StyleStateEditor
-        label="Disabled"
-        styleState={disabledStyle}
-        onChange={(s) => updateStyleState("disabled", s)}
-      />
-
-      <SectionHeader title="Interaction" scope="Area" />
-      <InteractionEditor areaId={a.id} area={a} />
-
-      <SectionHeader title="Image region" scope="Area" />
-      <ImageRegionEditor area={a} />
-
-      <SectionHeader title="Label" scope="Area" />
-      <LabelEditor areaId={a.id} label={a.label} />
-
-      <SectionHeader title="Accessibility" scope="Area" />
-      <AccessibilityEditor area={a} />
-
-      <SectionHeader title="Advanced: metadata" scope="Area" />
-      <MetadataEditor areaId={a.id} metadata={a.metadata} />
-
-      <SectionHeader title="Details" scope="Area" />
-      <TooltipEditor areaId={a.id} tooltip={tooltip} />
-
-      <SectionHeader title="Action" scope="Area" />
-      {selectedAreas.length > 1 && (
-        <div className="rounded border border-neutral-700 bg-neutral-800/60 p-2 text-[10px] text-neutral-400">
-          <p>{hasMixedActions ? "Mixed actions. Controls show the primary area." : "All selected areas share this action."}</p>
-          <button
-            type="button"
-            onClick={() => updateAreas(selectedAreaIds, { action: a.action })}
-            className="mt-1 w-full rounded bg-blue-700 px-2 py-1 text-xs text-white hover:bg-blue-600"
-          >
-            Apply primary action to {selectedAreas.length} areas
-          </button>
-        </div>
-      )}
-      <ActionEditor key={`${a.id}-${a.action.type}`} areaId={a.id} action={a.action} />
+        <StylePreviewPicker disabled={a.disabled === true} />
+        <StyleStateEditor
+          label="Default"
+          styleState={style.default}
+          onChange={(s) => updateStyleState("default", s)}
+        />
+      </InspectorSection>
+      <InspectorSection id="area.states" title="Hover, active, disabled" scope="Area" defaultOpen={false}>
+        <StyleStateEditor
+          label="Hover"
+          styleState={style.hover}
+          onChange={(s) => updateStyleState("hover", s)}
+        />
+        <StyleStateEditor
+          label="Active"
+          hint="Selected: shown after a visitor chooses the area, until Escape, empty space, closing its popup, or another view."
+          styleState={style.active}
+          onChange={(s) => updateStyleState("active", s)}
+        />
+        <StyleStateEditor
+          label="Disabled"
+          styleState={disabledStyle}
+          onChange={(s) => updateStyleState("disabled", s)}
+        />
+      </InspectorSection>
+      <InspectorSection id="area.interaction" title="Interaction" scope="Area">
+        <InteractionEditor areaId={a.id} area={a} />
+      </InspectorSection>
+      <InspectorSection id="area.label" title="Label" scope="Area">
+        <LabelEditor areaId={a.id} label={a.label} />
+      </InspectorSection>
+      <InspectorSection id="area.accessibility" title="Accessibility" scope="Area">
+        <AccessibilityEditor area={a} />
+      </InspectorSection>
+      <InspectorSection id="area.image" title="Image region" scope="Area" defaultOpen={Boolean(a.image)} summary={a.image ? "Image" : "None"}>
+        <ImageRegionEditor area={a} />
+      </InspectorSection>
+      <InspectorSection id="area.metadata" title="Metadata" scope="Area" advanced defaultOpen={false} summary={metadataCount ? String(metadataCount) : undefined}>
+        <MetadataEditor areaId={a.id} metadata={a.metadata} />
+      </InspectorSection>
     </div>
   );
 }
@@ -1684,8 +1695,13 @@ function AreaInspector() {
 // RightSidebar
 // ---------------------------------------------------------------------------
 
-export function RightSidebar({ mobileOpen = false, onMobileClose }: { mobileOpen?: boolean; onMobileClose?: () => void }) {
-  const { selectedAreaId, selectedAreaIds, selectedLayerId, project, activeViewId, historyVersion, screen } = useStore();
+/**
+ * The contextual inspector. `docked` fills the desktop layout's resizable
+ * panel; otherwise (below the supported width) it opens as an overlay.
+ */
+export function RightSidebar({ docked = false, mobileOpen = false, onMobileClose }: { docked?: boolean; mobileOpen?: boolean; onMobileClose?: () => void }) {
+  const { selectedAreaId, selectedAreaIds, selectedLayerId, project, activeViewId, historyVersion } = useStore();
+  const setCollapsed = useLayoutPrefs((s) => s.setCollapsed);
 
   const activeView = project.views.find((v) => v.id === activeViewId);
 
@@ -1695,30 +1711,46 @@ export function RightSidebar({ mobileOpen = false, onMobileClose }: { mobileOpen
     (selectedAreaId ?? selectedLayerId ?? activeViewId) + ":" + historyVersion;
 
   let content: React.ReactNode;
+  let subject = "";
   if (selectedAreaId) {
     content = <AreaInspector key={inspectorKey} />;
+    subject = selectedAreaIds.length > 1 ? `${selectedAreaIds.length} areas` : "Area";
   } else if (selectedLayerId) {
     content = <LayerInspector key={inspectorKey} />;
+    subject = "Layer";
   } else if (activeView) {
     content = <ViewInspector key={inspectorKey} view={activeView} />;
+    subject = "View & project";
   } else {
     content = (
-      <p className="text-xs italic text-neutral-600">No view selected.</p>
+      <p className="text-xs italic text-neutral-400">No view selected.</p>
     );
   }
 
   return (
     <aside
       aria-label="Inspector"
-      className={`${screen === "export" ? "hidden lg:flex" : mobileOpen ? "fixed inset-y-0 right-0 z-50 flex w-[min(20rem,90vw)]" : "hidden lg:flex"} w-56 shrink-0 flex-col border-l border-neutral-700 bg-neutral-900 sm:w-64`}
+      className={`${docked ? "flex min-w-0 flex-1" : mobileOpen ? "fixed inset-y-0 right-0 z-50 flex w-[min(22rem,90vw)] border-l border-neutral-700" : "hidden"} flex-col bg-neutral-900`}
     >
-      <div className="flex min-h-11 items-center border-b border-neutral-700 px-3 py-1.5">
-        <span className="text-xs font-semibold text-neutral-300">
-          Inspector{selectedAreaIds.length > 1 ? ` · ${selectedAreaIds.length} areas` : ""}
-        </span>
-        <button type="button" onClick={onMobileClose} className="ml-auto min-h-10 rounded px-3 text-sm text-neutral-300 hover:bg-neutral-800 lg:hidden" aria-label="Close inspector">Close</button>
+      <div className="flex min-h-10 items-center gap-1 border-b border-neutral-700 px-3 py-1">
+        <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-neutral-200">
+          Inspector{subject && <span className="font-normal text-neutral-400"> · {subject}</span>}
+        </h2>
+        {docked ? (
+          <button
+            type="button"
+            onClick={() => setCollapsed("inspector", true)}
+            aria-label="Hide inspector panel"
+            title="Hide panel (Enter on the panel edge restores it)"
+            className="grid h-7 w-7 place-items-center rounded text-sm text-neutral-400 hover:bg-neutral-700 hover:text-white"
+          >
+            »
+          </button>
+        ) : (
+          <button type="button" onClick={onMobileClose} className="min-h-10 rounded px-3 text-sm text-neutral-300 hover:bg-neutral-800" aria-label="Close inspector">Close</button>
+        )}
       </div>
-      <div className="flex-1 overflow-y-auto overscroll-contain px-3 py-2">{content}</div>
+      <div className="relative flex-1 overflow-y-auto overscroll-contain px-3 py-2">{content}</div>
     </aside>
   );
 }

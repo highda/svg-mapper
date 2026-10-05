@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { alphaBytesToHitMask, alphaMaskToSvgPath, MAX_ALPHA_MASK_DIMENSION } from "../lib/alpha-mask";
+import { alphaMaskWorldPath, areaImagePlacement } from "@svg-mapper/shared";
+import { alphaBytesToHitMask, MAX_ALPHA_MASK_DIMENSION } from "../lib/alpha-mask";
 
 function rgba(alphas: number[]) {
   return new Uint8ClampedArray(alphas.flatMap((alpha) => [0, 0, 0, alpha]));
@@ -9,8 +10,9 @@ describe("alpha hit masks", () => {
   it("preserves sparse pixels and holes in deterministic row-major bits", () => {
     const mask = alphaBytesToHitMask("asset", rgba([255, 0, 255, 255]), 2, 2, 0.5);
     expect(mask.data).toBe("DQ==");
-    expect(alphaMaskToSvgPath(mask, 0, 0, 20, 20)).toContain("M0 0h10v10h-10z");
-    expect(alphaMaskToSvgPath(mask, 0, 0, 20, 20)).not.toContain("M10 0");
+    const overlay = alphaMaskWorldPath(areaImagePlacement({ x: 0, y: 0, width: 20, height: 20 }, {}), mask);
+    expect(overlay).toContain("M0 0L10 0L10 10L0 10Z");
+    expect(overlay).not.toContain("M10 0");
   });
 
   it("applies a configurable threshold to soft edges", () => {

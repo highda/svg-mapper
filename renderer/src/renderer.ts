@@ -19,6 +19,7 @@ import { sanitizeRichHtml } from "../../shared/sanitize.js";
 import { decodeDefinition, DETAILS_SIZE_PATTERN } from "../../shared/schema.js";
 import { resolveSizingMode } from "../../shared/sizing.js";
 import { assetDisplaySource, fitImageRect, geometryBounds, markerPathData } from "../../shared/scene-geometry.js";
+import { alphaMaskHit, areaImagePlacement, imagePreserveAspectRatio, imageRotationTransform, isAreaHidden } from "../../shared/area-image.js";
 import { Emitter } from "./emitter.js";
 import {
   autoUpdate,
@@ -201,6 +202,7 @@ class Renderer implements ClickMapInstance {
   private viewH = 1;
   private hoveredId: string | null = null;
   private focusedId: string | null = null;
+  private maskedViews = new Map<string, boolean>();
   private pinnedTooltipId: string | null = null;
   /** The current view's selected area, painted with `style.active` until cleared. */
   private selectedId: string | null = null;
@@ -208,7 +210,6 @@ class Renderer implements ClickMapInstance {
   private pendingReveal: { viewId: string; run: () => void } | null = null;
   /** Re-filters the directory after effective layer visibility changes. */
   private refreshDirectory: (() => void) | null = null;
-  private alphaMaskBytes = new Map<string, string>();
   /** Per-view runtime overrides. They survive navigation, while reset clears them. */
   private layerVisibility = new Map<string, Map<string, boolean>>();
 
@@ -459,6 +460,7 @@ class Renderer implements ClickMapInstance {
     for (const view of this.def.views) {
       for (const layer of view.layers) {
         for (const area of layer.areas) {
+          if (isAreaHidden(area)) continue;
           const metadataText = (config.metadataKeys ?? []).map((key) => area.metadata?.[key])
             .filter((value) => value !== undefined && value !== null)
             .map(String).join(" ");
@@ -760,6 +762,7 @@ class Renderer implements ClickMapInstance {
         g.setAttribute("opacity", String(layer.opacity));
         g.setAttribute("data-layer-id", layer.id);
         for (const area of layer.areas) {
+          if (isAreaHidden(area)) continue;
           const visual = this.makeAreaImageEl(area);
           if (visual) g.appendChild(visual);
           const el = this.makeAreaEl(area);
@@ -789,7 +792,7 @@ class Renderer implements ClickMapInstance {
     for (const layer of view.layers) {
       if (!this.isLayerVisible(view, layer)) continue;
       for (const area of layer.areas) {
-        if (area.label?.visible === false) continue;
+        if (area.label?.visible === false || isAreaHidden(area)) continue;
         const bbox = this.getAreaBBox(area);
         if (!bbox) continue;
         const text = svgEl<SVGTextElement>("text");
@@ -1234,7 +1237,6 @@ class Renderer implements ClickMapInstance {
 
     if (isDisabled) {
       shape.setAttribute("aria-disabled", "true");
-      shape.style.cursor = "not-allowed";
       shape.setAttribute("tabindex", "-1");
     } else {
       shape.setAttribute("tabindex", String(area.image?.decorative && area.action.type === "none" ? -1 : (area.accessibility?.tabIndex ?? 0)));
@@ -1246,10 +1248,10 @@ class Renderer implements ClickMapInstance {
       if (area.tooltip?.enabled) {
         shape.setAttribute("aria-describedby", this.tooltipEl.id);
       }
-      const trigger = area.trigger ?? "both";
-      const clickable = trigger === "click" || trigger === "both";
-      shape.style.cursor = (area.action.type !== "none" && clickable) ? "pointer" : "default";
     }
+    // A masked shape's transparent pixels may sit over another area, so its
+    // cursor follows the hit test (set on the SVG) instead of the shape.
+    if (!area.image?.hitMask) shape.style.cursor = areaCursor(area);
 
     return shape;
   }
@@ -1265,18 +1267,16 @@ class Renderer implements ClickMapInstance {
     const asset = this.def.assets.find((candidate) => candidate.id === area.image!.assetId);
     if (!asset) return null;
     const image = svgEl<SVGImageElement>("image");
-    if (area.image.visible === false) return null;
     this.reportAssetFailure(image, asset.name);
     image.setAttribute("href", assetDisplaySource(asset.src, this.assetBaseUrl));
     image.setAttribute("x", String(area.geometry.x));
     image.setAttribute("y", String(area.geometry.y));
     image.setAttribute("width", String(area.geometry.width));
     image.setAttribute("height", String(area.geometry.height));
-    const fit = area.image.fit ?? "fill";
-    image.setAttribute("preserveAspectRatio", fit === "contain" ? "xMidYMid meet" : fit === "cover" ? "xMidYMid slice" : "none");
+    image.setAttribute("preserveAspectRatio", imagePreserveAspectRatio(area.image.fit));
     image.setAttribute("opacity", String(area.image.opacity ?? 1));
-    const rotation = area.image.rotation ?? 0;
-    if (rotation) image.setAttribute("transform", `rotate(${rotation} ${area.geometry.x + area.geometry.width / 2} ${area.geometry.y + area.geometry.height / 2})`);
+    const rotation = imageRotationTransform(areaImagePlacement(area.geometry, area.image));
+    if (rotation) image.setAttribute("transform", rotation);
     image.setAttribute("pointer-events", "none");
     image.setAttribute("class", "clickmap-area-image");
     return image;
@@ -1441,43 +1441,71 @@ class Renderer implements ClickMapInstance {
     );
   }
 
-  private getAreaFromEvent(
-    e: Event
-  ): { area: Area; el: SVGElement } | null {
-    const el = (e.target as Element).closest<SVGElement>("[data-area-id]");
-    if (!el) return null;
-    const id = el.getAttribute("data-area-id");
-    if (!id) return null;
-    const area = this.findAreaInCurrentView(id);
-    if (!area) return null;
-    if (area.disabled) return null;
-    if (e instanceof MouseEvent && !this.alphaMaskContains(area, e.clientX, e.clientY)) return null;
-    return { area, el };
+  /**
+   * The enabled area an event targets. Keyboard and focus events use their
+   * target element; pointer events use the paint-order hit test, so they never
+   * depend on which DOM shape happened to receive the event.
+   */
+  private getAreaFromEvent(e: Event): { area: Area; el: SVGElement } | null {
+    const hit = this.topAreaOfEvent(e);
+    return hit && !hit.area.disabled ? hit : null;
   }
 
-  private alphaMaskContains(area: Area, clientX: number, clientY: number): boolean {
-    const mask = area.image?.hitMask;
-    if (!mask || area.geometry.type !== "rect") return true;
-    const point = this.svgEl.createSVGPoint();
-    point.x = clientX;
-    point.y = clientY;
+  private topAreaOfEvent(e: Event): { area: Area; el: SVGElement } | null {
+    // A click with detail 0 was synthesized (element.click(), assistive tech) and has no real position.
+    const pointer = e instanceof MouseEvent && (e.type !== "click" || e.detail > 0);
+    return pointer ? this.areaAtPointer(e as MouseEvent) : this.areaOfElement(e.target as Element);
+  }
+
+  private areaOfElement(target: Element | null): { area: Area; el: SVGElement } | null {
+    const el = target?.closest?.<SVGElement>("[data-area-id]");
+    const area = el ? this.findAreaInCurrentView(el.getAttribute("data-area-id") ?? "") : null;
+    return area && el ? { area, el } : null;
+  }
+
+  /**
+   * Topmost area under the pointer, in paint order (disabled areas included,
+   * so they still block what lies beneath). An area with a usable alpha mask is
+   * hit only on its displayed opaque pixels: fitted, cropped and rotated with
+   * its image, using the cached bitmap rather than canvas reads. Where it
+   * rejects the point, the next area down is tried. Other areas, and masks that
+   * cannot be decoded, use their rendered shape.
+   */
+  private areaAtPointer(e: MouseEvent): { area: Area; el: SVGElement } | null {
+    const view = this.def.views.find((v) => v.id === this.currentViewId);
+    if (!view || !this.hasAlphaMasks(view)) return this.areaOfElement(e.target as Element);
     const matrix = this.svgEl.getScreenCTM();
-    if (!matrix) return true;
-    const local = point.matrixTransform(matrix.inverse());
-    const col = Math.floor(((local.x - area.geometry.x) / area.geometry.width) * mask.width);
-    const row = Math.floor(((local.y - area.geometry.y) / area.geometry.height) * mask.height);
-    if (col < 0 || row < 0 || col >= mask.width || row >= mask.height) return false;
-    try {
-      let binary = this.alphaMaskBytes.get(mask.data);
-      if (binary === undefined) {
-        binary = atob(mask.data);
-        this.alphaMaskBytes.set(mask.data, binary);
-      }
-      const index = row * mask.width + col;
-      return ((binary.charCodeAt(index >> 3) >> (index & 7)) & 1) !== 0;
-    } catch {
-      return true;
+    const root = this.svgEl.getRootNode() as Document | ShadowRoot;
+    const stack = typeof root.elementsFromPoint === "function" ? root.elementsFromPoint(e.clientX, e.clientY) : [e.target as Element];
+    const underPointer = new Map<string, SVGElement>();
+    for (const element of stack) {
+      const hit = this.areaOfElement(element);
+      if (hit && this.svgEl.contains(hit.el) && !underPointer.has(hit.area.id)) underPointer.set(hit.area.id, hit.el);
     }
+    const point = matrix ? new DOMPoint(e.clientX, e.clientY).matrixTransform(matrix.inverse()) : null;
+    for (let l = view.layers.length - 1; l >= 0; l--) {
+      const layer = view.layers[l]!;
+      if (!this.isLayerVisible(view, layer)) continue;
+      for (let a = layer.areas.length - 1; a >= 0; a--) {
+        const area = layer.areas[a]!;
+        const mask = area.image?.hitMask;
+        const masked = mask && point && area.geometry.type === "rect"
+          ? alphaMaskHit(areaImagePlacement(area.geometry, area.image!, this.def.assets.find((asset) => asset.id === area.image!.assetId)), mask, point)
+          : null;
+        const el = masked === null ? underPointer.get(area.id) : masked ? this.findAreaEl(area.id) : null;
+        if (el) return { area, el };
+      }
+    }
+    return null;
+  }
+
+  private hasAlphaMasks(view: View): boolean {
+    let cached = this.maskedViews.get(view.id);
+    if (cached === undefined) {
+      cached = view.layers.some((layer) => layer.areas.some((area) => area.image?.hitMask && !isAreaHidden(area)));
+      this.maskedViews.set(view.id, cached);
+    }
+    return cached;
   }
 
   private findAreaInCurrentView(areaId: string): Area | null {
@@ -1498,24 +1526,29 @@ class Renderer implements ClickMapInstance {
   // Pointer / keyboard event handlers
   // -------------------------------------------------------------------------
 
-  private onPointerOver(e: PointerEvent) {
-    const hit = this.getAreaFromEvent(e);
-    if (!hit) return;
-    const { area, el } = hit;
-
-    const trigger = area.trigger ?? "both";
-    if (trigger === "click") return; // no hover style for click-only
-
-    if (this.hoveredId === area.id) return;
-
-    // Restore previous
+  /**
+   * Hover follows the paint-order hit test. Pointer moves re-resolve it in
+   * views with alpha masks, so crossing a transparent hole into opaque pixels
+   * (or into an area beneath) updates hover without a new pointerover.
+   */
+  private updateHover(e: PointerEvent) {
+    const masked = this.masked();
+    const top = masked ? this.areaAtPointer(e) : this.areaOfElement(e.target as Element);
+    if (masked) this.svgEl.style.cursor = top ? areaCursor(top.area) : "";
+    const next = top && !top.area.disabled && (top.area.trigger ?? "both") !== "click" ? top : null;
+    if (this.hoveredId === (next?.area.id ?? null)) return;
     const previousId = this.hoveredId;
-    this.hoveredId = area.id;
+    this.hoveredId = next?.area.id ?? null;
     if (previousId) {
       const prev = this.findAreaInCurrentView(previousId);
       const prevEl = prev ? this.findAreaEl(previousId) : null;
       if (prev && prevEl) this.applyAreaStyle(prev, prevEl);
     }
+    if (!next) {
+      if (this.focusedId === null && this.pinnedTooltipId === null) this.hideTooltip();
+      return;
+    }
+    const { area, el } = next;
     this.applyAreaStyle(area, el);
     this.emit({
       type: "area:hover",
@@ -1526,18 +1559,26 @@ class Renderer implements ClickMapInstance {
 
     if (area.tooltip?.enabled) {
       this.showTooltip(area);
+    } else if (this.focusedId === null && this.pinnedTooltipId === null) {
+      this.hideTooltip();
     }
   }
 
-  private onPointerOut(e: PointerEvent) {
-    if (!this.hoveredId) return;
-    const related = e.relatedTarget as Element | null;
-    if (
-      related &&
-      related.closest?.(`[data-area-id="${escId(this.hoveredId)}"]`)
-    )
-      return;
+  private masked(): boolean {
+    const view = this.def.views.find((v) => v.id === this.currentViewId);
+    return view ? this.hasAlphaMasks(view) : false;
+  }
 
+  private onPointerOver(e: PointerEvent) {
+    this.updateHover(e);
+  }
+
+  private onPointerOut(e: PointerEvent) {
+    // Moves within the map are resolved by the pointerover/pointermove that follows.
+    const related = e.relatedTarget as Node | null;
+    if (related && this.svgEl.contains(related)) return;
+    this.svgEl.style.cursor = "";
+    if (!this.hoveredId) return;
     const prev = this.findAreaInCurrentView(this.hoveredId);
     const prevEl = this.findAreaEl(this.hoveredId);
     this.hoveredId = null;
@@ -1547,6 +1588,7 @@ class Renderer implements ClickMapInstance {
   }
 
   private onPointerMove(e: PointerEvent) {
+    if (this.masked()) this.updateHover(e);
     if (this.hoveredId) this.positionTooltip(e.clientX, e.clientY);
   }
 
@@ -1554,11 +1596,9 @@ class Renderer implements ClickMapInstance {
     const hit = this.getAreaFromEvent(e);
     if (!hit) {
       // Activating empty map space (including transparent pixels of an
-      // alpha-masked image region) clears the selection; a disabled area or a
+      // alpha-masked image with nothing beneath) clears the selection; a disabled area or a
       // Space-drag pan does not.
-      const el = (e.target as Element).closest?.("[data-area-id]");
-      const area = el ? this.findAreaInCurrentView(el.getAttribute("data-area-id") ?? "") : null;
-      if (!this.spaceHeld && !area?.disabled) this.setSelection(null);
+      if (!this.spaceHeld && !this.topAreaOfEvent(e)?.area.disabled) this.setSelection(null);
       return;
     }
     const { area } = hit;
@@ -2559,6 +2599,12 @@ class HostStatus {
 
 function failureMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function areaCursor(area: Area): string {
+  if (area.disabled) return "not-allowed";
+  const trigger = area.trigger ?? "both";
+  return area.action.type !== "none" && trigger !== "hover" ? "pointer" : "default";
 }
 
 /** The instance returned when a definition cannot be shown: visible, observable, inert. */

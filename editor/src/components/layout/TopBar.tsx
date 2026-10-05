@@ -71,6 +71,16 @@ export function TopBar({
 
   const isDirty = projectSnapshot(project) !== useStore((state) => state.savedSnapshot);
 
+  const saveStatus = isDirty
+    ? draftState === "saved"
+      ? "Unsaved changes · local draft saved"
+      : draftState === "saving"
+        ? "Unsaved changes · saving draft…"
+        : draftState === "error"
+          ? "Unsaved changes · draft failed"
+          : "Unsaved changes"
+    : "Downloaded version";
+
   function replaceProject(action: { kind: "new" } | { kind: "open"; json: string }) {
     if (action.kind === "new") newProject();
     else loadProject(action.json);
@@ -215,17 +225,10 @@ export function TopBar({
         onChange={handleFileChange}
       />
       <span
-        className={`hidden text-[10px] xl:inline ${isDirty ? "text-amber-300" : "text-neutral-500"}`}
+        title={saveStatus}
+        className={`hidden min-w-0 max-w-56 shrink truncate text-xs lg:inline ${isDirty ? "text-amber-300" : "text-neutral-400"}`}
       >
-        {isDirty
-          ? draftState === "saved"
-            ? "Unsaved changes · local draft saved"
-            : draftState === "saving"
-              ? "Unsaved changes · saving draft…"
-              : draftState === "error"
-                ? "Unsaved changes · draft failed"
-                : "Unsaved changes"
-          : "Downloaded version"}
+        {saveStatus}
       </span>
       {mobileMenuOpen && (
         <section

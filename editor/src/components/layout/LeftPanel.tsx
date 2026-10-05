@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { useStore } from "../../store";
 import type { Layer, View } from "@svg-mapper/shared";
 import { shouldIgnoreShortcut } from "../../lib/shortcut-guard";
+import { useLayoutPrefs } from "../../store/layout-prefs";
+
+const ICON_BUTTON = "grid h-6 w-6 shrink-0 place-items-center rounded text-xs hover:bg-neutral-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400";
 
 // ---------------------------------------------------------------------------
 // Inline-rename input
@@ -48,8 +51,9 @@ function InlineRename({
 // ---------------------------------------------------------------------------
 
 function AreaRow({ areaId, name, layerId, targetIndex, locked, onMoveMessage }: { areaId: string; name: string; layerId: string; targetIndex: number; locked: boolean; onMoveMessage: (message: string) => void }) {
-  const { selectedAreaId, selectedAreaIds, setSelectedAreaId, setSelectedAreaIds, toggleSelectedAreaId, reorderArea, moveAreaToLayer, project } = useStore();
+  const { selectedAreaId, selectedAreaIds, setSelectedAreaId, setSelectedAreaIds, toggleSelectedAreaId, reorderArea, moveAreaToLayer } = useStore();
   const selected = selectedAreaIds.includes(areaId);
+  const primary = selectedAreaId === areaId;
   const [dragOver, setDragOver] = useState(false);
 
   function visibleRows(element: HTMLElement) {
@@ -81,6 +85,8 @@ function AreaRow({ areaId, name, layerId, targetIndex, locked, onMoveMessage }: 
       role="treeitem"
       tabIndex={0}
       aria-selected={selected}
+      aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+      title={name}
       data-area-row={areaId}
       draggable={!locked}
       onDragStart={(event) => {
@@ -114,6 +120,18 @@ function AreaRow({ areaId, name, layerId, targetIndex, locked, onMoveMessage }: 
         }
         if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
         event.preventDefault();
+        if (event.altKey) {
+          // Alt+Arrow reorders within the layer: up paints earlier (backward).
+          if (locked) { onMoveMessage("Layer is locked."); return; }
+          const element = event.currentTarget;
+          reorderArea(areaId, event.key === "ArrowUp" ? -1 : 1);
+          onMoveMessage(`${name} moved ${event.key === "ArrowUp" ? "backward" : "forward"}.`);
+          requestAnimationFrame(() => {
+            const row = element.isConnected ? element : document.querySelector<HTMLElement>(`[data-area-row="${CSS.escape(areaId)}"]`);
+            row?.focus();
+          });
+          return;
+        }
         const rows = visibleRows(event.currentTarget);
         const index = rows.indexOf(event.currentTarget);
         const next = rows[index + (event.key === "ArrowDown" ? 1 : -1)];
@@ -125,30 +143,75 @@ function AreaRow({ areaId, name, layerId, targetIndex, locked, onMoveMessage }: 
           else setSelectedAreaId(nextId);
         }
       }}
-      className={`flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-xs ${dragOver ? locked ? "ring-1 ring-red-500" : "ring-1 ring-blue-400" : ""} ${
+      className={`flex w-full min-w-0 items-center gap-1.5 rounded px-1.5 py-1 text-left text-[13px] leading-5 outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${dragOver ? locked ? "ring-1 ring-red-500" : "ring-1 ring-blue-400" : ""} ${
         selected
-          ? "bg-blue-600 text-white"
-          : "text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200"
+          ? primary ? "bg-blue-600 text-white" : "bg-blue-900 text-blue-50"
+          : "text-neutral-300 hover:bg-neutral-800 hover:text-white"
       }`}
     >
-      <span className="text-[10px] opacity-50">▸</span>
-      <span className="min-w-0 truncate">{name}</span>
-      <span className="ml-auto flex shrink-0 gap-1">
-        <button disabled={locked} title={locked ? "Layer is locked" : "Move backward"} onClick={(event) => { event.stopPropagation(); reorderArea(areaId, -1); }}>↓</button>
-        <button disabled={locked} title={locked ? "Layer is locked" : "Move forward"} onClick={(event) => { event.stopPropagation(); reorderArea(areaId, 1); }}>↑</button>
+      <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${selected ? "bg-white" : "bg-neutral-500"}`} />
+      <span className="min-w-0 flex-1 truncate">{name}</span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Selected area controls: paint order and layer destination for the primary
+// selection, so tree rows keep their full width for names (#156).
+// ---------------------------------------------------------------------------
+
+function SelectedAreaControls({ onMoveMessage }: { onMoveMessage: (message: string) => void }) {
+  const { selectedAreaId, project, reorderArea, moveAreaToLayer } = useStore();
+  if (!selectedAreaId) return null;
+  let found: { name: string; layer: Layer; index: number } | null = null;
+  for (const view of project.views) {
+    for (const layer of view.layers) {
+      const index = layer.areas.findIndex((area) => area.id === selectedAreaId);
+      if (index >= 0) found = { name: layer.areas[index].name, layer, index };
+    }
+  }
+  if (!found) return null;
+  const { name, layer, index } = found;
+  const locked = layer.locked;
+  const buttonClass = "min-h-7 rounded border border-neutral-700 px-2 text-xs text-neutral-200 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40";
+
+  return (
+    <section aria-label={`Arrange ${name}`} className="space-y-1.5 border-t border-neutral-700 bg-neutral-900 px-2 py-2">
+      <p className="truncate text-xs text-neutral-400" title={name}>
+        <span className="text-neutral-500">Selected:</span> <span className="font-medium text-neutral-100">{name}</span>
+      </p>
+      <div className="flex flex-wrap items-center gap-1">
+        <button
+          type="button"
+          className={buttonClass}
+          disabled={locked || index === 0}
+          aria-keyshortcuts="Alt+ArrowUp"
+          title={locked ? "Layer is locked" : "Move backward (Alt+↑ in the tree)"}
+          onClick={() => { reorderArea(selectedAreaId, -1); onMoveMessage(`${name} moved backward.`); }}
+        >Move backward</button>
+        <button
+          type="button"
+          className={buttonClass}
+          disabled={locked || index === layer.areas.length - 1}
+          aria-keyshortcuts="Alt+ArrowDown"
+          title={locked ? "Layer is locked" : "Move forward (Alt+↓ in the tree)"}
+          onClick={() => { reorderArea(selectedAreaId, 1); onMoveMessage(`${name} moved forward.`); }}
+        >Move forward</button>
+      </div>
+      <label className="block text-xs text-neutral-400">
+        Layer
         <select
           aria-label={`Move ${name} to layer`}
           title={locked ? "Area cannot be moved from a locked layer" : "Move to layer"}
-          value={layerId}
+          value={layer.id}
           disabled={locked}
-          onClick={(event) => event.stopPropagation()}
           onChange={(event) => {
             const targetId = event.target.value;
-            const target = project.views.flatMap((view) => view.layers).find((layer) => layer.id === targetId);
-            const result = moveAreaToLayer(areaId, targetId);
+            const target = project.views.flatMap((view) => view.layers).find((candidate) => candidate.id === targetId);
+            const result = moveAreaToLayer(selectedAreaId, targetId);
             onMoveMessage(result === "moved" ? `${name} moved to ${target?.name ?? "layer"}.` : result === "locked" ? `${target?.name ?? "Layer"} is locked.` : "Area could not be moved.");
           }}
-          className="max-w-20 rounded bg-neutral-800 text-[10px] text-neutral-300 disabled:opacity-40"
+          className="mt-0.5 w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-1 text-xs text-neutral-200 disabled:opacity-40"
         >
           {project.views.flatMap((view) => view.layers.map((destination) => (
             <option key={destination.id} value={destination.id} disabled={destination.locked}>
@@ -156,8 +219,8 @@ function AreaRow({ areaId, name, layerId, targetIndex, locked, onMoveMessage }: 
             </option>
           )))}
         </select>
-      </span>
-    </div>
+      </label>
+    </section>
   );
 }
 
@@ -244,7 +307,7 @@ function LayerRow({
       >
         {/* Drag handle */}
         <span
-          className="cursor-grab text-[10px] text-neutral-600 hover:text-neutral-400"
+          className="cursor-grab text-xs text-neutral-500 hover:text-neutral-300"
           title="Drag to reorder"
         >
           ⠿
@@ -253,7 +316,9 @@ function LayerRow({
         {/* Expand toggle */}
         <button
           onClick={(e) => { e.stopPropagation(); setExpanded((x) => !x); }}
-          className="text-[10px] text-neutral-500 hover:text-neutral-300"
+          aria-expanded={expanded}
+          aria-label={`${expanded ? "Collapse" : "Expand"} layer ${layer.name}`}
+          className={`${ICON_BUTTON} text-neutral-400 hover:text-neutral-100`}
         >
           {expanded ? "▾" : "▸"}
         </button>
@@ -267,7 +332,7 @@ function LayerRow({
         ) : (
           <span
             onDoubleClick={(e) => { e.stopPropagation(); setRenaming(true); }}
-            className="min-w-0 flex-1 truncate text-xs"
+            className="min-w-0 flex-1 truncate text-[13px]"
             title={layer.name}
           >
             {layer.name}
@@ -278,7 +343,8 @@ function LayerRow({
         <button
           onClick={(e) => { e.stopPropagation(); toggleLayerVisibility(layer.id); }}
           title={layer.visible ? "Hide layer" : "Show layer"}
-          className={`text-[11px] ${layer.visible ? "text-neutral-400 hover:text-neutral-200" : "text-neutral-600 hover:text-neutral-400"}`}
+          aria-label={`${layer.visible ? "Hide" : "Show"} layer ${layer.name}`}
+          className={`${ICON_BUTTON} ${layer.visible ? "text-neutral-300 hover:text-white" : "text-neutral-500 hover:text-neutral-300"}`}
         >
           {layer.visible ? "○" : "◌"}
         </button>
@@ -287,7 +353,8 @@ function LayerRow({
         <button
           onClick={(e) => { e.stopPropagation(); toggleLayerLock(layer.id); }}
           title={layer.locked ? "Unlock" : "Lock"}
-          className={`text-[10px] ${layer.locked ? "text-amber-400 hover:text-amber-200" : "text-neutral-600 hover:text-neutral-400"}`}
+          aria-label={`${layer.locked ? "Unlock" : "Lock"} layer ${layer.name}`}
+          className={`${ICON_BUTTON} ${layer.locked ? "text-amber-400 hover:text-amber-200" : "text-neutral-500 hover:text-neutral-200"}`}
         >
           {layer.locked ? "🔒" : "🔓"}
         </button>
@@ -301,7 +368,7 @@ function LayerRow({
           }}
           aria-label={`Duplicate layer ${layer.name}`}
           title="Duplicate layer"
-          className="text-[10px] text-neutral-600 hover:text-neutral-300"
+          className={`${ICON_BUTTON} text-neutral-400 hover:text-neutral-100`}
         >
           ⧉
         </button>
@@ -312,7 +379,8 @@ function LayerRow({
             onClick={handleDelete}
             disabled={layer.locked}
             title={layer.locked ? "Unlock the layer to delete it" : "Delete layer"}
-            className="text-[10px] text-neutral-700 hover:text-red-400 disabled:opacity-40 disabled:hover:text-neutral-700"
+            aria-label={`Delete layer ${layer.name}`}
+            className={`${ICON_BUTTON} text-neutral-400 hover:text-red-400 disabled:opacity-40 disabled:hover:text-neutral-400`}
           >
             ✕
           </button>
@@ -399,7 +467,9 @@ function ViewSection({ view, isActive, onMoveMessage }: { view: View; isActive: 
         {/* Expand toggle */}
         <button
           onClick={(e) => { e.stopPropagation(); setExpanded((x) => !x); }}
-          className="text-[10px] text-neutral-500 hover:text-neutral-300"
+          aria-expanded={expanded}
+          aria-label={`${expanded ? "Collapse" : "Expand"} view ${view.name}`}
+          className={`${ICON_BUTTON} text-neutral-400 hover:text-neutral-100`}
         >
           {expanded ? "▾" : "▸"}
         </button>
@@ -413,7 +483,7 @@ function ViewSection({ view, isActive, onMoveMessage }: { view: View; isActive: 
         ) : (
           <span
             onDoubleClick={(e) => { e.stopPropagation(); setRenaming(true); }}
-            className="min-w-0 flex-1 truncate text-xs font-medium"
+            className="min-w-0 flex-1 truncate text-[13px] font-medium"
             title={view.name}
           >
             {view.name}
@@ -421,14 +491,15 @@ function ViewSection({ view, isActive, onMoveMessage }: { view: View; isActive: 
         )}
 
         {isInitial ? (
-          <span className="rounded bg-blue-950 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-blue-300" title="This view opens first">
+          <span className="rounded bg-blue-950 px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-200" title="This view opens first">
             Initial
           </span>
         ) : (
           <button
             onClick={(e) => { e.stopPropagation(); setInitialView(view.id); }}
             title={`Set ${view.name} as initial view`}
-            className="text-[10px] text-neutral-600 hover:text-blue-300"
+            aria-label={`Set ${view.name} as initial view`}
+            className={`${ICON_BUTTON} text-neutral-400 hover:text-blue-300`}
           >
             ☆
           </button>
@@ -438,7 +509,8 @@ function ViewSection({ view, isActive, onMoveMessage }: { view: View; isActive: 
         <button
           onClick={(e) => { e.stopPropagation(); duplicateView(view.id); }}
           title="Duplicate view"
-          className="text-[10px] text-neutral-700 hover:text-neutral-300"
+          aria-label={`Duplicate view ${view.name}`}
+          className={`${ICON_BUTTON} text-neutral-400 hover:text-neutral-100`}
         >
           ⧉
         </button>
@@ -449,7 +521,7 @@ function ViewSection({ view, isActive, onMoveMessage }: { view: View; isActive: 
             onClick={(e) => { e.stopPropagation(); setConfirmingDelete(true); }}
             title="Delete view"
             aria-label={`Delete view ${view.name}`}
-            className="text-[10px] text-neutral-700 hover:text-red-400"
+            className={`${ICON_BUTTON} text-neutral-400 hover:text-red-400`}
           >
             ✕
           </button>
@@ -457,7 +529,7 @@ function ViewSection({ view, isActive, onMoveMessage }: { view: View; isActive: 
       </div>
 
       {inboundLinks.length > 0 && !confirmingDelete && (
-        <div className="px-2 pb-1 text-[10px] text-amber-300">
+        <div className="px-2 pb-1 text-xs text-amber-300">
           {inboundLinks.length} inbound {inboundLinks.length === 1 ? "link" : "links"}
         </div>
       )}
@@ -466,7 +538,7 @@ function ViewSection({ view, isActive, onMoveMessage }: { view: View; isActive: 
         <div
           role="group"
           aria-label={`Delete ${view.name}`}
-          className="m-1 space-y-1 rounded border border-red-900 bg-neutral-950 p-2 text-[10px] text-neutral-300"
+          className="m-1 space-y-1 rounded border border-red-900 bg-neutral-950 p-2 text-xs text-neutral-300"
           onClick={(event) => event.stopPropagation()}
         >
           <p>Delete <strong>{view.name}</strong>?</p>
@@ -521,7 +593,7 @@ function ViewSection({ view, isActive, onMoveMessage }: { view: View; isActive: 
           {isActive && (
             <button
               onClick={() => addLayer(view.id)}
-              className="mt-0.5 w-full rounded px-1 py-0.5 text-left text-[10px] text-neutral-600 hover:bg-neutral-800 hover:text-neutral-300"
+              className="mt-0.5 w-full rounded px-1.5 py-1 text-left text-xs text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
             >
               + Add Layer
             </button>
@@ -536,8 +608,13 @@ function ViewSection({ view, isActive, onMoveMessage }: { view: View; isActive: 
 // LeftPanel
 // ---------------------------------------------------------------------------
 
+/**
+ * The views/layers/areas tree. `workspace` fills the Tree screen; otherwise it
+ * fills the docked, resizable panel of the desktop layout.
+ */
 export function LeftPanel({ workspace = false }: { workspace?: boolean }) {
   const { project, activeViewId, addView, setSelectedAreaId, setActiveViewId } = useStore();
+  const setCollapsed = useLayoutPrefs((s) => s.setCollapsed);
   const [searchQuery, setSearchQuery] = useState("");
   const [moveMessage, setMoveMessage] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -547,7 +624,12 @@ export function LeftPanel({ workspace = false }: { workspace?: boolean }) {
     function onKey(e: KeyboardEvent) {
       if (e.key === "/" && !e.metaKey && !e.ctrlKey && !e.altKey && !shouldIgnoreShortcut(e)) {
         e.preventDefault();
-        searchRef.current?.focus();
+        const input = searchRef.current;
+        if (input?.closest("[inert]")) {
+          // A collapsed docked tree opens again before taking focus.
+          useLayoutPrefs.getState().setCollapsed("tree", false);
+          requestAnimationFrame(() => requestAnimationFrame(() => searchRef.current?.focus()));
+        } else input?.focus();
       }
     }
     window.addEventListener("keydown", onKey);
@@ -566,20 +648,29 @@ export function LeftPanel({ workspace = false }: { workspace?: boolean }) {
   return (
     <aside
       aria-label="Views and layers"
-      className={workspace
-        ? "flex min-w-0 flex-1 flex-col bg-neutral-900"
-        : "hidden w-56 flex-col border-r border-neutral-700 bg-neutral-900 lg:flex"}
+      className="flex min-w-0 flex-1 flex-col bg-neutral-900"
     >
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-neutral-700 px-2 py-1.5">
-        <span className="text-xs font-semibold text-neutral-300">Views &amp; Layers</span>
+      <div className="flex min-h-10 items-center gap-1 border-b border-neutral-700 px-2 py-1">
+        <h2 className="flex-1 truncate text-sm font-semibold text-neutral-200">Views &amp; Layers</h2>
         <button
           onClick={addView}
           title="Add view"
-          className="rounded px-1.5 py-0.5 text-[10px] text-neutral-500 hover:bg-neutral-700 hover:text-neutral-200"
+          className="rounded px-2 py-1 text-xs text-neutral-300 hover:bg-neutral-700 hover:text-white"
         >
           + View
         </button>
+        {!workspace && (
+          <button
+            type="button"
+            onClick={() => setCollapsed("tree", true)}
+            aria-label="Hide views and layers panel"
+            title="Hide panel (Enter on the panel edge restores it)"
+            className="grid h-7 w-7 place-items-center rounded text-sm text-neutral-400 hover:bg-neutral-700 hover:text-white"
+          >
+            «
+          </button>
+        )}
       </div>
 
       {/* Search (issue #28 I5) */}
@@ -591,7 +682,7 @@ export function LeftPanel({ workspace = false }: { workspace?: boolean }) {
           onChange={(e) => setSearchQuery(e.target.value)}
           aria-label="Search areas"
           placeholder="Search areas… (/)"
-          className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-[10px] text-neutral-300 placeholder-neutral-600 outline-none focus:border-blue-500"
+          className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 placeholder-neutral-500 outline-none focus:border-blue-500"
         />
       </div>
 
@@ -606,10 +697,10 @@ export function LeftPanel({ workspace = false }: { workspace?: boolean }) {
                   <button
                     key={a.id}
                     onClick={() => handleAreaSearchClick(view.id, a.id)}
-                    className="flex w-full items-center gap-1 rounded px-2 py-0.5 text-left text-[10px] text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200"
+                    className="flex w-full items-center gap-1 rounded px-2 py-1 text-left text-xs text-neutral-300 hover:bg-neutral-700 hover:text-white"
                   >
                     <span className="truncate flex-1">{a.name}</span>
-                    <span className="shrink-0 text-neutral-600">{view.name}</span>
+                    <span className="shrink-0 text-neutral-500">{view.name}</span>
                   </button>
                 ))
             )
@@ -619,12 +710,13 @@ export function LeftPanel({ workspace = false }: { workspace?: boolean }) {
 
       {/* Tree (hidden when searching) */}
       {!query && (
-        <div role="tree" aria-label="Map hierarchy" className="flex-1 overflow-y-auto overscroll-contain p-1.5">
+        <div role="tree" aria-label="Map hierarchy" className="relative flex-1 overflow-y-auto overscroll-contain p-1.5">
           {project.views.map((view) => (
             <ViewSection key={view.id} view={view} isActive={view.id === activeViewId} onMoveMessage={setMoveMessage} />
           ))}
         </div>
       )}
+      {!query && <SelectedAreaControls onMoveMessage={setMoveMessage} />}
       <div role="status" aria-live="polite" className="sr-only">{moveMessage}</div>
     </aside>
   );
