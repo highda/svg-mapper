@@ -170,7 +170,7 @@ body { overflow: auto; }
     if (root) sizeObserver.observe(root);
     reportSize();
   });
-  ["ready", "view:leave", "view:enter", "view:change", "camera:change", "area:hover", "area:click", "popup:open", "popup:close", "error"]
+  ["ready", "view:leave", "view:enter", "view:change", "camera:change", "area:hover", "area:click", "area:select", "popup:open", "popup:close", "error"]
     .forEach(function (t) {
       map.on(t, function (e) { post({ kind: "event", event: e }); });
     });

@@ -287,7 +287,7 @@ type ClickMapInstance = {
 - Fetch / accept the JSON definition.
 - Resolve asset references (external URLs, inline base64, or inline SVG markup).
 - Render the active View: background, layers in order, areas with default style.
-- Apply hover/active state styles on pointer + keyboard focus.
+- Apply hover styles on pointer hover and keyboard focus, and the active style to the selected area (the one last activated) until Escape, empty space, closing its popup, or leaving the view clears it. Precedence: disabled > active > hover/focus > always-highlight > default.
 - Dispatch the configured action on click / Enter / Space.
 - Animate View transitions (`fade` minimum; others optional).
 - Maintain navigation history; support `goBack()` and browser back button when `enableHistory: true`.

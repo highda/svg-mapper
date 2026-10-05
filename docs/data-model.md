@@ -119,7 +119,7 @@ An optional `image` references an asset by `assetId`. `fit` is `fill`, `contain`
 | `path` | SVG path string `d` |
 | `marker` | `x`, `y`, and a `MarkerAnchor` |
 
-Each `style` contains `default`, `hover`, and `active` states, plus optional `disabled`. The renderer shows `active` while an area is pressed by pointer or Enter/Space. A state is `{ fill, stroke, strokeWidth }`; colors are CSS color strings.
+Each `style` contains `default`, `hover`, and `active` states, plus optional `disabled`. `active` is the selected state: the renderer paints it on the area a visitor last activated (pointer, Enter/Space, the place directory, or an area deep link) until the selection is cleared, and it wins over `hover`. Only `disabled` outranks it. New areas get an `active` style distinct from `hover`. A state is `{ fill, stroke, strokeWidth }`; colors are CSS color strings.
 
 Actions are `none`; `url` with `href` and target; `goToView` with a target ID and optional transition; `popup` with inline content and position; `toggleLayer` with a layer ID in the area's view; or `customEvent` with a non-empty event name and optional JSON-object payload. Runtime layer visibility begins from the authored `visible` value, survives leaving and re-entering a view, and returns to authored values when the renderer is reset. Hidden layers are removed from pointer and keyboard interaction.
 
