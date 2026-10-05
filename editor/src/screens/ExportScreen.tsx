@@ -1,16 +1,15 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   validateProject,
   hasBlockingErrors,
   isHostLength,
   resolveSizingMode,
-  DEFAULT_HOST_SIZE,
   type ContainerSizingMode,
   type ValidationResult,
 } from "@svg-mapper/shared";
 import { useStore } from "../store";
 import { toDefinition } from "../lib/project";
-import { generateExportPackage, generateExportPreview } from "../lib/export-package";
+import { buildExportManifest, ExportCancelledError, zipExportManifest } from "../lib/export-package";
 import { ModalDialog } from "../components/ui/ModalDialog";
 import rendererJs from "../../../renderer/dist/clickmap-renderer.js?raw";
 import rendererCss from "../../../renderer/dist/clickmap-renderer.css?raw";
@@ -94,15 +93,21 @@ function formatBytes(bytes: number): string {
 export function ExportScreen() {
   const project = useStore((s) => s.project);
   const [confirmingWarnings, setConfirmingWarnings] = useState(false);
-  const [inlineAssets, setInlineAssets] = useState(true);
-  const [basePath, setBasePath] = useState("/maps/my-map");
-  const [containerId, setContainerId] = useState("clickmap");
+  // Session-wide, so leaving to fix a validation result keeps them (#171).
+  const { inlineAssets, basePath, containerId, hostWidth, hostHeight } = useStore((s) => s.exportOptions);
+  const updateExportOptions = useStore((s) => s.updateExportOptions);
   const updateSettings = useStore((s) => s.updateSettings);
-  const [hostWidth, setHostWidth] = useState(DEFAULT_HOST_SIZE.width);
-  const [hostHeight, setHostHeight] = useState(DEFAULT_HOST_SIZE.height);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const cancelWarningsRef = useRef<HTMLButtonElement>(null);
+  const [exportCancelled, setExportCancelled] = useState(false);
+  // A ref, not state, so a second click in the same frame cannot start a
+  // second compression before React re-renders the disabled button.
+  const activeExport = useRef<AbortController | null>(null);
+  const downloadButton = useRef<HTMLButtonElement>(null);
+
+  // Leaving the screen mid-export terminates fflate's workers.
+  useEffect(() => () => activeExport.current?.abort(), []);
 
   const definition = useMemo(() => toDefinition(project), [project]);
   const results = useMemo(() => validateProject(definition), [definition]);
@@ -127,22 +132,25 @@ export function ExportScreen() {
   // The invalid field points at the visible message (#174).
   const invalidProps = (field: keyof typeof CONFIG_ERRORS) =>
     configErrorField === field ? { "aria-invalid": true, "aria-describedby": "export-config-error" } : {};
-  const exportOptions = { inlineAssets, basePath, containerId, hostSize };
-  const preview = useMemo(
-    () => generateExportPreview(definition, rendererJs, rendererCss, { inlineAssets, basePath, containerId, hostSize }),
+  // One manifest drives both the preview/estimate and the download. Asset
+  // decoding is cached per assets revision, so typing a base path or
+  // container ID only rebuilds the small deployment files.
+  const manifest = useMemo(
+    () => buildExportManifest(definition, rendererJs, rendererCss, { inlineAssets, basePath, containerId, hostSize }),
     [definition, inlineAssets, basePath, containerId, hostSize],
   );
 
   async function doExport() {
-    if (exporting || configError) return;
+    if (activeExport.current || configError) return;
+    const controller = new AbortController();
+    activeExport.current = controller;
     setExporting(true);
     setExportError(null);
+    setExportCancelled(false);
     try {
-      // Let React paint the busy state before synchronous compression begins.
-      await new Promise<void>((resolve) => setTimeout(resolve, 0));
-      const pkg = generateExportPackage(definition, rendererJs, rendererCss, exportOptions);
+      const zip = await zipExportManifest(manifest, { signal: controller.signal });
 
-      const blob = new Blob([pkg.zip.buffer as ArrayBuffer], { type: "application/zip" });
+      const blob = new Blob([zip.buffer as ArrayBuffer], { type: "application/zip" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       const slug = definition.project.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
@@ -150,13 +158,26 @@ export function ExportScreen() {
       a.download = `${slug}-export.zip`;
       a.click();
       URL.revokeObjectURL(url);
-
-      setConfirmingWarnings(false);
     } catch (error) {
+      if (controller.signal.aborted || error instanceof ExportCancelledError) return; // Cancelled or unmounted.
       setExportError(error instanceof Error ? error.message : "Packaging failed. Try again.");
     } finally {
-      setExporting(false);
+      if (activeExport.current === controller) {
+        activeExport.current = null;
+        setExporting(false);
+      }
     }
+  }
+
+  function cancelExport() {
+    const controller = activeExport.current;
+    if (!controller) return;
+    activeExport.current = null;
+    controller.abort();
+    setExporting(false);
+    setExportCancelled(true);
+    // The Cancel button unmounts; keep keyboard focus on the export control.
+    requestAnimationFrame(() => downloadButton.current?.focus());
   }
 
   function handleExportClick() {
@@ -189,6 +210,7 @@ export function ExportScreen() {
               </span>
             )}
             <button
+              ref={downloadButton}
               onClick={handleExportClick}
               disabled={blocked || exporting || !!configError}
               data-testid="export-button"
@@ -196,6 +218,15 @@ export function ExportScreen() {
             >
               {exporting ? "Packaging…" : "Download ZIP"}
             </button>
+            {exporting && (
+              <button
+                onClick={cancelExport}
+                data-testid="export-cancel"
+                className="rounded border border-neutral-600 px-3 py-1 text-xs text-neutral-200 hover:bg-neutral-700"
+              >
+                Cancel
+              </button>
+            )}
           </div>
         </div>
 
@@ -205,6 +236,8 @@ export function ExportScreen() {
             Fix all errors before exporting. Click an entry to jump to the offending object.
           </p>
         )}
+
+        {exportCancelled && <p role="status" className="rounded border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs text-neutral-300">Export cancelled. Nothing was downloaded; your project and settings are unchanged.</p>}
 
         {exportError && <p role="alert" className="rounded border border-red-800 bg-red-950/50 px-3 py-2 text-xs text-red-300">Export failed: {exportError} You can retry without losing your settings.</p>}
 
@@ -250,17 +283,17 @@ export function ExportScreen() {
             <input
               type="checkbox"
               checked={inlineAssets}
-              onChange={(e) => setInlineAssets(e.target.checked)}
+              onChange={(e) => updateExportOptions({ inlineAssets: e.target.checked })}
               className="accent-blue-500"
             />
             Keep embedded assets in map.json (larger file, no separate assets/ folder)
           </label>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <label className="text-xs text-neutral-300">Upload base path
-              <input {...invalidProps("basePath")} value={basePath} onChange={(event) => setBasePath(event.target.value)} placeholder="/maps/store-directory" className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100" />
+              <input {...invalidProps("basePath")} value={basePath} onChange={(event) => updateExportOptions({ basePath: event.target.value })} placeholder="/maps/store-directory" className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100" />
             </label>
             <label className="text-xs text-neutral-300">Container ID
-              <input {...invalidProps("containerId")} value={containerId} onChange={(event) => setContainerId(event.target.value)} className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100" />
+              <input {...invalidProps("containerId")} value={containerId} onChange={(event) => updateExportOptions({ containerId: event.target.value })} className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100" />
             </label>
             <label className="text-xs text-neutral-300 sm:col-span-2">Map sizing
               <select
@@ -277,10 +310,10 @@ export function ExportScreen() {
             {sizingMode === "fill-container" && (
               <>
                 <label className="text-xs text-neutral-300">Host width
-                  <input {...invalidProps("hostSize")} value={hostWidth} onChange={(event) => setHostWidth(event.target.value)} placeholder="100%" className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100" />
+                  <input {...invalidProps("hostSize")} value={hostWidth} onChange={(event) => updateExportOptions({ hostWidth: event.target.value })} placeholder="100%" className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100" />
                 </label>
                 <label className="text-xs text-neutral-300">Host height
-                  <input {...invalidProps("hostSize")} value={hostHeight} onChange={(event) => setHostHeight(event.target.value)} placeholder="600px" className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100" />
+                  <input {...invalidProps("hostSize")} value={hostHeight} onChange={(event) => updateExportOptions({ hostHeight: event.target.value })} placeholder="600px" className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100" />
                 </label>
                 <p className="text-[11px] text-neutral-500 sm:col-span-2">The host needs a real height. Use 100vw × 100vh for a full-window map; a percentage height needs sized parents.</p>
               </>
@@ -288,11 +321,11 @@ export function ExportScreen() {
           </div>
           {configError && <p id="export-config-error" role="alert" className="mt-2 text-xs text-red-300">{configError}</p>}
           <p className="mt-2 text-[11px] leading-relaxed text-neutral-500">
-            Includes renderer JS and CSS plus {inlineAssets ? `one map.json with embedded asset data; no assets folder is required${preview.externalDependencies.length > 0 ? " (external references remain external)" : ""}` : `${preview.assetFileCount} file${preview.assetFileCount === 1 ? "" : "s"} in assets/ referenced by map.json`}. Estimated uncompressed package: {formatBytes(preview.estimatedUncompressedBytes)} ({formatBytes(preview.assetBytes)} of embedded source assets).
+            Includes renderer JS and CSS plus {inlineAssets ? `one map.json with embedded asset data; no assets folder is required${manifest.externalDependencies.length > 0 ? " (external references remain external)" : ""}` : `${manifest.assetFileCount} file${manifest.assetFileCount === 1 ? "" : "s"} in assets/ referenced by map.json`}. Uncompressed package: {formatBytes(manifest.uncompressedBytes)} across {Object.keys(manifest.files).length} files ({formatBytes(manifest.assetBytes)} of embedded source assets); the ZIP download is compressed and usually smaller.
           </p>
-          {preview.externalDependencies.length > 0 && (
+          {manifest.externalDependencies.length > 0 && (
             <div className="mt-2 rounded border border-amber-800 bg-amber-950/30 p-2 text-[11px] text-amber-200" role="status">
-              <p className="font-medium">{preview.externalDependencies.length} external asset {preview.externalDependencies.length === 1 ? "dependency is" : "dependencies are"} preserved.</p>
+              <p className="font-medium">{manifest.externalDependencies.length} external asset {manifest.externalDependencies.length === 1 ? "dependency is" : "dependencies are"} preserved.</p>
               <p className="mt-1 text-amber-300/80">Remote URLs must stay reachable; deploy relative paths beside map.json. README.txt lists every dependency.</p>
             </div>
           )}
@@ -304,12 +337,12 @@ export function ExportScreen() {
             Quick copy
           </h3>
           <div className="flex flex-wrap gap-2">
-            <CopyButton text={preview.embedSnippet} label="Copy embed snippet" />
-            <CopyButton text={preview.mapJson} label="Copy map.json" />
+            <CopyButton text={manifest.embedSnippet} label="Copy embed snippet" />
+            <CopyButton text={manifest.mapJson} label="Copy map.json" />
           </div>
 
           <pre className="mt-3 max-w-full overflow-x-auto rounded bg-neutral-900 p-2 text-[10px] leading-relaxed text-neutral-400">
-            {preview.embedSnippet}
+            {manifest.embedSnippet}
           </pre>
         </section>
       </div>
@@ -337,12 +370,16 @@ export function ExportScreen() {
           </button>
           <button
             type="button"
-            onClick={() => void doExport()}
+            onClick={() => {
+              // Close first: progress and Cancel live in the header.
+              setConfirmingWarnings(false);
+              void doExport();
+            }}
             disabled={exporting}
             data-testid="export-anyway"
             className="rounded bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-500"
           >
-            {exporting ? "Packaging…" : "Export anyway"}
+            Export anyway
           </button>
         </div>
       </ModalDialog>

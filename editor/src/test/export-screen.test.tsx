@@ -2,12 +2,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ExportScreen } from "../screens/ExportScreen";
 import { createNewProject } from "../lib/project";
-import { useStore } from "../store";
+import { DEFAULT_EXPORT_SESSION_OPTIONS, useStore } from "../store";
+import * as exportPackage from "../lib/export-package";
+
+vi.mock("../lib/export-package", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/export-package")>();
+  return { ...actual, zipExportManifest: vi.fn(actual.zipExportManifest) };
+});
 
 describe("ExportScreen failure handling", () => {
   beforeEach(() => {
     const project = createNewProject("Export UI");
-    useStore.setState({ project, activeViewId: project.views[0].id });
+    useStore.setState({ project, activeViewId: project.views[0].id, exportOptions: { ...DEFAULT_EXPORT_SESSION_OPTIONS } });
+    vi.mocked(exportPackage.zipExportManifest).mockClear();
   });
 
   it("offers manual copy and retry when clipboard permission is denied", async () => {
@@ -68,5 +75,49 @@ describe("ExportScreen failure handling", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("1 external asset dependency is preserved");
     expect(screen.getByRole("status")).toHaveTextContent("README.txt lists every dependency");
+  });
+
+  it("keeps deployment and asset options when the screen remounts (Reveal → fix → Export)", () => {
+    const first = render(<ExportScreen />);
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.change(screen.getByLabelText("Upload base path"), { target: { value: "/kept/path" } });
+    fireEvent.change(screen.getByLabelText("Container ID"), { target: { value: "kept-map" } });
+    first.unmount();
+
+    render(<ExportScreen />);
+    expect(screen.getByRole("checkbox")).not.toBeChecked();
+    expect(screen.getByLabelText("Upload base path")).toHaveValue("/kept/path");
+    expect(screen.getByLabelText("Container ID")).toHaveValue("kept-map");
+    expect(screen.getByText((_, element) => element?.tagName === "PRE")).toHaveTextContent("/kept/path/map.json");
+  });
+
+  it("starts one compression per submit and can cancel it, leaving export available", async () => {
+    let rejectZip: (error: Error) => void = () => {};
+    vi.mocked(exportPackage.zipExportManifest).mockImplementationOnce((_manifest, { signal } = {}) => new Promise((_resolve, reject) => {
+      rejectZip = reject;
+      signal?.addEventListener("abort", () => reject(new exportPackage.ExportCancelledError()));
+    }));
+    render(<ExportScreen />);
+    const download = screen.getByRole("button", { name: "Download ZIP" });
+    fireEvent.click(download);
+    fireEvent.click(download);
+    expect(exportPackage.zipExportManifest).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole("button", { name: "Packaging…" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Export cancelled");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("button", { name: "Download ZIP" })).toBeEnabled();
+    rejectZip(new Error("late failure is ignored"));
+    await Promise.resolve();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("reports a compression worker failure and allows a retry", async () => {
+    vi.mocked(exportPackage.zipExportManifest).mockRejectedValueOnce(new Error("Compression failed: worker crashed"));
+    render(<ExportScreen />);
+    fireEvent.click(screen.getByRole("button", { name: "Download ZIP" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Export failed: Compression failed: worker crashed");
+    expect(screen.getByRole("button", { name: "Download ZIP" })).toBeEnabled();
   });
 });
