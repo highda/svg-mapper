@@ -9,7 +9,7 @@ import {
 describe("createNewProject", () => {
   it("creates a project with one default view", () => {
     const p = createNewProject("Test Map");
-    expect(p.schemaVersion).toBe("1.0.0");
+    expect(p.schemaVersion).toBe("1.1.0");
     expect(p.project.name).toBe("Test Map");
     expect(p.views).toHaveLength(1);
     expect(p.settings.initialViewId).toBe(p.views[0].id);
@@ -179,6 +179,6 @@ describe("toDefinition", () => {
     const p = createNewProject();
     const def = toDefinition(p);
     expect("editor" in def).toBe(false);
-    expect(def.schemaVersion).toBe("1.0.0");
+    expect(def.schemaVersion).toBe("1.1.0");
   });
 });

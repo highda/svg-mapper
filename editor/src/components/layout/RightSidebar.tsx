@@ -24,6 +24,7 @@ import { validateActionUrl } from "../../lib/url-validate";
 import { createAlphaHitMask, MAX_ALPHA_MASK_DIMENSION } from "../../lib/alpha-mask";
 import { colorToHex, isValidCssColor, parseCssColor, withHexColor, withOpacity } from "../../lib/css-color";
 import { validateViewCss } from "../../lib/view-css";
+import { DetailsSettingsSection, PopupPresentationField } from "../details/DetailsInspector";
 
 // ---------------------------------------------------------------------------
 // Shared primitives
@@ -445,6 +446,9 @@ function ViewInspector({ view }: { view: View }) {
         placeholder={'<h3>{{name}}</h3>'}
         className="w-full resize-y rounded border border-neutral-700 bg-neutral-800 px-1.5 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
       />
+
+      <SectionHeader title="Popup details" scope="Project" />
+      <DetailsSettingsSection />
 
       <SectionHeader title="Area labels" scope="Project" />
       <CheckToggle
@@ -1004,6 +1008,7 @@ function PopupContentEditor({
           <option value="right">Right</option>
         </FieldSelect>
       </Row>
+      <PopupPresentationField areaId={areaId} action={action} />
     </div>
   );
 }

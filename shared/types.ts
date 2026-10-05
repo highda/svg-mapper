@@ -133,6 +133,14 @@ export interface GoToViewAction {
 
 export type PopupPosition = "auto" | "top" | "bottom" | "left" | "right";
 
+/**
+ * How popup content is shown (#220): `popover` anchored to the area, `panel`
+ * in the docked details panel (`settings.details`), or `modal` as a centred
+ * dialog with a backdrop.
+ */
+export type DetailsPresentation = "popover" | "panel" | "modal";
+export type DetailsPanelSide = "left" | "right" | "top" | "bottom";
+
 export interface PopupAction {
   type: "popup";
   content: {
@@ -143,7 +151,10 @@ export interface PopupAction {
     linkHref?: string;
     linkLabel?: string;
   };
+  /** Popover placement preference; ignored by the panel and modal presentations. */
   position?: PopupPosition;
+  /** Overrides `settings.details.presentation` for this area. */
+  presentation?: DetailsPresentation;
 }
 
 export interface ToggleLayerAction {
@@ -386,6 +397,31 @@ export interface DirectorySettings {
   categories?: DirectoryCategory[];
 }
 
+/** Author content shown in the details panel while no area's details are open. */
+export interface DetailsDefaultContent {
+  title?: string;
+  /** HTML allowed (sanitised); `{{viewName}}` is replaced with the current view's name. */
+  body?: string;
+}
+
+/** Project-wide presentation of popup content (#220). */
+export interface DetailsSettings {
+  /** Presentation of popup actions without their own. Defaults to "popover". */
+  presentation?: DetailsPresentation;
+  /** Side of the renderer box the details panel docks to. Defaults to "right". */
+  side?: DetailsPanelSide;
+  /** Panel width (left/right) or height (top/bottom): a fraction 0–1 of the box, or a px, %, em or rem length. Defaults to "35%". */
+  size?: number | string;
+  /** Below this renderer width (CSS px) the panel becomes a bottom sheet. Defaults to 560, the compact breakpoint. */
+  sheetBelow?: number;
+  /** Accessible name of the panel region. Defaults to the default content title. */
+  label?: string;
+  /** Shown in the panel while nothing is selected. */
+  defaultContent?: DetailsDefaultContent;
+  /** Keep the panel hidden until an area's details are shown, even with default content. */
+  hideWhenIdle?: boolean;
+}
+
 // ---------------------------------------------------------------------------
 // Project settings
 // ---------------------------------------------------------------------------
@@ -412,6 +448,8 @@ export interface Settings {
   zoomControls?: ZoomControlsSettings;
   /** Optional static visitor directory spanning all visible layers and views. */
   directory?: DirectorySettings;
+  /** Popup presentation default plus the details panel's layout and default content. */
+  details?: DetailsSettings;
   /** Expands the effective viewBox by these amounts (canvas units). */
   padding?: { top: number; right: number; bottom: number; left: number };
 }
@@ -566,11 +604,13 @@ export interface ClickMapAreaSelectEvent {
 export interface ClickMapPopupOpenEvent {
   type: "popup:open";
   popupId: string;
+  presentation: DetailsPresentation;
 }
 
 export interface ClickMapPopupCloseEvent {
   type: "popup:close";
   popupId: string;
+  presentation: DetailsPresentation;
 }
 
 export interface ClickMapErrorEvent {
