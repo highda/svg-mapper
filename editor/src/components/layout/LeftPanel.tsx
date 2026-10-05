@@ -309,8 +309,9 @@ function LayerRow({
         {totalLayers > 1 && (
           <button
             onClick={handleDelete}
-            title="Delete layer"
-            className="text-[10px] text-neutral-700 hover:text-red-400"
+            disabled={layer.locked}
+            title={layer.locked ? "Unlock the layer to delete it" : "Delete layer"}
+            className="text-[10px] text-neutral-700 hover:text-red-400 disabled:opacity-40 disabled:hover:text-neutral-700"
           >
             ✕
           </button>

@@ -157,6 +157,11 @@ export interface AppState {
 
   // ── Validation ─────────────────────────────────────────────────────────────
   revealValidationRef: (ref: ValidationRef) => void;
+
+  // ── Lock feedback (#164) ─────────────────────────────────────────────────
+  /** Why the latest edit skipped or refused locked content; null when nothing was held back. */
+  lockNotice: string | null;
+  clearLockNotice: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -181,6 +186,83 @@ function snapshot(state: AppState): HistorySnapshot {
 function pushHistory(s: AppState): void {
   s.past.push(snapshot(s));
   s.future = [];
+}
+
+// ---------------------------------------------------------------------------
+// Lock policy (#164)
+// ---------------------------------------------------------------------------
+//
+// A locked layer freezes its contents: their geometry, insertion into the
+// layer, deletion, duplication and paint order. A position-locked image
+// (`area.image.locked`) freezes only its own geometry. Locked content stays
+// selectable, so it can be inspected and unlocked, and its non-geometric
+// properties (name, style, action, tooltip, interaction, image settings) stay
+// editable. Every mutation below enforces this itself; disabled controls are
+// only a hint.
+
+type LockableLayer = Pick<Layer, "name" | "locked">;
+type LockableArea = { image?: { locked?: boolean } };
+
+/** True when the area may be moved or resized. */
+export function canEditGeometry(layer: Pick<Layer, "locked">, area: LockableArea): boolean {
+  return !layer.locked && area.image?.locked !== true;
+}
+
+/** True when areas may be added to, removed from, duplicated in or reordered within the layer. */
+export function canEditLayerContents(layer: Pick<Layer, "locked">): boolean {
+  return !layer.locked;
+}
+
+/** Human-readable reason an area's geometry is frozen, or null when it is editable. */
+export function geometryLockReason(layer: LockableLayer, area: LockableArea): string | null {
+  if (layer.locked) return `Layer “${layer.name}” is locked`;
+  if (area.image?.locked) return "Image position is locked";
+  return null;
+}
+
+function skippedNotice(skipped: number, reason: string | null): string {
+  return skipped === 1 && reason
+    ? `${reason}; its geometry was left unchanged.`
+    : `${skipped} locked areas were left unchanged.`;
+}
+
+/**
+ * The layer that new content enters: the selected layer of the view when one
+ * is selected, otherwise the first unlocked layer. A locked target is refused
+ * with a reason instead of silently redirecting the insertion.
+ */
+function insertionLayer<L extends LockableLayer & { id: string }>(
+  layers: L[],
+  selectedLayerId: string | null,
+): { layer: L } | { reason: string } {
+  const selected = selectedLayerId ? layers.find((layer) => layer.id === selectedLayerId) : undefined;
+  if (selected) {
+    return selected.locked ? { reason: `Layer “${selected.name}” is locked. Unlock it or select another layer.` } : { layer: selected };
+  }
+  const open = layers.find((layer) => !layer.locked);
+  return open ? { layer: open } : { reason: "Every layer in this view is locked. Unlock a layer or add a new one." };
+}
+
+/**
+ * Split the requested areas of the active view into geometry-editable drafts
+ * and a count of locked ones. Locked areas keep their geometry untouched.
+ */
+function partitionByGeometryLock(s: AppState, wanted: ReadonlySet<string>) {
+  const editable: Array<AppState["project"]["views"][number]["layers"][number]["areas"][number]> = [];
+  let skipped = 0;
+  let reason: string | null = null;
+  const view = s.project.views.find((candidate) => candidate.id === s.activeViewId);
+  for (const layer of view?.layers ?? []) {
+    for (const area of layer.areas) {
+      if (!wanted.has(area.id)) continue;
+      const why = geometryLockReason(layer, area);
+      if (why) {
+        skipped += 1;
+        reason = why;
+      } else editable.push(area);
+    }
+  }
+  return { editable, skipped, reason };
 }
 
 function ensureDefaultLayer(view: View): View {
@@ -287,6 +369,7 @@ export const useStore = create<AppState>()(
     historyVersion: 0,
     clipboardArea: null,
     canvasSizeSuggestion: null,
+    lockNotice: null,
 
     // ── Project lifecycle ──────────────────────────────────────────────────
 
@@ -305,6 +388,7 @@ export const useStore = create<AppState>()(
         s.historyVersion += 1;
         s.openError = null;
         s.canvasSizeSuggestion = null;
+        s.lockNotice = null;
       });
     },
 
@@ -324,6 +408,7 @@ export const useStore = create<AppState>()(
           s.historyVersion += 1;
           s.openError = null;
           s.canvasSizeSuggestion = null;
+          s.lockNotice = null;
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error parsing file.";
@@ -541,7 +626,13 @@ export const useStore = create<AppState>()(
         const view = s.project.views.find((candidate) => candidate.id === s.activeViewId);
         const asset = s.project.assets.find((candidate) => candidate.id === assetId);
         if (!view || !asset) return;
+        const target = view.layers.length === 0 ? null : insertionLayer(view.layers, s.selectedLayerId);
+        if (target && "reason" in target) {
+          s.lockNotice = `${asset.name} was not placed. ${target.reason}`;
+          return;
+        }
         pushHistory(s);
+        s.lockNotice = null;
         if (view.layers.length === 0)
           view.layers.push({
             id: `layer_${Math.random().toString(36).slice(2, 10)}`,
@@ -551,10 +642,7 @@ export const useStore = create<AppState>()(
             opacity: 1,
             areas: [],
           });
-        const layer =
-          (s.selectedLayerId &&
-            view.layers.find((candidate) => candidate.id === s.selectedLayerId)) ||
-          view.layers[0];
+        const layer = target?.layer ?? view.layers[0];
         const maxWidth = Math.min(view.canvas.width * 0.5, asset.width || 240);
         const ratio = asset.width > 0 ? asset.height / asset.width : 1;
         const width = Math.max(24, maxWidth);
@@ -795,7 +883,13 @@ export const useStore = create<AppState>()(
         if (!loc) return;
         const view = s.project.views[loc.viewIdx];
         if (view.layers.length <= 1) return;
+        const layer = view.layers[loc.layerIdx];
+        if (!canEditLayerContents(layer)) {
+          s.lockNotice = `Layer “${layer.name}” is locked. Unlock it before deleting it.`;
+          return;
+        }
         pushHistory(s);
+        s.lockNotice = null;
         view.layers.splice(loc.layerIdx, 1);
         if (s.selectedLayerId === layerId) s.selectedLayerId = null;
       });
@@ -852,7 +946,13 @@ export const useStore = create<AppState>()(
       set((s) => {
         const view = s.project.views.find((v) => v.id === s.activeViewId);
         if (!view) return;
+        const target = view.layers.length === 0 ? null : insertionLayer(view.layers, s.selectedLayerId);
+        if (target && "reason" in target) {
+          s.lockNotice = `The new area was not added. ${target.reason}`;
+          return;
+        }
         pushHistory(s);
+        s.lockNotice = null;
         if (view.layers.length === 0) {
           view.layers.push({
             id: `layer_${Math.random().toString(36).slice(2, 10)}`,
@@ -863,9 +963,7 @@ export const useStore = create<AppState>()(
             areas: [],
           });
         }
-        const targetLayer =
-          (s.selectedLayerId && view.layers.find((l) => l.id === s.selectedLayerId)) ||
-          view.layers[0];
+        const targetLayer = target?.layer ?? view.layers[0];
         targetLayer.areas.push(area);
         s.selectedAreaId = area.id;
         s.selectedAreaIds = [area.id];
@@ -877,9 +975,16 @@ export const useStore = create<AppState>()(
     moveArea(areaId: string, dx: number, dy: number) {
       set((s) => {
         const loc = findAreaLocation(s.project.views as unknown as View[], areaId);
-        if (!loc) return;
+        if (!loc || (!dx && !dy)) return;
+        const layer = s.project.views[loc.viewIdx].layers[loc.layerIdx];
+        const area = layer.areas[loc.areaIdx];
+        const reason = geometryLockReason(layer, area);
+        if (reason) {
+          s.lockNotice = skippedNotice(1, reason);
+          return;
+        }
         pushHistory(s);
-        const area = s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx];
+        s.lockNotice = null;
         area.geometry = moveGeometry(
           area.geometry as Area["geometry"],
           dx,
@@ -892,9 +997,9 @@ export const useStore = create<AppState>()(
       set((s) => {
         if ((!dx && !dy) || areaIds.length === 0) return;
         const wanted = new Set(areaIds);
-        const movable = s.project.views.filter((view) => view.id === s.activeViewId).flatMap((view) => view.layers.flatMap((layer) =>
-          layer.locked ? [] : layer.areas.filter((area) => wanted.has(area.id) && area.geometry.type !== "path"),
-        ));
+        const { editable, skipped, reason } = partitionByGeometryLock(s, wanted);
+        const movable = editable.filter((area) => area.geometry.type !== "path");
+        s.lockNotice = skipped > 0 ? skippedNotice(skipped, reason) : null;
         if (movable.length === 0) return;
         pushHistory(s);
         for (const area of movable) {
@@ -906,12 +1011,12 @@ export const useStore = create<AppState>()(
     alignAreas(areaIds, alignment) {
       set((s) => {
         const wanted = new Set(areaIds);
-        const entries = s.project.views.filter((view) => view.id === s.activeViewId).flatMap((view) => view.layers.flatMap((layer) =>
-          layer.locked ? [] : layer.areas.flatMap((area) => {
-            const bounds = wanted.has(area.id) ? getGeometryBbox(area.geometry as Area["geometry"]) : null;
-            return bounds && area.geometry.type !== "path" ? [{ area, bounds }] : [];
-          }),
-        ));
+        const { editable, skipped, reason } = partitionByGeometryLock(s, wanted);
+        const entries = editable.flatMap((area) => {
+          const bounds = getGeometryBbox(area.geometry as Area["geometry"]);
+          return bounds && area.geometry.type !== "path" ? [{ area, bounds }] : [];
+        });
+        s.lockNotice = skipped > 0 ? skippedNotice(skipped, reason) : null;
         if (entries.length < 2) return;
         const horizontal = alignment === "left" || alignment === "center" || alignment === "right";
         const primary = entries.find(({ area }) => area.id === s.selectedAreaId) ?? entries[0]!;
@@ -934,12 +1039,12 @@ export const useStore = create<AppState>()(
       set((s) => {
         const wanted = new Set(areaIds);
         const horizontal = axis === "horizontal";
-        const entries = s.project.views.filter((view) => view.id === s.activeViewId).flatMap((view) => view.layers.flatMap((layer) =>
-          layer.locked ? [] : layer.areas.flatMap((area) => {
-            const bounds = wanted.has(area.id) ? getGeometryBbox(area.geometry as Area["geometry"]) : null;
-            return bounds && area.geometry.type !== "path" ? [{ area, bounds }] : [];
-          }),
-        )).sort((a, b) => (horizontal ? a.bounds.x + a.bounds.width / 2 : a.bounds.y + a.bounds.height / 2)
+        const { editable, skipped, reason } = partitionByGeometryLock(s, wanted);
+        s.lockNotice = skipped > 0 ? skippedNotice(skipped, reason) : null;
+        const entries = editable.flatMap((area) => {
+          const bounds = getGeometryBbox(area.geometry as Area["geometry"]);
+          return bounds && area.geometry.type !== "path" ? [{ area, bounds }] : [];
+        }).sort((a, b) => (horizontal ? a.bounds.x + a.bounds.width / 2 : a.bounds.y + a.bounds.height / 2)
           - (horizontal ? b.bounds.x + b.bounds.width / 2 : b.bounds.y + b.bounds.height / 2));
         if (entries.length < 3) return;
         const first = entries[0]!, last = entries.at(-1)!;
@@ -958,10 +1063,17 @@ export const useStore = create<AppState>()(
       set((s) => {
         const loc = findAreaLocation(s.project.views as unknown as View[], areaId);
         if (!loc) return;
-        const area = s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx];
+        const layer = s.project.views[loc.viewIdx].layers[loc.layerIdx];
+        const area = layer.areas[loc.areaIdx];
         // A click on a handle without movement is not an edit.
         if (JSON.stringify(current(area.geometry)) === JSON.stringify(geometry)) return;
+        const reason = geometryLockReason(layer, area);
+        if (reason) {
+          s.lockNotice = skippedNotice(1, reason);
+          return;
+        }
         pushHistory(s);
+        s.lockNotice = null;
         area.geometry = geometry as typeof area.geometry;
       });
     },
@@ -1113,8 +1225,14 @@ export const useStore = create<AppState>()(
       set((s) => {
         const loc = findAreaLocation(s.project.views as unknown as View[], areaId);
         if (!loc) return;
+        const layer = s.project.views[loc.viewIdx].layers[loc.layerIdx];
+        if (!canEditLayerContents(layer)) {
+          s.lockNotice = `Layer “${layer.name}” is locked; ${layer.areas[loc.areaIdx]!.name} was not deleted.`;
+          return;
+        }
         pushHistory(s);
-        s.project.views[loc.viewIdx].layers[loc.layerIdx].areas.splice(loc.areaIdx, 1);
+        s.lockNotice = null;
+        layer.areas.splice(loc.areaIdx, 1);
         s.selectedAreaIds = s.selectedAreaIds.filter((id) => id !== areaId);
         if (s.selectedAreaId === areaId) s.selectedAreaId = s.selectedAreaIds.at(-1) ?? null;
       });
@@ -1124,7 +1242,13 @@ export const useStore = create<AppState>()(
       set((s) => {
         const loc = findAreaLocation(s.project.views as unknown as View[], areaId);
         if (!loc) return;
-        const original = s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx];
+        const layer = s.project.views[loc.viewIdx].layers[loc.layerIdx];
+        const original = layer.areas[loc.areaIdx];
+        if (!canEditLayerContents(layer)) {
+          s.lockNotice = `Layer “${layer.name}” is locked; ${original.name} was not duplicated.`;
+          return;
+        }
+        s.lockNotice = null;
         const duped: typeof original = {
           ...original,
           id: `area_${Math.random().toString(36).slice(2, 10)}`,
@@ -1154,6 +1278,11 @@ export const useStore = create<AppState>()(
         const targets = s.project.views.flatMap((view, viewIdx) => view.layers.flatMap((layer, layerIdx) =>
           layer.locked ? [] : layer.areas.flatMap((area, areaIdx) => wanted.has(area.id) ? [{ viewIdx, layerIdx, areaIdx }] : []),
         ));
+        const skipped = s.project.views.reduce((count, view) => count + view.layers.reduce((inner, layer) =>
+          inner + (layer.locked ? layer.areas.filter((area) => wanted.has(area.id)).length : 0), 0), 0);
+        s.lockNotice = skipped > 0
+          ? `${skipped} area${skipped === 1 ? " in a locked layer was" : "s in locked layers were"} not duplicated.`
+          : null;
         if (targets.length === 0) return;
         pushHistory(s);
         for (const target of targets.sort((a, b) => b.areaIdx - a.areaIdx)) {
@@ -1181,7 +1310,12 @@ export const useStore = create<AppState>()(
       set((s) => {
         const loc = findAreaLocation(s.project.views as unknown as View[], areaId);
         if (!loc) return;
-        const areas = s.project.views[loc.viewIdx].layers[loc.layerIdx].areas;
+        const layer = s.project.views[loc.viewIdx].layers[loc.layerIdx];
+        if (!canEditLayerContents(layer)) {
+          s.lockNotice = `Layer “${layer.name}” is locked; paint order was left unchanged.`;
+          return;
+        }
+        const areas = layer.areas;
         const next = loc.areaIdx + direction;
         if (next < 0 || next >= areas.length) return;
         pushHistory(s);
@@ -1258,8 +1392,14 @@ export const useStore = create<AppState>()(
         if (viewIdx === -1) return;
         const layers = s.project.views[viewIdx].layers;
         if (layers.length === 0) return;
+        const target = insertionLayer(layers, s.selectedLayerId);
+        if ("reason" in target) {
+          s.lockNotice = `${original.name} was not pasted. ${target.reason}`;
+          return;
+        }
         pushHistory(s);
-        layers[0].areas.push(pasted as (typeof layers)[0]["areas"][0]);
+        s.lockNotice = null;
+        target.layer.areas.push(pasted as (typeof layers)[0]["areas"][0]);
         s.selectedAreaId = pasted.id;
         s.selectedAreaIds = [pasted.id];
         s.selectedLayerId = null;
@@ -1314,6 +1454,12 @@ export const useStore = create<AppState>()(
     dismissCanvasSizeSuggestion() {
       set((s) => {
         s.canvasSizeSuggestion = null;
+      });
+    },
+
+    clearLockNotice() {
+      set((s) => {
+        s.lockNotice = null;
       });
     },
 
