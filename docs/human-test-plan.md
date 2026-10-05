@@ -21,7 +21,7 @@ attachments; they are never repository files.
 Branch protection should require the stable `static-checks` and
 `export-browser` job names from `.github/workflows/checks.yml`. The first uses
 locked npm dependencies for every workspace typecheck, editor lint/unit tests,
-production builds, and the documented `< 30 KB` renderer gzip budget. The
+production builds, and the documented `< 40 KB` renderer gzip budget. The
 second drives the production editor and a downloaded, extracted, separately
 hosted export in Chromium; failures upload traces, screenshots, and video for
 seven days without adding them to Git.

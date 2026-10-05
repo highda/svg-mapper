@@ -382,7 +382,8 @@ describe("generateExportPackage", () => {
     ];
 
     const files = unzipSync(generateExportPackage(toDefinition(project), STUB_JS, STUB_CSS, { inlineAssets: false }).zip);
-    expect(strFromU8(files["assets/marker.svg"]!)).toBe("<svg></svg>");
+    // SVG bytes pass the shared sanitizer, which serializes a namespaced root (#167).
+    expect(strFromU8(files["assets/marker.svg"]!)).toBe('<svg xmlns="http://www.w3.org/2000/svg"/>');
     expect(strFromU8(files["assets/photo.jpg"]!)).toBe("Hi");
     expect(strFromU8(files["assets/photo.webp"]!)).toBe("Webp");
   });

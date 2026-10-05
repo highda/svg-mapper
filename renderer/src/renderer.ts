@@ -12,6 +12,7 @@ import type {
 } from "../../shared/types.js";
 import { scopeViewCss, validateViewCss } from "../../shared/view-css.js";
 import { validateActionUrl } from "../../shared/validation.js";
+import { sanitizeRichHtml } from "../../shared/sanitize.js";
 import { resolveSizingMode } from "../../shared/sizing.js";
 import { assetDisplaySource, fitImageRect, geometryBounds, markerPathData } from "../../shared/scene-geometry.js";
 import { Emitter } from "./emitter.js";
@@ -58,29 +59,6 @@ function svgBBox(el: Element): { x: number; y: number; width: number; height: nu
 
 function escId(id: string): string {
   return CSS.escape(id);
-}
-
-// ---------------------------------------------------------------------------
-// HTML sanitiser (strips script tags and event-handler attributes)
-// ---------------------------------------------------------------------------
-
-function sanitiseHtml(raw: string): string {
-  const div = document.createElement("div");
-  div.innerHTML = raw;
-  // Remove <script> tags and elements with event handlers
-  div.querySelectorAll("script,iframe,object,embed").forEach((el) => el.remove());
-  div.querySelectorAll("*").forEach((el) => {
-    for (const attr of Array.from(el.attributes)) {
-      if (/^on/i.test(attr.name)) el.removeAttribute(attr.name);
-      if (
-        ["href", "src", "xlink:href", "action", "formaction", "poster"].includes(attr.name.toLowerCase()) &&
-        !validateActionUrl(attr.value).valid
-      ) {
-        el.removeAttribute(attr.name);
-      }
-    }
-  });
-  return div.innerHTML;
 }
 
 // ---------------------------------------------------------------------------
@@ -1613,8 +1591,8 @@ class Renderer implements ClickMapInstance {
     }
     if (body) {
       const p = document.createElement("p");
-      // Body is HTML — sanitise before inserting
-      p.innerHTML = sanitiseHtml(body);
+      // Body is untrusted HTML: insert the sanitized fragment, never a re-parsed string.
+      p.append(sanitizeRichHtml(body, p.ownerDocument));
       this.tooltipEl.appendChild(p);
     }
     this.tooltipEl.setAttribute("aria-hidden", "false");
@@ -1713,7 +1691,7 @@ class Renderer implements ClickMapInstance {
 
     if (templatedBody !== null || content.body) {
       const p = document.createElement("div");
-      p.innerHTML = sanitiseHtml(templatedBody ?? content.body ?? "");
+      p.append(sanitizeRichHtml(templatedBody ?? content.body ?? "", p.ownerDocument));
       p.style.fontSize = "12px";
       bodyEl.appendChild(p);
     }

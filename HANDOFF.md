@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #167 — fix(security): replace markup blocklists with maintained sanitization
+Branch:       claude/kind-albattani-vjpp90
+Started:      2026-10-05
+Last commit:  (claim)
+
+### What's done
+- Claimed #167 (selected by scripts/select-task.mjs).
+
+### What's next
+- DOMPurify HTML/SVG profiles behind shared adapters; sanitize at renderer insertion, SVG import and export boundaries; measure renderer gzip size.
+
+### Notes / gotchas
+- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/167-*`.
 
 ---
 
