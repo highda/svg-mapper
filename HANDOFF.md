@@ -4,8 +4,20 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #168 — fix(security): replace ad hoc CSS scoping with parsed rules
+Branch:       claude/kind-albattani-vjpp90
+Started:      2026-10-05
+Last commit:  (claim)
+
+### What's done
+- Claimed #168 (selected by scripts/select-task.mjs).
+
+### What's next
+- Measure a parser-based scoper (css-tree modular) against the 40 KB renderer budget; scope selectors/keyframes via AST; shared validate/transform for inspector, export and renderer.
+
+### Notes / gotchas
+- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/168-*`.
+- Renderer is at 36.6 KB of 40 KB after DOMPurify (#167).
 
 ---
 

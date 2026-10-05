@@ -3,6 +3,7 @@
 // Lives in /shared so the editor and the test suite share one implementation.
 
 import type { ClickMapDefinition, Geometry, View } from "./types.js";
+import { validateViewCss } from "./view-css.js";
 
 export type Severity = "error" | "warning";
 
@@ -228,6 +229,14 @@ export function validateProject(project: ClickMapDefinition): ValidationResult[]
   });
   for (const [id, count] of seen) {
     if (count > 1) err("DUPLICATE_ID", `Duplicate id "${id}" used ${count} times.`);
+  }
+
+  // Same parser and rules as the renderer, so Export cannot call CSS ready that the map would drop (#168).
+  if (typeof document !== "undefined") {
+    for (const view of views) {
+      const cssError = view.customCss?.trim() ? validateViewCss(view.customCss) : null;
+      if (cssError) err("INVALID_VIEW_CSS", `View "${view.name}" custom CSS: ${cssError}`, { viewId: view.id });
+    }
   }
 
   for (const view of views) {
