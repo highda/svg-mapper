@@ -1,6 +1,6 @@
 # Data model
 
-`map.json` (`ClickMapDefinition`) is the contract between the builder and the renderer, and what anyone must produce to use the renderer without the builder: by hand, from a script, or from a CMS ([guide](renderer-standalone.md)). The current `schemaVersion` is `"1.0.0"`.
+`map.json` (`ClickMapDefinition`) is the contract between the builder and the renderer, and what anyone must produce to use the renderer without the builder: by hand, from a script, or from a CMS ([guide](renderer-standalone.md)). The current `schemaVersion` is `"1.1.0"`.
 
 One structural schema, the Valibot schema in [`shared/schema.ts`](../shared/schema.ts), is the source of all three machine-readable forms of the contract:
 
@@ -15,7 +15,7 @@ The release renderer ZIP ships the JSON Schema as `clickmap-definition.schema.js
 `schemaVersion` is `MAJOR.MINOR.PATCH`:
 
 - A **major** change is breaking: an existing field changes meaning or type, or a field becomes required. A renderer or editor reads exactly one major version, currently `1`.
-- **Minor** and **patch** changes are additive: new optional fields or values that older readers may ignore. Any `1.x.y` is accepted. This release writes `1.0.0`.
+- **Minor** and **patch** changes are additive: new optional fields or values that older readers may ignore. Any `1.x.y` is accepted. This release writes `1.1.0`; 1.1 added `settings.details` and the popup action's `presentation`, which 1.0 readers ignore (their popups stay popovers).
 
 A file whose `schemaVersion` is a well-formed version with another major is refused before anything is mounted:
 
@@ -77,9 +77,43 @@ When opening JSON, the editor decodes the complete structure before replacing th
 
 Required settings are `initialViewId`, `responsive`, `maintainAspectRatio`, `theme`, `enableHistory`, and `enableKeyboardNavigation`. New files also write `sizingMode`; the legacy booleans remain readable for schema 1.0 compatibility.
 
-Optional settings include `contentTemplate` (sanitized HTML with `{{name}}`, `{{id}}`, `{{viewName}}`, or `{{metadata.key}}`), `areaLabels`, `sceneSwitcher`, `zoomControls`, `directory`, and canvas-unit `padding`. Zoom controls can set their corner, fractional `step`, reset target (`initial` or fitted minimum), and `wheelMode` (`off`, a required modifier, or `always`). Wheel zoom defaults to off so an embedded map does not capture page scrolling.
+Optional settings include `contentTemplate` (sanitized HTML with `{{name}}`, `{{id}}`, `{{viewName}}`, or `{{metadata.key}}`), `areaLabels`, `sceneSwitcher`, `zoomControls`, `directory`, `details`, and canvas-unit `padding`. Zoom controls can set their corner, fractional `step`, reset target (`initial` or fitted minimum), and `wheelMode` (`off`, a required modifier, or `always`). Wheel zoom defaults to off so an embedded map does not capture page scrolling.
 
 `directory` opts the published map into a static, cross-view place finder. `metadataKeys` chooses fields searched alongside every area name. `categoryKey` and `categories: [{ value, label }]` expose an author-curated filter legend with visible text labels. Areas on hidden layers are excluded, using effective runtime visibility after `toggleLayer` actions. Disabled areas remain listed as unavailable but cannot be selected. A selected result changes views if needed, fits the area's bounds into the camera, and focuses its SVG control. All indexing and filtering happens in the browser and remains offline-capable.
+
+`details` sets how popup actions show their content and lays out the details panel ([Details presentations](#details-presentations)).
+
+### Details presentations
+
+A popup action's content can be shown three ways. The action's own `presentation` wins; otherwise `settings.details.presentation` applies; otherwise `popover`.
+
+| `presentation` | Shows the content |
+| --- | --- |
+| `popover` | Anchored next to the area, as before (`position` picks the preferred side). |
+| `panel` | In a details panel docked to one side of the renderer box. |
+| `modal` | In a centred dialog over the whole page, with a backdrop. Browsers without native `<dialog>` (Firefox 97) show a popover instead. |
+
+`settings.details` fields, all optional:
+
+| Field | Meaning |
+| --- | --- |
+| `presentation` | Default for popup actions without their own: `popover` (default), `panel`, or `modal`. |
+| `side` | `left`, `right` (default), `top`, or `bottom`. |
+| `size` | Panel width (left/right) or height (top/bottom): a fraction `0 < f ≤ 1` of the renderer box, or a `px`, `%`, `em`, or `rem` length string. Viewport units are rejected. Default `"35%"`. |
+| `sheetBelow` | Renderer width in CSS px below which the panel becomes a bottom sheet. Default `560`, the compact breakpoint. |
+| `defaultContent` | `{ title?, body? }` shown in the panel while nothing is selected. `body` is sanitized HTML; `{{viewName}}` is replaced with the current view's name. |
+| `hideWhenIdle` | When `true`, the panel stays hidden until an area's details are shown, even with default content. |
+| `label` | Accessible name of the panel while it shows untitled default content. Default: `"Details"`. |
+
+Content templates (`contentTemplate`) drive panel and modal content exactly as they drive popovers, so one template can serve every area.
+
+Panel layout rules. Everything is measured on the renderer box, never the window:
+
+- **Docked (renderer at least `sheetBelow` wide).** The panel takes `size` of the box on its side and the map takes the rest. In `fixed` and `fill-container` the panel shares the box, so the map gets smaller. In `fluid-width` a left or right panel sits beside the map: the map keeps its aspect ratio in the remaining width and the panel matches the map's height. A top or bottom panel in `fluid-width` stacks above or below the map. It has a fixed height when `size` is an absolute length, and otherwise grows with its content.
+- **Sheet (narrower than `sheetBelow`, width only).** In `fixed` and `fill-container` the panel becomes a bottom sheet over the lower part of the map, at most half its height, and scrolls inside. In `fluid-width`, which owns its height, it stacks below the map at its content height instead of covering it.
+- Visitor controls stay on the map, beside a docked panel and above a sheet. The panel is only built when the default or some area uses it, so other maps are unchanged.
+
+The panel follows the selection: it shows the selected area's content, swaps content when another area is selected, and returns to the default content (or hides) when the selection is cleared. Closing the panel clears the selection.
 
 ### Container sizing
 
@@ -125,7 +159,7 @@ A `path` area's `d` uses the full SVG path grammar (`M`, `L`, `H`, `V`, `C`, `S`
 
 Each `style` contains `default`, `hover`, and `active` states, plus optional `disabled`. `active` is the selected state: the renderer paints it on the area a visitor last activated (pointer, Enter/Space, the place directory, or an area deep link) until the selection is cleared, and it wins over `hover`. Only `disabled` outranks it. New areas get an `active` style distinct from `hover`. A state is `{ fill, stroke, strokeWidth }`; colors are CSS color strings.
 
-Actions are `none`; `url` with `href` and target; `goToView` with a target ID and optional transition; `popup` with inline content and position; `toggleLayer` with a layer ID in the area's view; or `customEvent` with a non-empty event name and optional JSON-object payload. Runtime layer visibility begins from the authored `visible` value, survives leaving and re-entering a view, and returns to authored values when the renderer is reset. Hidden layers are removed from pointer and keyboard interaction.
+Actions are `none`; `url` with `href` and target; `goToView` with a target ID and optional transition; `popup` with inline content, popover position, and optional `presentation` (see [Details presentations](#details-presentations)); `toggleLayer` with a layer ID in the area's view; or `customEvent` with a non-empty event name and optional JSON-object payload. Runtime layer visibility begins from the authored `visible` value, survives leaving and re-entering a view, and returns to authored values when the renderer is reset. Hidden layers are removed from pointer and keyboard interaction.
 
 ## Minimal example
 

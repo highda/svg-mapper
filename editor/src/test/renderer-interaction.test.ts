@@ -769,6 +769,157 @@ describe("renderer interaction model", () => {
     expect(camera.mock.calls[0]?.[0].viewBox).toEqual(expect.objectContaining({ width: expect.any(Number) }));
   });
 
+  describe("drag pan (#215)", () => {
+    type Svg = SVGSVGElement & { getScreenCTM: () => DOMMatrix };
+    const press = (target: EventTarget, type: string, x: number, y: number, init: PointerEventInit = {}) =>
+      target.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, button: 0, pointerId: 1, pointerType: "mouse", clientX: x, clientY: y, ...init }));
+    const click = (target: EventTarget) => target.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 }));
+
+    function mountZoomed(panEnabled = true, initialZoom = 2) {
+      const project = createNewProject();
+      const area = createRectArea(700, 400, 200, 100);
+      project.views[0].layers = [{ id: "layer_1", name: "Layer 1", visible: true, locked: false, opacity: 1, areas: [area] }];
+      project.views[0].viewport = { ...project.views[0].viewport, panEnabled, zoomEnabled: true, minZoom: 1, maxZoom: 4, initialZoom };
+      const instance = create({ container: "#map", definition: toDefinition(project) });
+      const svg = document.querySelector(".clickmap-areas") as Svg;
+      // Half a screen pixel per SVG unit, as a letterboxed or scaled host would report.
+      svg.getScreenCTM = () => ({ a: 0.5 }) as DOMMatrix;
+      const camera = vi.fn();
+      const clicks = vi.fn();
+      instance.on("camera:change", camera);
+      instance.on("area:click", clicks);
+      return { svg, el: areaElement(area.id), camera, clicks };
+    }
+
+    it("treats a press under the threshold as a click and a longer drag as a pan", () => {
+      const { svg, el, camera, clicks } = mountZoomed();
+      expect(svg).toHaveAttribute("viewBox", "400 225 800 450");
+      expect(document.querySelector(".clickmap-root")).toHaveClass("clickmap-root--pannable");
+
+      press(el, "pointerdown", 100, 100);
+      press(window, "pointermove", 102, 101);
+      press(el, "pointerup", 102, 101);
+      click(el);
+      expect(camera).not.toHaveBeenCalled();
+      expect(clicks).toHaveBeenCalledOnce();
+
+      const outside = vi.fn();
+      document.addEventListener("click", outside);
+      press(el, "pointerdown", 100, 100);
+      press(window, "pointermove", 110, 105);
+      expect(document.querySelector(".clickmap-root")).toHaveClass("clickmap-root--panning");
+      // Screen deltas convert through the screen transform: 10px is 20 SVG units.
+      expect(svg).toHaveAttribute("viewBox", "380 215 800 450");
+      expect(camera).toHaveBeenLastCalledWith(expect.objectContaining({ reason: "pan", viewBox: { x: 380, y: 215, width: 800, height: 450 } }));
+      press(svg, "pointerup", 110, 105);
+      click(svg);
+      expect(clicks).toHaveBeenCalledOnce();
+      expect(outside).not.toHaveBeenCalled();
+      expect(document.querySelector(".clickmap-root")).not.toHaveClass("clickmap-root--panning");
+
+      // The next press starts fresh, so a later short click activates again.
+      press(el, "pointerdown", 100, 100);
+      press(el, "pointerup", 100, 100);
+      click(el);
+      expect(clicks).toHaveBeenCalledTimes(2);
+      document.removeEventListener("click", outside);
+    });
+
+    it("clamps the camera to the canvas and pans by arrow keys only on the focused map", () => {
+      const { svg, el, camera } = mountZoomed();
+      press(svg, "pointerdown", 0, 0);
+      press(window, "pointermove", 5000, 5000);
+      expect(svg).toHaveAttribute("viewBox", "0 0 800 450");
+      press(window, "pointermove", -5000, -5000);
+      expect(svg).toHaveAttribute("viewBox", "800 450 800 450");
+      press(window, "pointerup", -5000, -5000);
+      camera.mockClear();
+      // Already at the edge: no camera change.
+      press(svg, "pointerdown", 0, 0);
+      press(window, "pointermove", -50, -50);
+      expect(camera).not.toHaveBeenCalled();
+      press(window, "pointerup", -50, -50);
+
+      expect(svg).toHaveAttribute("tabindex", "0");
+      svg.focus();
+      svg.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true, cancelable: true }));
+      expect(svg).toHaveAttribute("viewBox", "720 450 800 450");
+      svg.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true, cancelable: true }));
+      expect(svg).toHaveAttribute("viewBox", "720 405 800 450");
+      // A focused area keeps its own keys.
+      const arrow = new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true });
+      el.dispatchEvent(arrow);
+      expect(arrow.defaultPrevented).toBe(false);
+      expect(svg).toHaveAttribute("viewBox", "720 405 800 450");
+    });
+
+    it("keeps letterboxed hosts inside the canvas and centres an axis that fits", () => {
+      const { svg } = mountZoomed();
+      vi.spyOn(svg, "getBoundingClientRect").mockReturnValue({
+        x: 0, y: 0, left: 0, top: 0, right: 800, bottom: 800, width: 800, height: 800, toJSON: () => ({}),
+      });
+      // 800 SVG units fit 800px, so 800 units of height show: y may only span 0..100 (+175 band).
+      press(svg, "pointerdown", 0, 0);
+      press(window, "pointermove", 0, 5000);
+      expect(svg).toHaveAttribute("viewBox", "400 175 800 450");
+      press(window, "pointerup", 0, 5000);
+
+      // A short tall host is wider than the canvas vertically: that axis stays centred.
+      vi.spyOn(svg, "getBoundingClientRect").mockReturnValue({
+        x: 0, y: 0, left: 0, top: 0, right: 400, bottom: 800, width: 400, height: 800, toJSON: () => ({}),
+      });
+      press(svg, "pointerdown", 0, 0);
+      press(window, "pointermove", 0, -5000);
+      expect(svg).toHaveAttribute("viewBox", "400 225 800 450");
+      press(window, "pointerup", 0, -5000);
+    });
+
+    it("ends a pan on pointer cancel or lost capture without suppressing the next click", () => {
+      const { svg, el, clicks } = mountZoomed();
+      press(el, "pointerdown", 100, 100);
+      press(window, "pointermove", 120, 100);
+      press(window, "pointercancel", 120, 100);
+      press(window, "pointermove", 200, 100);
+      expect(svg).toHaveAttribute("viewBox", "360 225 800 450");
+      expect(document.querySelector(".clickmap-root")).not.toHaveClass("clickmap-root--panning");
+      click(el);
+      expect(clicks).toHaveBeenCalledOnce();
+
+      press(el, "pointerdown", 100, 100);
+      press(window, "pointermove", 120, 100);
+      svg.dispatchEvent(new PointerEvent("lostpointercapture", { pointerId: 1 }));
+      press(window, "pointermove", 200, 100);
+      expect(svg).toHaveAttribute("viewBox", "320 225 800 450");
+    });
+
+    it("does nothing when not zoomed in, pan is disabled, or the input is touch or a secondary button", () => {
+      for (const [panEnabled, zoom] of [[true, 1], [false, 2]] as const) {
+        document.body.innerHTML = '<div id="map"></div>';
+        const { svg, el, camera, clicks } = mountZoomed(panEnabled, zoom);
+        const before = svg.getAttribute("viewBox");
+        expect(svg).not.toHaveAttribute("tabindex");
+        expect(svg).toHaveAttribute("role", "presentation");
+        const down = new PointerEvent("pointerdown", { bubbles: true, cancelable: true, button: 0, pointerId: 1, pointerType: "mouse", clientX: 100, clientY: 100 });
+        el.dispatchEvent(down);
+        expect(down.defaultPrevented).toBe(false);
+        press(window, "pointermove", 300, 300);
+        press(el, "pointerup", 300, 300);
+        click(el);
+        expect(svg.getAttribute("viewBox")).toBe(before);
+        expect(camera).not.toHaveBeenCalled();
+        expect(clicks).toHaveBeenCalledOnce();
+      }
+      document.body.innerHTML = '<div id="map"></div>';
+      const { svg } = mountZoomed();
+      for (const init of [{ pointerType: "touch" }, { button: 2 }]) {
+        press(svg, "pointerdown", 100, 100, init);
+        press(window, "pointermove", 300, 300, init);
+        expect(svg).toHaveAttribute("viewBox", "400 225 800 450");
+        press(window, "pointerup", 300, 300, init);
+      }
+    });
+  });
+
   it("owns browser history per instance while preserving host state", () => {
     vi.useFakeTimers();
     document.body.innerHTML = '<div id="map-a"></div><div id="map-b"></div>';
