@@ -42,6 +42,26 @@
   overflow: visible;
 }
 
+/* Pan (#215): grab over a zoomed, pannable map; grabbing (everywhere) while dragging. */
+.clickmap-root--pannable .clickmap-areas {
+  cursor: grab;
+}
+
+.clickmap-root--panning,
+.clickmap-root--panning * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+.clickmap-areas:focus-visible {
+  outline: 2px solid #005fcc;
+  outline-offset: -2px;
+}
+
+.clickmap-areas:focus:not(:focus-visible) {
+  outline: none;
+}
+
 /* Area shapes — focus style */
 .clickmap-areas [data-area-id]:focus {
   outline: 2px solid #005fcc;
