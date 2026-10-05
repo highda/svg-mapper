@@ -231,13 +231,13 @@ test("editor, Preview and the exported renderer agree on path geometry", async (
     expectSameGeometry(published, moved, "Exported renderer");
     await expectPopoverAnchored(page, publishedShapes.first(), page.locator(".clickmap-popover"));
 
-    // The place directory reveals a path by its bounds: the camera centres the
-    // ridge (x 480–680) horizontally.
+    // The place directory reveals a path by its bounds: the camera zooms in
+    // and keeps the whole ridge (480–680 × 80–260) in view.
     await page.locator(".clickmap-directory-result", { hasText: "Ridge" }).click();
     await expect.poll(async () => {
-      const [x, , width] = ((await page.locator(".clickmap-areas").getAttribute("viewBox")) ?? "").split(" ").map(Number);
-      return Math.round(x! + width! / 2);
-    }).toBe(580);
+      const [x, y, width, height] = ((await page.locator(".clickmap-areas").getAttribute("viewBox")) ?? "").split(" ").map(Number);
+      return width! < 800 && x! <= 480 && x! + width! >= 680 && y! <= 80 && y! + height! >= 260;
+    }).toBe(true);
     await expect(publishedShapes.nth(1)).toBeFocused();
   } finally {
     await hosted.close();
