@@ -20,6 +20,10 @@ The export supplies a dependency-free browser script. Loading it creates the glo
 
 `container` accepts a CSS selector or `HTMLElement`. Its CSS requirement depends on `settings.sizingMode`: `fixed` needs enough room for the canvas pixel size, `fluid-width` needs a nonzero width and derives height from the canvas ratio, and `fill-container` needs explicit nonzero width and height. See the data-model sizing truth table. Initialization in a zero-size container is supported; the renderer remains mounted until a later resize.
 
+## Architecture boundary
+
+The renderer is a standalone runtime. `renderer/src/` depends only on `shared/` and on allowlisted runtime packages compiled into the bundle; it never imports editor code. The editor is an optional authoring tool that consumes the renderer only as its built files (`renderer/dist/*?raw`); editor tests may still import `renderer/src`. The package allowlist lives in `scripts/dependency-allowlist.json` (policy: ASSIGNMENT §2.6), and `scripts/check-boundaries.mjs` enforces these rules, including the esbuild metafile inputs of `clickmap-renderer.js`, in CI.
+
 ## Options
 
 | Option | Purpose |

@@ -97,6 +97,7 @@ Libraries are allowed in both the editor and the renderer when they replace frag
 - **License:** permissive licenses only (MIT, ISC, BSD, Apache-2.0, or similar). Record any non-trivial new runtime dependency in the PR description.
 - **Maintenance:** prefer actively maintained packages with a small API. Upgrades go through normal PRs with passing checks. Security fixes take priority over other work.
 - The renderer must still load from a plain `<script>` tag. Bundled libraries are compiled into `clickmap-renderer.js`, not loaded from a CDN at runtime.
+- **Allowlist:** runtime packages that `/shared` and `/renderer` may import are listed in [`scripts/dependency-allowlist.json`](./scripts/dependency-allowlist.json); currently `dompurify` and `valibot` for `/shared`, and `@floating-ui/*` for `/renderer`. The renderer bundle may contain only the union of the two. CI (`scripts/check-boundaries.mjs`) fails on anything else, on `/shared` or `/renderer` importing editor code, and on editor production code importing `renderer/src` instead of `renderer/dist`. A PR that adds a runtime library updates the allowlist, and this line, deliberately.
 
 ---
 
