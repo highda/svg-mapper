@@ -1,10 +1,15 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "../App";
 import { createNewProject } from "../lib/project";
 import { useStore } from "../store";
 import { createRectArea } from "../lib/area-utils";
+
+/** Below the 1024 px authoring floor: no docked panels. */
+function narrowViewport() {
+  vi.stubGlobal("matchMedia", (query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} }));
+}
 
 describe("primary editor navigation", () => {
   beforeEach(() => {
@@ -19,6 +24,7 @@ describe("primary editor navigation", () => {
       future: [],
     });
   });
+  afterEach(() => vi.unstubAllGlobals());
 
   it("opens the hierarchy workspace from the Tree tab", () => {
     render(<App />);
@@ -44,6 +50,11 @@ describe("primary editor navigation", () => {
     useStore.getState().setScreen("tree");
     render(<App />);
 
+    // Row actions live in the selected-area controls, not in every row.
+    expect(screen.queryByRole("combobox", { name: "Move Reception to layer" })).toBeNull();
+    fireEvent.click(screen.getByRole("treeitem", { name: /Reception/ }));
+    const controls = screen.getByRole("region", { name: "Arrange Reception" });
+    expect(within(controls).getByRole("button", { name: "Move backward" })).toBeDisabled();
     const destination = screen.getByRole("combobox", { name: "Move Reception to layer" });
     fireEvent.change(destination, { target: { value: target.id } });
 
@@ -59,6 +70,7 @@ describe("primary editor navigation", () => {
     const target = useStore.getState().project.views[0].layers[1];
     useStore.getState().toggleLayerLock(target.id);
     useStore.getState().setScreen("tree");
+    useStore.getState().setSelectedAreaId(area.id);
     render(<App />);
 
     const option = screen.getByRole("option", { name: /locked/i });
@@ -140,16 +152,19 @@ describe("primary editor navigation", () => {
     });
   });
 
-  it("gives Export the full narrow viewport while retaining the desktop inspector", () => {
+  it("gives Export a focused workspace without the tree or inspector", () => {
     useStore.getState().setScreen("export");
     render(<App />);
 
-    expect(screen.getByRole("complementary", { name: "Inspector" })).toHaveClass("hidden", "lg:flex");
+    expect(screen.queryByRole("complementary", { name: "Inspector" })).toBeNull();
+    expect(screen.queryByRole("complementary", { name: "Views and layers" })).toBeNull();
+    expect(screen.queryByRole("separator")).toBeNull();
     expect(screen.getByTestId("export-screen").firstElementChild).toHaveClass("min-w-0", "p-4", "sm:p-6");
     expect(screen.getByRole("button", { name: "Download ZIP" }).parentElement?.parentElement).toHaveClass("flex-wrap");
   });
 
   it("exposes guarded project operations in the compact menu", async () => {
+    narrowViewport();
     const user = userEvent.setup();
     render(<App />);
 
@@ -191,6 +206,7 @@ describe("primary editor navigation", () => {
   });
 
   it("lets narrow-screen authors switch to the tree and dismiss the inspector", () => {
+    narrowViewport();
     const area = createRectArea(0, 0, 20, 20);
     useStore.getState().addArea(area);
     useStore.getState().setSelectedAreaId(area.id);

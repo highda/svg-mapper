@@ -22,6 +22,9 @@ const SHORTCUTS = [
   { keys: "+ / =", description: "Zoom in" },
   { keys: "- / _", description: "Zoom out" },
   { keys: "0", description: "Reset zoom" },
+  { keys: "Alt+↑ / Alt+↓", description: "Move the focused tree area backward / forward" },
+  { keys: "← / → on a panel edge", description: "Resize the tree or inspector" },
+  { keys: "Enter on a panel edge", description: "Hide or show that panel" },
   { keys: "?", description: "Show or hide this help" },
 ];
 
