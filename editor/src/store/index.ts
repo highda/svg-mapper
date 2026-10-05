@@ -1037,11 +1037,10 @@ export const useStore = create<AppState>()(
         if ((!dx && !dy) || areaIds.length === 0) return;
         const wanted = new Set(areaIds);
         const { editable, skipped, reason } = partitionByGeometryLock(s, wanted);
-        const movable = editable.filter((area) => area.geometry.type !== "path");
         s.lockNotice = skipped > 0 ? skippedNotice(skipped, reason) : null;
-        if (movable.length === 0) return;
+        if (editable.length === 0) return;
         pushHistory(s);
-        for (const area of movable) {
+        for (const area of editable) {
           area.geometry = moveGeometry(area.geometry as Area["geometry"], dx, dy) as typeof area.geometry;
         }
       });
@@ -1053,7 +1052,7 @@ export const useStore = create<AppState>()(
         const { editable, skipped, reason } = partitionByGeometryLock(s, wanted);
         const entries = editable.flatMap((area) => {
           const bounds = getGeometryBbox(area.geometry as Area["geometry"]);
-          return bounds && area.geometry.type !== "path" ? [{ area, bounds }] : [];
+          return bounds ? [{ area, bounds }] : [];
         });
         s.lockNotice = skipped > 0 ? skippedNotice(skipped, reason) : null;
         if (entries.length < 2) return;
@@ -1082,7 +1081,7 @@ export const useStore = create<AppState>()(
         s.lockNotice = skipped > 0 ? skippedNotice(skipped, reason) : null;
         const entries = editable.flatMap((area) => {
           const bounds = getGeometryBbox(area.geometry as Area["geometry"]);
-          return bounds && area.geometry.type !== "path" ? [{ area, bounds }] : [];
+          return bounds ? [{ area, bounds }] : [];
         }).sort((a, b) => (horizontal ? a.bounds.x + a.bounds.width / 2 : a.bounds.y + a.bounds.height / 2)
           - (horizontal ? b.bounds.x + b.bounds.width / 2 : b.bounds.y + b.bounds.height / 2));
         if (entries.length < 3) return;

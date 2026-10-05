@@ -1,5 +1,16 @@
 import type { Area, AreaStyle, Geometry, MarkerAnchor, RectGeometry } from "@svg-mapper/shared";
-import { geometryBounds, markerPathData, rectPathData } from "@svg-mapper/shared";
+import {
+  PathDataError,
+  fitPathSegments,
+  geometryBounds,
+  mapPathAnchors,
+  markerPathData,
+  parsePathData,
+  rectPathData,
+  serializePathData,
+  translatePathSegments,
+  type PathSegment,
+} from "@svg-mapper/shared";
 
 export const DEFAULT_AREA_STYLE: AreaStyle = {
   default: { fill: "rgba(59,130,246,0.08)", stroke: "rgba(59,130,246,0.6)", strokeWidth: 2 },
@@ -54,6 +65,22 @@ export function createMarkerArea(x: number, y: number, anchor: MarkerAnchor = "b
 }
 
 
+/**
+ * Rewrite a path area's `d` through `edit` on its canonical segments (#218).
+ * Unparseable data is left untouched: validation reports it instead.
+ */
+function editPath(geo: Extract<Geometry, { type: "path" }>, edit: (segments: PathSegment[]) => PathSegment[]): Geometry {
+  let segments: PathSegment[];
+  try {
+    segments = parsePathData(geo.d);
+  } catch (error) {
+    if (error instanceof PathDataError) return geo;
+    throw error;
+  }
+  if (segments.length === 0) return geo;
+  return { ...geo, d: serializePathData(edit(segments)) };
+}
+
 export function moveGeometry(geo: Geometry, dx: number, dy: number): Geometry {
   switch (geo.type) {
     case "rect":
@@ -65,7 +92,7 @@ export function moveGeometry(geo: Geometry, dx: number, dy: number): Geometry {
     case "marker":
       return { ...geo, x: geo.x + dx, y: geo.y + dy };
     case "path":
-      return geo;
+      return editPath(geo, (segments) => translatePathSegments(segments, dx, dy));
   }
 }
 
@@ -91,8 +118,22 @@ export function snapGeometryToGrid(geo: Geometry, gridSize: number): Geometry {
     case "marker":
       return { ...geo, x: snapValue(geo.x, gridSize), y: snapValue(geo.y, gridSize) };
     case "path":
-      return geo;
+      // Like polygon vertices, every on-curve point snaps; curve handles follow their point.
+      return editPath(geo, (segments) => mapPathAnchors(segments, (x, y) => [snapValue(x, gridSize), snapValue(y, gridSize)]));
   }
+}
+
+/**
+ * Stretch a path so its bounds become `to` (bounding-box resize). A
+ * zero-size axis is only translated.
+ */
+export function resizePathToBounds(
+  geo: Extract<Geometry, { type: "path" }>,
+  to: { x: number; y: number; width: number; height: number },
+): Geometry {
+  const from = geometryBounds(geo);
+  if (!from) return geo;
+  return editPath(geo, (segments) => fitPathSegments(segments, from, to));
 }
 
 export type RectHandle = "nw" | "ne" | "sw" | "se";

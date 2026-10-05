@@ -18,7 +18,7 @@ import { validateActionUrl } from "../../shared/validation.js";
 import { sanitizeRichHtml } from "../../shared/sanitize.js";
 import { decodeDefinition, DETAILS_SIZE_PATTERN } from "../../shared/schema.js";
 import { resolveSizingMode } from "../../shared/sizing.js";
-import { assetDisplaySource, fitImageRect, geometryBounds, markerPathData } from "../../shared/scene-geometry.js";
+import { assetDisplaySource, fitImageRect, markerPathData, shapeBounds } from "../../shared/scene-geometry.js";
 import { alphaMaskHit, areaImagePlacement, imagePreserveAspectRatio, imageRotationTransform, isAreaHidden } from "../../shared/area-image.js";
 import { Emitter } from "./emitter.js";
 import {
@@ -54,13 +54,17 @@ function svgEl<T extends SVGElement>(tag: string): T {
   return document.createElementNS(SVG_NS, tag) as T;
 }
 
-/** Rendered bounds for shapes without analytic bounds (free-form paths). */
-function svgBBox(el: Element): { x: number; y: number; width: number; height: number } {
+/**
+ * Rendered bounds for shapes without analytic bounds (paths), or null when
+ * the element is not rendered. Browsers measure path geometry exactly, so
+ * this matches the editor's computed path bounds (#218).
+ */
+function svgBBox(el: Element | null): { x: number; y: number; width: number; height: number } | null {
   try {
     const b = (el as SVGGraphicsElement).getBBox();
-    return { x: b.x, y: b.y, width: b.width, height: b.height };
+    return b.width || b.height ? { x: b.x, y: b.y, width: b.width, height: b.height } : null;
   } catch {
-    return { x: 0, y: 0, width: 1, height: 1 };
+    return null;
   }
 }
 
@@ -201,6 +205,8 @@ class Renderer implements ClickMapInstance {
 
   private ro!: ResizeObserver;
   private roTimer: ReturnType<typeof setTimeout> | null = null;
+  /** A label was skipped because its path was not measurable yet (not laid out). */
+  private labelsPending = false;
   private viewW = 1;
   private viewH = 1;
   private hoveredId: string | null = null;
@@ -347,7 +353,12 @@ class Renderer implements ClickMapInstance {
 
     this.ro = new ResizeObserver(() => {
       if (this.roTimer !== null) clearTimeout(this.roTimer);
-      this.roTimer = setTimeout(() => { this.roTimer = null; this.updateScale(); }, 16);
+      this.roTimer = setTimeout(() => {
+        this.roTimer = null;
+        this.updateScale();
+        const view = this.labelsPending && this.def.views.find((candidate) => candidate.id === this.currentViewId);
+        if (view) this.renderLabels(view);
+      }, 16);
     });
     this.ro.observe(this.container);
     // A panel that grows with its content moves the map in fluid layouts.
@@ -598,7 +609,7 @@ class Renderer implements ClickMapInstance {
       if (this.destroyed || this.currentViewId !== view.id) return;
       const el = this.findAreaEl(area.id);
       if (!el) return;
-      const shape = geometryBounds(area.geometry) ?? svgBBox(el);
+      const shape = shapeBounds(area.geometry) ?? svgBBox(el) ?? { x: 0, y: 0, width: 1, height: 1 };
       const bounds = { x: shape.x, y: shape.y, w: shape.width, h: shape.height };
       const base = this.getBaseViewBox(view);
       const limits = this.getZoomLimits(view);
@@ -790,6 +801,7 @@ class Renderer implements ClickMapInstance {
 
   /** Labels follow the same effective visibility as the geometry they name (issue #26). */
   private renderLabels(view: View) {
+    this.labelsPending = false;
     this.svgEl.querySelector(":scope > .clickmap-area-labels")?.remove();
     const labelSettings = this.def.settings.areaLabels;
     if (!labelSettings?.enabled) return;
@@ -803,7 +815,11 @@ class Renderer implements ClickMapInstance {
       for (const area of layer.areas) {
         if (area.label?.visible === false || isAreaHidden(area)) continue;
         const bbox = this.getAreaBBox(area);
-        if (!bbox) continue;
+        // A path is measured once laid out; the resize observer retries (#218).
+        if (!bbox) {
+          this.labelsPending = true;
+          continue;
+        }
         const text = svgEl<SVGTextElement>("text");
         text.setAttribute("class", "clickmap-area-label");
         text.setAttribute("x", String(bbox.cx));
@@ -851,7 +867,7 @@ class Renderer implements ClickMapInstance {
   }
 
   private getAreaBBox(area: Area): { cx: number; cy: number; w: number; h: number } | null {
-    const b = geometryBounds(area.geometry);
+    const b = shapeBounds(area.geometry) ?? svgBBox(this.findAreaEl(area.id));
     return b ? { cx: b.x + b.width / 2, cy: b.y + b.height / 2, w: b.width, h: b.height } : null;
   }
 

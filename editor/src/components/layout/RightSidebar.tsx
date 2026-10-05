@@ -11,6 +11,7 @@ import type {
   MarkerAnchor,
   PopupAction,
   RectGeometry,
+  PathGeometry,
   PolygonGeometry,
   SceneSwitcherPosition,
   ZoomControlsPosition,
@@ -19,7 +20,9 @@ import type {
   View,
 } from "@svg-mapper/shared";
 import { createContext, useContext, useEffect, useId, useState, type ComponentProps } from "react";
+import { geometryBounds } from "@svg-mapper/shared";
 import { geometryLockReason, useStore } from "../../store";
+import { resizePathToBounds } from "../../lib/area-utils";
 import { useStylePreview, type StylePreviewState } from "../../store/style-preview";
 import { activeVertexIndex, useVertexSelection } from "../../store/vertex-selection";
 import { canRemoveVertex, edgeMidpoints, editableVertices, insertVertex, minVertexCount, moveVertex, removeVertex, snapPoint } from "../../lib/vertex-edit";
@@ -949,6 +952,31 @@ function GeometryEditor({
 
   if (geometry.type === "polygon") {
     return <PolygonPointsEditor areaId={areaId} geometry={geometry as unknown as PolygonGeometry & { type: "polygon" }} />;
+  }
+
+  if (geometry.type === "path") {
+    // A path is positioned and sized by its exact bounds (#218).
+    const g = geometry as unknown as PathGeometry & { type: "path" };
+    const bounds = geometryBounds(g);
+    if (!bounds) {
+      return <div className="text-xs text-neutral-400">Path data is empty or malformed.</div>;
+    }
+    const box = bounds;
+    const round = (value: number) => Math.round(value * 1000) / 1000;
+    type BoxKey = "x" | "y" | "width" | "height";
+    function setBounds(key: BoxKey, value: number) {
+      // Leaving a field unchanged is not an edit (it would rewrite `d` canonically).
+      if (value === round(box[key])) return;
+      updateAreaGeometry(areaId, resizePathToBounds(g, { ...box, [key]: value }) as typeof g);
+    }
+    return (
+      <div className="space-y-1">
+        <Row label="X"><NumberField defaultValue={round(box.x)} onCommit={(v) => setBounds("x", v)} /></Row>
+        <Row label="Y"><NumberField defaultValue={round(box.y)} onCommit={(v) => setBounds("y", v)} /></Row>
+        <Row label="W"><NumberField defaultValue={round(box.width)} min={1} onCommit={(v) => setBounds("width", v)} /></Row>
+        <Row label="H"><NumberField defaultValue={round(box.height)} min={1} onCommit={(v) => setBounds("height", v)} /></Row>
+      </div>
+    );
   }
 
   if (geometry.type === "marker") {
