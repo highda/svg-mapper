@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #167 — fix(security): replace markup blocklists with maintained sanitization
-Branch:       claude/kind-albattani-vjpp90
-Started:      2026-10-05
-Last commit:  (claim)
-
-### What's done
-- Claimed #167 (selected by scripts/select-task.mjs).
-
-### What's next
-- DOMPurify HTML/SVG profiles behind shared adapters; sanitize at renderer insertion, SVG import and export boundaries; measure renderer gzip size.
-
-### Notes / gotchas
-- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/167-*`.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-10-05 — closed #167 — DOMPurify HTML/SVG profiles in shared/sanitize.ts at renderer insertion, SVG import and export; popup HTML can no longer style the host; renderer budget raised to 40 KB (owner decision, now 36.6 KB); PR #208.
 - 2026-10-05 — closed #166 — "draft saved" and the unload guard compare against the exact durably written snapshot; serialized idb-keyval storage with epoch guard; corrupt drafts decoded, reported and kept until discarded; PR #206.
 - 2026-10-03 — closed #165 — inspector no longer remounts per commit (focus/slider kept; resync only on undo/redo/load, per-field value keys); zoom/tooltip/mask edits keep unrelated settings; batch styles detach presets; PR #204.
 - 2026-10-02 — closed #163 — move/resize/circle drags are one undo entry restored from a pointerdown baseline; cancel/lost capture/Escape/blur roll back with no history; no-op clicks record nothing; undo/redo keep a valid active view; PR #202.
