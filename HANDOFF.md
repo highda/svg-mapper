@@ -9,12 +9,23 @@ Branch:       main
 
 ### Notes / gotchas
 - Local e2e: the installed Playwright expects a newer headless shell than /opt/pw-browsers provides; use a temporary uncommitted config pointing at /opt/pw-browsers/chromium.
-- #223 approved by owner (same-origin iframe fallback); waits on #218, #221, #222.
-- #217 owner decision recorded on the issue: remove `theme` and `showTitle`, implement `showBreadcrumbs` end to end.
+- #223 approved by owner (same-origin iframe fallback); waits on #221, #222.
+- Renderer gzip is 45,435 B of the 46,080 B budget. The build minifies the inlined CSS (#241) and mangles `private` member names not found in DOM/lib/bundled-package typings or shared/ (#246); new visitor-facing strings need a key in shared/strings.ts (sentinel test enforces it). Owner (2026-10-05): the budget is not a hard wall — when a feature genuinely needs room, raise it in the same PR and say why, rather than squeezing code.
+- Known flakes handed to #232: renderer-controls "compact directory…", qa-gallery light/Shadow toggle, vitest draft-recovery timeout under load.
+- GitHub hosted runners intermittently fail to pick up jobs ("not acquired by Runner"); re-run the cancelled job.
 
 ---
 
 ## Ledger (most recent first)
+- 2026-10-05 — closed #216 — every visitor-facing renderer string authored via settings.strings (34 keys, blank visible text hides it, SVG-path icons), settings.lang/dir, Intl legend, accessible-name warnings; schema 1.2.0; PR #246.
+- 2026-10-05 — closed #218 — path areas are first-class (shared/path-geometry.ts parser/bounds/transforms; labels, reveal, move, resize, align, distribute, snap); PR #245.
+- 2026-10-05 — closed #176 — polygon vertices editable on canvas and in the Inspector (drag, midpoint insert, keyboard nudge/delete, min 3 points, one undo step per gesture, locks respected); PR #244.
+- 2026-10-05 — closed #217 — breadcrumb trail (view.ui.showBreadcrumbs) with Inspector Navigation section; settings.theme and view.ui.showTitle retired and stripped on open; PR #242.
+- 2026-10-05 — closed #220 — popup presentation popover/panel/modal with default panel content, sheet layout on narrow hosts, native <dialog> modal; schema 1.1.0; PR #241.
+- 2026-10-05 — closed #215 — mouse/pen drag pans a zoomed map (4 px threshold, no click after drag), camera clamped in every host mode, arrow keys pan the focused map; PR #240.
+- 2026-10-05 — closed #156 — resizable/collapsible tree and inspector (react-resizable-panels), prefs outside project JSON, reorganised InspectorSection hierarchy, focused Export workspace; PR #239.
+- 2026-10-05 — closed #172 — one image transform (fit, crop, rotation) for mask hits in editor and renderer; hidden images fully hidden; hover and click-through across mask holes; PR #238.
+- 2026-10-05 — closed #175 — keyboard handling scoped per map/shadow root; popups non-modal with named dialogs and focus return; PR #237.
 - 2026-10-05 — closed #174 — editor fields and dialogs get complete keyboard semantics (shared ModalDialog with focus return, aria-invalid/describedby on Export fields, labelled controls); PR #230.
 - 2026-10-05 — closed #178 — behavioural desktop-authoring and exported-container regression specs, browser-support evidence and release checks; PR #235.
 - 2026-10-05 — closed #171 — export packaging runs fflate asynchronously from one cached manifest that also drives the preview and estimate; cancellable from the header; PR #231.
