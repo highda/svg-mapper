@@ -27,6 +27,7 @@ import {
   serializeProjectFile,
   downloadJson,
 } from "../lib/project";
+import { DEFAULT_HOST_SIZE } from "@svg-mapper/shared";
 import { findAreaLocation, getGeometryBbox, moveGeometry } from "../lib/area-utils";
 
 // ---------------------------------------------------------------------------
@@ -157,7 +158,31 @@ export interface AppState {
 
   // ── Validation ─────────────────────────────────────────────────────────────
   revealValidationRef: (ref: ValidationRef) => void;
+
+  // ── Export options (session only; not project data, never saved) ─────────
+  exportOptions: ExportSessionOptions;
+  updateExportOptions: (patch: Partial<ExportSessionOptions>) => void;
 }
+
+/**
+ * Deployment choices made on the Export screen. They live in the store rather
+ * than the screen so Reveal → fix → Export keeps them for the session.
+ */
+export interface ExportSessionOptions {
+  inlineAssets: boolean;
+  basePath: string;
+  containerId: string;
+  hostWidth: string;
+  hostHeight: string;
+}
+
+export const DEFAULT_EXPORT_SESSION_OPTIONS: ExportSessionOptions = {
+  inlineAssets: true,
+  basePath: "/maps/my-map",
+  containerId: "clickmap",
+  hostWidth: DEFAULT_HOST_SIZE.width,
+  hostHeight: DEFAULT_HOST_SIZE.height,
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -287,6 +312,7 @@ export const useStore = create<AppState>()(
     historyVersion: 0,
     clipboardArea: null,
     canvasSizeSuggestion: null,
+    exportOptions: { ...DEFAULT_EXPORT_SESSION_OPTIONS },
 
     // ── Project lifecycle ──────────────────────────────────────────────────
 
@@ -1314,6 +1340,14 @@ export const useStore = create<AppState>()(
     dismissCanvasSizeSuggestion() {
       set((s) => {
         s.canvasSizeSuggestion = null;
+      });
+    },
+
+    // ── Export options ───────────────────────────────────────────────────────
+
+    updateExportOptions(patch: Partial<ExportSessionOptions>) {
+      set((s) => {
+        Object.assign(s.exportOptions, patch);
       });
     },
 
