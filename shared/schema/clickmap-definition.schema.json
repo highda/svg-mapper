@@ -125,9 +125,6 @@
         "maintainAspectRatio": {
           "type": "boolean"
         },
-        "theme": {
-          "type": "string"
-        },
         "enableHistory": {
           "type": "boolean"
         },
@@ -370,7 +367,6 @@
         "initialViewId",
         "responsive",
         "maintainAspectRatio",
-        "theme",
         "enableHistory",
         "enableKeyboardNavigation"
       ]
@@ -525,15 +521,11 @@
             },
             "showBreadcrumbs": {
               "type": "boolean"
-            },
-            "showTitle": {
-              "type": "boolean"
             }
           },
           "required": [
             "showBackButton",
-            "showBreadcrumbs",
-            "showTitle"
+            "showBreadcrumbs"
           ]
         },
         "customCss": {

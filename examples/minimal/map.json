@@ -11,7 +11,6 @@
     "sizingMode": "fluid-width",
     "responsive": true,
     "maintainAspectRatio": true,
-    "theme": "default",
     "enableHistory": false,
     "enableKeyboardNavigation": true
   },
@@ -34,7 +33,7 @@
       "canvas": { "width": 600, "height": 400 },
       "background": { "assetId": "asset_office", "fit": "contain" },
       "viewport": { "minZoom": 1, "maxZoom": 4, "initialZoom": 1, "panEnabled": true, "zoomEnabled": true },
-      "ui": { "showBackButton": false, "showBreadcrumbs": false, "showTitle": true },
+      "ui": { "showBackButton": false, "showBreadcrumbs": false },
       "layers": [
         {
           "id": "layer_rooms",

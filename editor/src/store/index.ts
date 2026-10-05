@@ -20,6 +20,7 @@ import type {
   ValidationRef,
   View,
   Viewport,
+  ViewUI,
 } from "@svg-mapper/shared";
 import {
   createDefaultView,
@@ -98,6 +99,7 @@ export interface AppState {
   deleteView: (viewId: string, retargetViewId?: string) => void;
   setCanvasSize: (width: number, height: number) => void;
   setViewport: (viewId: string, patch: Partial<Viewport>) => void;
+  setViewUi: (viewId: string, patch: Partial<ViewUI>) => void;
 
   // ── Layer CRUD ───────────────────────────────────────────────────────────
   addLayer: (viewId: string) => void;
@@ -841,6 +843,15 @@ export const useStore = create<AppState>()(
         if (!view) return;
         pushHistory(s);
         view.viewport = { ...view.viewport, ...patch };
+      });
+    },
+
+    setViewUi(viewId: string, patch: Partial<ViewUI>) {
+      set((s) => {
+        const view = s.project.views.find((v) => v.id === viewId);
+        if (!view || Object.entries(patch).every(([key, value]) => view.ui[key as keyof ViewUI] === value)) return;
+        pushHistory(s);
+        view.ui = { ...view.ui, ...patch };
       });
     },
 
