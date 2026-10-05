@@ -2,7 +2,7 @@
 // Produces a ZIP with: map.json, renderer JS+CSS, assets/, index.html,
 // embed.html, README.txt.
 
-import { zipSync, strToU8 } from "fflate";
+import { zip, zipSync, strToU8, type Zippable } from "fflate";
 import type { ClickMapDefinition, Asset, ContainerSizingMode, HostSize } from "@svg-mapper/shared";
 import { DEFAULT_HOST_SIZE, hostStyle, resolveSizingMode, sanitizeSvgMarkup } from "@svg-mapper/shared";
 import { serializeJsonForScript } from "./script-json";
@@ -121,6 +121,7 @@ function attachClickMapHooks(map) {
     "camera:change": function (event) { console.debug("[clickmap] camera changed", event); },
     "area:hover": function (event) { console.debug("[clickmap] area hovered", event); },
     "area:click": function (event) { console.debug("[clickmap] area clicked", event); },
+    "area:select": function (event) { console.debug("[clickmap] selection changed", event.areaId, event); },
     "popup:open": function (event) { console.debug("[clickmap] popup opened", event); },
     "popup:close": function (event) { console.debug("[clickmap] popup closed", event); }
   };
@@ -343,26 +344,6 @@ function sanitizedSvgAsset(asset: Asset): Asset {
   return { ...asset, src: source.startsWith("data:") ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(clean)}` : clean };
 }
 
-/** Throws when an embedded SVG cannot be sanitized (export must not publish it). */
-function withSanitizedSvgAssets(definition: ClickMapDefinition): ClickMapDefinition {
-  return { ...definition, assets: definition.assets.map((asset) => (isEmbeddedSvg(asset) ? sanitizedSvgAsset(asset) : asset)) };
-}
-
-/** Preview variant: never throws; an unreadable SVG is reported when packaging. */
-function withSanitizedSvgAssetsForPreview(definition: ClickMapDefinition): ClickMapDefinition {
-  return {
-    ...definition,
-    assets: definition.assets.map((asset) => {
-      if (!isEmbeddedSvg(asset)) return asset;
-      try {
-        return sanitizedSvgAsset(asset);
-      } catch {
-        return asset;
-      }
-    }),
-  };
-}
-
 function embeddedAssetBytes(asset: Asset): Uint8Array | null {
   const source = asset.src.trimStart();
   if (source.startsWith("data:")) return dataUriToBytes(source);
@@ -370,24 +351,93 @@ function embeddedAssetBytes(asset: Asset): Uint8Array | null {
   return null;
 }
 
-function externalDependencies(definition: ClickMapDefinition): string[] {
-  return [...new Set(definition.assets.filter((asset) => embeddedAssetBytes(asset) === null).map((asset) => asset.src))];
+/**
+ * Asset work that depends only on the project's asset list: SVG sanitization,
+ * data-URI decoding and packaged path allocation. Deployment text (base path,
+ * container ID) never touches it, so it is computed once per assets revision.
+ */
+export interface PreparedAssets {
+  /** Assets after SVG sanitization, as written to an inline map.json. */
+  readonly inlined: readonly Asset[];
+  /** The same assets with embedded sources rewritten to packaged paths. */
+  readonly packaged: readonly Asset[];
+  /** Packaged path → decoded bytes, in allocation order. */
+  readonly files: ReadonlyMap<string, Uint8Array>;
+  /** Total decoded bytes of embedded sources. */
+  readonly assetBytes: number;
+  /** Remote URLs and relative paths that stay outside the package. */
+  readonly externalDependencies: readonly string[];
+  /**
+   * The first problem that makes the package unpublishable (an SVG that fails
+   * sanitization, then malformed embedded data). Previews still render with
+   * the source left as-is; packaging throws it.
+   */
+  readonly error: Error | null;
 }
 
-// Package only sources whose bytes are present. External references are preserved
-// verbatim so map.json never points at a file that the ZIP does not contain.
-function definitionWithAssetPaths(definition: ClickMapDefinition): { definition: ClickMapDefinition; embeddedAssets: Map<string, Uint8Array> } {
-  const assetFilename = makeAssetFilenamer();
-  const embeddedAssets = new Map<string, Uint8Array>();
-  const assets = definition.assets.map((a) => {
-    const bytes = embeddedAssetBytes(a);
-    if (!bytes) return a;
-    const path = assetFilename(a);
-    embeddedAssets.set(path, bytes);
-    return { ...a, src: path, inline: false };
+// Keyed by the asset array, so a project edit that leaves assets untouched (or
+// an Export-screen option change) reuses the decoded bytes. Each entry also
+// records what it was computed from, so an array mutated in place is not
+// served stale results; that check is a cheap reference comparison.
+type AssetFingerprint = readonly [Asset, string, string, string, string];
+const fingerprint = (asset: Asset): AssetFingerprint => [asset, asset.id, asset.name, asset.type, asset.src];
+const preparedAssetsCache = new WeakMap<readonly Asset[], { inputs: AssetFingerprint[]; prepared: PreparedAssets }>();
+
+function cacheIsCurrent(assets: readonly Asset[], inputs: readonly AssetFingerprint[]): boolean {
+  return assets.length === inputs.length
+    && assets.every((asset, index) => fingerprint(asset).every((value, field) => value === inputs[index]![field]));
+}
+
+export function prepareExportAssets(assets: readonly Asset[]): PreparedAssets {
+  const cached = preparedAssetsCache.get(assets);
+  if (cached && cacheIsCurrent(assets, cached.inputs)) return cached.prepared;
+
+  let sanitizeError: Error | null = null;
+  let decodeError: Error | null = null;
+  const inlined = assets.map((asset) => {
+    if (!isEmbeddedSvg(asset)) return asset;
+    try {
+      return sanitizedSvgAsset(asset);
+    } catch (error) {
+      sanitizeError ??= error instanceof Error ? error : new Error(String(error));
+      return asset;
+    }
   });
 
-  return { definition: { ...definition, assets }, embeddedAssets };
+  // Package only sources whose bytes are present. External references are
+  // preserved verbatim so map.json never points at a file the ZIP lacks.
+  const assetFilename = makeAssetFilenamer();
+  const files = new Map<string, Uint8Array>();
+  const dependencies = new Set<string>();
+  let assetBytes = 0;
+  const packaged = inlined.map((asset) => {
+    let bytes: Uint8Array | null;
+    try {
+      bytes = embeddedAssetBytes(asset);
+    } catch (error) {
+      decodeError ??= error instanceof Error ? error : new Error(String(error));
+      return asset;
+    }
+    if (!bytes) {
+      dependencies.add(asset.src);
+      return asset;
+    }
+    const path = assetFilename(asset);
+    files.set(path, bytes);
+    assetBytes += bytes.byteLength;
+    return { ...asset, src: path, inline: false };
+  });
+
+  const prepared: PreparedAssets = {
+    inlined,
+    packaged,
+    files,
+    assetBytes,
+    externalDependencies: [...dependencies],
+    error: sanitizeError ?? decodeError,
+  };
+  preparedAssetsCache.set(assets, { inputs: assets.map(fingerprint), prepared });
+  return prepared;
 }
 
 function escapeHtml(str: string): string {
@@ -423,48 +473,198 @@ function dataUriToBytes(src: string): Uint8Array {
   }
 }
 
+/**
+ * Everything one export produces, as the exact bytes of each ZIP entry. The
+ * download and the Export screen's size estimate both come from this object,
+ * so the estimate is the sum of the entries the ZIP will contain.
+ */
+export interface ExportManifest {
+  /** ZIP entries in package order. Treat as immutable. */
+  readonly files: Readonly<Record<string, Uint8Array>>;
+  readonly embedSnippet: string;
+  readonly mapJson: string;
+  readonly readme: string;
+  /** Sum of every entry's uncompressed bytes (before ZIP compression). */
+  readonly uncompressedBytes: number;
+  /** Decoded bytes of embedded source assets (inline or as files). */
+  readonly assetBytes: number;
+  /** Separate files under assets/ (0 when assets stay inline). */
+  readonly assetFileCount: number;
+  readonly externalDependencies: readonly string[];
+  /** Why this manifest cannot be packaged, or null when it can. */
+  readonly error: Error | null;
+}
+
+interface PackageCore {
+  mapJson: string;
+  /** map.json, renderer files, hooks.js, index.html and assets/. */
+  files: Record<string, Uint8Array>;
+  assetFileCount: number;
+}
+
+// The deployment-independent part (map.json, index.html, renderer, assets),
+// remembered per definition object (treated as immutable, as the editor's
+// store produces it): changing the base path or container ID
+// reuses it; changing inline or sizing options rebuilds only these text files.
+const coreCache = new WeakMap<ClickMapDefinition, { key: string; prepared: PreparedAssets; rendererJs: string; rendererCss: string; core: PackageCore }>();
+
+function packageCore(
+  definition: ClickMapDefinition,
+  prepared: PreparedAssets,
+  rendererJs: string,
+  rendererCss: string,
+  resolved: ResolvedOptions,
+): PackageCore {
+  const key = `${resolved.inlineAssets ? "inline" : "files"}|${resolved.mode}|${resolved.hostStyle}`;
+  const cached = coreCache.get(definition);
+  if (cached && cached.key === key && cached.prepared === prepared && cached.rendererJs === rendererJs && cached.rendererCss === rendererCss) return cached.core;
+
+  // map.json: inline keeps (sanitized) data URIs; otherwise packaged paths.
+  const exportedDefinition = withResolvedSizing(
+    { ...definition, assets: [...(resolved.inlineAssets ? prepared.inlined : prepared.packaged)] },
+    resolved.mode,
+  );
+  const mapJson = JSON.stringify(exportedDefinition, null, 2);
+  const files: Record<string, Uint8Array> = {
+    "map.json": strToU8(mapJson),
+    "clickmap-renderer.js": strToU8(rendererJs),
+    "clickmap-renderer.css": strToU8(rendererCss),
+    "hooks.js": strToU8(HOOKS_SCAFFOLD),
+    "index.html": strToU8(buildIndexHtml(exportedDefinition, rendererJs, rendererCss, resolved)),
+  };
+  if (!resolved.inlineAssets) {
+    for (const [path, bytes] of prepared.files) files[path] = bytes;
+  }
+  const core = { mapJson, files, assetFileCount: resolved.inlineAssets ? 0 : prepared.files.size };
+  coreCache.set(definition, { key, prepared, rendererJs, rendererCss, core });
+  return core;
+}
+
+const TEXT_ENTRY_ORDER = ["map.json", "clickmap-renderer.js", "clickmap-renderer.css", "hooks.js", "embed.html", "index.html", "README.txt"];
+
+/**
+ * Build the complete package manifest without compressing anything. Never
+ * throws for bad project data: a problem that blocks packaging is reported in
+ * `error` so the Export screen can still show its preview.
+ */
+export function buildExportManifest(
+  definition: ClickMapDefinition,
+  rendererJs: string,
+  rendererCss: string,
+  options: ExportOptions,
+): ExportManifest {
+  const prepared = prepareExportAssets(definition.assets);
+  const resolved = resolvedOptions(options, definition);
+  const core = packageCore(definition, prepared, rendererJs, rendererCss, resolved);
+  const externalDependencies = [...prepared.externalDependencies];
+  const readme = buildReadme(definition.project.name, resolved, externalDependencies);
+  const embedSnippet = buildEmbedSnippet(resolved);
+
+  // Deployment-specific entries are cheap text; everything else is reused.
+  const deployment: Record<string, Uint8Array> = {
+    "embed.html": strToU8(buildEmbedHtml(resolved)),
+    "README.txt": strToU8(readme),
+  };
+  const files: Record<string, Uint8Array> = {};
+  for (const name of TEXT_ENTRY_ORDER) files[name] = deployment[name] ?? core.files[name]!;
+  for (const [name, bytes] of Object.entries(core.files)) files[name] ??= bytes;
+
+  const uncompressedBytes = Object.values(files).reduce((total, bytes) => total + bytes.byteLength, 0);
+  return {
+    files,
+    embedSnippet,
+    mapJson: core.mapJson,
+    readme,
+    uncompressedBytes,
+    assetBytes: prepared.assetBytes,
+    assetFileCount: core.assetFileCount,
+    externalDependencies,
+    error: prepared.error,
+  };
+}
+
+// PNG, JPEG and WebP are already compressed; storing them skips a deflate pass
+// that would cost time (and a worker) for almost no size benefit.
+const STORED_EXTENSIONS = /\.(png|jpe?g|webp)$/i;
+
+function zipEntries(manifest: ExportManifest): Zippable {
+  const entries: Zippable = {};
+  for (const [name, bytes] of Object.entries(manifest.files)) {
+    entries[name] = STORED_EXTENSIONS.test(name) ? [bytes, { level: 0 }] : bytes;
+  }
+  return entries;
+}
+
+const ZIP_OPTIONS = { level: 6 } as const;
+
+/** Synchronous ZIP of a manifest (tests and non-UI callers). */
+export function zipExportManifestSync(manifest: ExportManifest): Uint8Array {
+  if (manifest.error) throw manifest.error;
+  return zipSync(zipEntries(manifest), ZIP_OPTIONS);
+}
+
+export class ExportCancelledError extends Error {
+  constructor() {
+    super("Export cancelled.");
+    this.name = "ExportCancelledError";
+  }
+}
+
+/**
+ * Compress a manifest with fflate's asynchronous ZIP API: large entries are
+ * deflated in fflate's own workers so the page keeps painting and accepting
+ * input. Aborting `signal` terminates those workers and rejects with
+ * ExportCancelledError. If workers cannot be created at all, it falls back to
+ * the synchronous encoder rather than failing the download.
+ */
+export async function zipExportManifest(manifest: ExportManifest, { signal }: { signal?: AbortSignal } = {}): Promise<Uint8Array> {
+  if (manifest.error) throw manifest.error;
+  if (signal?.aborted) throw new ExportCancelledError();
+  // Yield once so the caller's busy state paints before fflate deflates the
+  // small entries inline.
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  if (signal?.aborted) throw new ExportCancelledError();
+
+  const entries = zipEntries(manifest);
+  return new Promise<Uint8Array>((resolve, reject) => {
+    let settled = false;
+    let terminate: (() => void) | null = null;
+    const finish = (error: Error | null, data: Uint8Array | null) => {
+      if (settled) return;
+      settled = true;
+      signal?.removeEventListener("abort", onAbort);
+      if (error) reject(error);
+      else resolve(data!);
+    };
+    const onAbort = () => {
+      terminate?.();
+      finish(new ExportCancelledError(), null);
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+    try {
+      terminate = zip(entries, ZIP_OPTIONS, (error, data) => {
+        finish(error ? new Error(`Compression failed: ${error.message}`, { cause: error }) : null, data);
+      });
+    } catch {
+      // Worker construction failed (no Worker support or a restrictive CSP).
+      try {
+        finish(null, zipSync(entries, ZIP_OPTIONS));
+      } catch (error) {
+        finish(error instanceof Error ? error : new Error("Packaging failed."), null);
+      }
+    }
+  });
+}
+
+/** Build and synchronously compress a package. Throws when it cannot be published. */
 export function generateExportPackage(
   definition: ClickMapDefinition,
   rendererJs: string,
   rendererCss: string,
   options: ExportOptions,
 ): ExportPackage {
-  definition = withSanitizedSvgAssets(definition);
-  const resolved = resolvedOptions(options, definition);
-  const { inlineAssets } = resolved;
-
-  // For the ZIP's map.json: inline keeps data-URIs; external rewrites to paths.
-  let exportedDefinition: ClickMapDefinition;
-  let embeddedAssets: Map<string, Uint8Array> | null = null;
-  if (inlineAssets) {
-    exportedDefinition = definition;
-  } else {
-    ({ definition: exportedDefinition, embeddedAssets } = definitionWithAssetPaths(definition));
-  }
-  exportedDefinition = withResolvedSizing(exportedDefinition, resolved.mode);
-
-  const mapJson = JSON.stringify(exportedDefinition, null, 2);
-  const embedSnippet = buildEmbedSnippet(resolved);
-
-  const files: Record<string, Uint8Array> = {};
-
-  files["map.json"] = strToU8(mapJson);
-  files["clickmap-renderer.js"] = strToU8(rendererJs);
-  files["clickmap-renderer.css"] = strToU8(rendererCss);
-  files["hooks.js"] = strToU8(HOOKS_SCAFFOLD);
-  files["embed.html"] = strToU8(buildEmbedHtml(resolved));
-  files["index.html"] = strToU8(
-    buildIndexHtml(exportedDefinition, rendererJs, rendererCss, resolved),
-  );
-  files["README.txt"] = strToU8(buildReadme(definition.project.name, resolved, externalDependencies(definition)));
-
-  // Asset files (only when not inlining).
-  if (!inlineAssets && embeddedAssets) {
-    for (const [path, bytes] of embeddedAssets) files[path] = bytes;
-  }
-
-  const zip = zipSync(files, { level: 6 });
-  return { zip, embedSnippet, mapJson };
+  const manifest = buildExportManifest(definition, rendererJs, rendererCss, options);
+  return { zip: zipExportManifestSync(manifest), embedSnippet: manifest.embedSnippet, mapJson: manifest.mapJson };
 }
 
 /** Build all text shown by the Export screen without performing ZIP compression. */
@@ -474,26 +674,14 @@ export function generateExportPreview(
   rendererCss: string,
   options: ExportOptions,
 ): ExportPreview {
-  definition = withSanitizedSvgAssetsForPreview(definition);
-  const resolved = resolvedOptions(options, definition);
-  const exportedDefinition = withResolvedSizing(options.inlineAssets
-    ? definition
-    : definitionWithAssetPaths(definition).definition, resolved.mode);
-  const mapJson = JSON.stringify(exportedDefinition, null, 2);
-  const embedSnippet = buildEmbedSnippet(resolved);
-  const dependencies = externalDependencies(definition);
-  const readme = buildReadme(definition.project.name, resolved, dependencies);
-  const embedded = definition.assets.map(embeddedAssetBytes).filter((bytes): bytes is Uint8Array => bytes !== null);
-  const assetBytes = embedded.reduce((total, bytes) => total + bytes.byteLength, 0);
-  const assetFileCount = options.inlineAssets ? 0 : embedded.length;
-  const textBytes = new TextEncoder().encode(mapJson + embedSnippet + readme + rendererJs + rendererCss).byteLength;
+  const manifest = buildExportManifest(definition, rendererJs, rendererCss, options);
   return {
-    embedSnippet,
-    mapJson,
-    readme,
-    estimatedUncompressedBytes: textBytes + (options.inlineAssets ? 0 : assetBytes),
-    assetBytes,
-    assetFileCount,
-    externalDependencies: dependencies,
+    embedSnippet: manifest.embedSnippet,
+    mapJson: manifest.mapJson,
+    readme: manifest.readme,
+    estimatedUncompressedBytes: manifest.uncompressedBytes,
+    assetBytes: manifest.assetBytes,
+    assetFileCount: manifest.assetFileCount,
+    externalDependencies: [...manifest.externalDependencies],
   };
 }

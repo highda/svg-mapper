@@ -2,8 +2,9 @@ import { test, expect, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-// Layer toggles keep the visitor's camera and focus; pressed areas show their
-// active style; directory reveals follow the real navigation lifecycle (#173).
+// Layer toggles keep the visitor's camera and focus; directory reveals follow
+// the real navigation lifecycle (#173). Activated areas stay selected and show
+// their active style until a documented trigger clears them (#214).
 
 const fixturePath = resolve("../examples/qa-gallery/fixtures/fit-and-actions.json");
 const rendererJsPath = resolve("../renderer/dist/clickmap-renderer.js");
@@ -56,10 +57,12 @@ async function mount(page: Page, shadowDom: boolean) {
     <body><div id="host"></div></body></html>`);
   await page.addScriptTag({ content: js });
   await page.evaluate(({ definition, shadowDom }) => {
-    const w = window as unknown as { map: object; reveals: string[]; ClickMapRenderer: { create(o: object): { on(t: string, cb: (e: { reason: string; viewId: string }) => void): void } } };
+    const w = window as unknown as { map: object; reveals: string[]; selections: Array<string | null>; ClickMapRenderer: { create(o: object): { on(t: string, cb: (e: { reason: string; viewId: string; areaId: string | null }) => void): void } } };
     w.reveals = [];
+    w.selections = [];
     const map = w.ClickMapRenderer.create({ container: "#host", definition, shadowDom });
     map.on("camera:change", (e) => { if (e.reason === "reveal") w.reveals.push(e.viewId); });
+    map.on("area:select", (e) => w.selections.push(e.areaId));
     w.map = map;
   }, { definition, shadowDom });
 }
@@ -68,6 +71,7 @@ const scope = `(document.getElementById("host").shadowRoot ?? document)`;
 const viewBox = (page: Page) => page.evaluate(`${scope}.querySelector(".clickmap-areas").getAttribute("viewBox")`);
 const focusedArea = (page: Page) => page.evaluate(`${scope}.activeElement?.getAttribute("data-area-id") ?? null`);
 const fillOf = (page: Page, id: string) => page.evaluate(`${scope}.querySelector('[data-area-id="${id}"]')?.getAttribute("fill") ?? null`);
+const selectedArea = (page: Page) => page.evaluate(`${scope}.querySelector('[aria-current="true"]')?.getAttribute("data-area-id") ?? null`);
 const labelIds = (page: Page) => page.evaluate(`Array.from(${scope}.querySelectorAll("[data-label-area]")).map((el) => el.getAttribute("data-label-area"))`);
 const directoryText = (page: Page) => page.evaluate(`${scope}.querySelector(".clickmap-directory-results").textContent`);
 
@@ -99,26 +103,57 @@ for (const shadowDom of [false, true]) {
       expect(errors).toEqual([]);
     });
 
-    test("pressed areas show their active style until release", async ({ page }) => {
+    test("activated areas stay selected until Escape, empty space or a view change", async ({ page }) => {
+      const errors: string[] = [];
+      page.on("pageerror", (error) => errors.push(error.message));
       await mount(page, shadowDom);
       const cafe = page.locator('[data-area-id="cafe"]');
       const box = (await cafe.boundingBox())!;
       await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
       expect(await fillOf(page, "cafe")).toBe("#93c5fd");
       await page.mouse.down();
-      expect(await fillOf(page, "cafe")).toBe("#dc2626");
-      await page.mouse.up();
+      // No transient pressed state: selection happens on activation.
       expect(await fillOf(page, "cafe")).toBe("#93c5fd");
-      // The press focused the area, so it keeps the focus (hover) style after the pointer leaves.
+      await page.mouse.up();
+      expect(await fillOf(page, "cafe")).toBe("#dc2626");
+      expect(await selectedArea(page)).toBe("cafe");
+
+      // Hovering another area keeps the selection painted; hover over it keeps active.
+      await page.locator('[data-area-id="toggle-overlay"]').hover();
+      expect(await fillOf(page, "toggle-overlay")).toBe("#93c5fd");
+      expect(await fillOf(page, "cafe")).toBe("#dc2626");
       await page.mouse.move(0, 0);
-      expect(await focusedArea(page)).toBe("cafe");
+      expect(await fillOf(page, "cafe")).toBe("#dc2626");
+
+      // Escape clears; the still-focused area falls back to its focus (hover) style.
+      await page.keyboard.press("Escape");
+      expect(await selectedArea(page)).toBeNull();
       expect(await fillOf(page, "cafe")).toBe("#93c5fd");
 
+      // Keyboard activation selects and survives focus moving on.
       await cafe.focus();
-      await page.keyboard.down("Enter");
+      await page.keyboard.press("Enter");
       expect(await fillOf(page, "cafe")).toBe("#dc2626");
-      await page.keyboard.up("Enter");
-      expect(await fillOf(page, "cafe")).toBe("#93c5fd");
+      await page.keyboard.press("Tab");
+      expect(await selectedArea(page)).toBe("cafe");
+      expect(await fillOf(page, "cafe")).toBe("#dc2626");
+
+      // Activating empty map space clears.
+      const svg = (await page.locator(".clickmap-areas").boundingBox())!;
+      await page.mouse.click(svg.x + svg.width * 0.95, svg.y + svg.height * 0.9);
+      expect(await selectedArea(page)).toBeNull();
+      expect(await fillOf(page, "cafe")).toBe("#bfdbfe");
+
+      // Leaving the view clears; coming back via Back does not restore it.
+      await page.evaluate(`window.map.select("cafe")`);
+      expect(await fillOf(page, "cafe")).toBe("#dc2626");
+      await page.evaluate(`window.map.goToView("north")`);
+      await expect.poll(() => page.evaluate("window.map.getCurrentView()")).toBe("north");
+      await page.evaluate(`window.map.goBack()`);
+      await expect.poll(() => fillOf(page, "cafe")).toBe("#bfdbfe");
+      expect(await selectedArea(page)).toBeNull();
+      expect(await page.evaluate("window.selections")).toEqual(["cafe", null, "cafe", null, "cafe", null]);
+      expect(errors).toEqual([]);
     });
 
     test("rapid cross-view directory choices reveal only the final result", async ({ page }) => {
@@ -129,6 +164,8 @@ for (const shadowDom of [false, true]) {
       await page.waitForTimeout(400);
       expect(await page.evaluate("window.reveals")).toEqual(["south"]);
       expect(await page.evaluate("window.map.getCurrentView()")).toBe("south");
+      expect(await selectedArea(page)).toBe("south-gate");
+      expect(await fillOf(page, "south-gate")).toBe("#dc2626");
     });
   });
 }

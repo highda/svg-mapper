@@ -2,6 +2,8 @@
 
 The export supplies a dependency-free browser script. Loading it creates the global `ClickMapRenderer` object.
 
+The builder is optional. To embed a `map.json` written by hand, by a script, or by a CMS, follow [Using the renderer without the builder](renderer-standalone.md).
+
 ## Embed and initialize
 
 ```html
@@ -55,6 +57,8 @@ Normal custom CSS overrides inspector-authored SVG presentation attributes. Runt
 | `goToView(viewId)` | Navigate and add the prior view to history |
 | `goBack()` | Return to the previous view, if any |
 | `reset()` | Clear history and render `settings.initialViewId` |
+| `select(areaId)` | Select an area of the current view; ignored for unknown, hidden or disabled areas |
+| `clearSelection()` | Clear the current view's selection, if any |
 | `getCurrentView()` | Return the current view ID |
 | `getDefinition()` | Return the loaded definition |
 | `setChoroplethData([{id,value}])` | Replace live values and repaint when choropleth options exist |
@@ -96,6 +100,7 @@ map.on("area:click", selected);
 | `camera:change` | `instanceId`, `viewId`, `reason`, `viewBox: {x,y,width,height}`, `zoom` |
 | `area:hover` | `areaId`, `areaName`, optional `metadata` |
 | `area:click` | `areaId`, `areaName`, `action`, optional `metadata` |
+| `area:select` | `instanceId`, `viewId`, `areaId`, `areaName` (both `null` when the selection was cleared) |
 | `popup:open` / `popup:close` | `popupId` (the triggering area ID for inline popups) |
 | `error` | `code`, `message` (`INVALID_DEFINITION`, `UNSUPPORTED_SCHEMA_VERSION`, `LOAD_FAILED`, `ASSET_LOAD_FAILED`, `VIEW_NOT_FOUND`, `INVALID_VIEW_CSS`, or `LAYER_NOT_FOUND`) |
 
@@ -111,7 +116,9 @@ Lifecycle callbacks cannot synchronously start another navigation, preventing
 reentrant loops; later host actions can navigate normally. Camera changes fire
 after zoom, pan, reset, or directory reveal has updated both SVG view boxes.
 Each renderer has a stable, distinct `instanceId`; destroying it clears all
-subscriptions. Area click fires before its action, popup open fires after the popup
+subscriptions. `area:select` fires only when the selection changes, before the
+`area:click` of the activation that caused it; when leaving a view it fires
+after `view:leave`, and in that case its `viewId` is the view being left. Area click fires before its action, popup open fires after the popup
 is visible, and popup close fires after it is hidden and trigger focus is
 restored. A throwing callback is logged and cannot prevent other callbacks or
 renderer behavior. Call the scaffold's detach function and `destroy()` when a
@@ -125,7 +132,13 @@ iframe remains sandboxed, but authors should still run only code they trust.
 
 A `customEvent` area action additionally dispatches a native `CustomEvent` on `window`; its configured JSON-object payload is `event.detail`. A `toggleLayer` action changes a layer in the current view and announces whether it was shown or hidden. It keeps the current zoom and pan, and leaves areas on other layers untouched, so keyboard focus stays on a surviving trigger; when the focused area itself is hidden, focus moves to the nearest remaining area (or a map control). Area labels and the place directory follow the same effective visibility as the geometry. Visibility changes survive view navigation, while `reset()` restores authored visibility; hidden layer content is absent from pointer and keyboard interaction.
 
-Interactive areas support pointer input and Enter/Space keyboard activation unless disabled. While a primary pointer button or Enter/Space is held on an area it shows its `active` style; release, pointer cancel, focus loss or window blur restore the area's resolved style. Style precedence is disabled, then pressed (`active`), then hover/focus, then resting (always-highlight, choropleth value, or default), so disabled areas keep their disabled style even under a choropleth. Keyboard focus applies the hover style and exposes configured tooltip content through `aria-describedby`; `accessibility.tabIndex` remains authoritative in both light and Shadow DOM. Hover-only areas do not dispatch their action from the keyboard or touch, but focus reveals their details, Enter/Space announces them, and a touch tap pins the tooltip until the visitor taps elsewhere. View navigation announces the destination and, when initiated inside the map, moves focus to the active scene control or first interactive destination. Popup close restores its SVG trigger, including in Shadow DOM. Popovers anchor to the area's rendered shape and tooltips to the pointer or focused area. Both stay inside the renderer box: they flip to the side with room and shift along the edge, and a popover that is still too tall scrolls its body while Close stays visible. An open popover follows zoom, pan, host resizes and late-loading images, and stops tracking when it closes, the view changes or the map is destroyed. The popup `position` sets the preferred side, and `auto` starts below the area. Tooltip and popup HTML is sanitized with DOMPurify and inserted as a DOM fragment. Formatting, lists, links, and images are kept; `<style>`, `<link>`, `<base>`, forms and other controls, embedded documents, inline SVG/MathML, and `style`, `id`, and `name` attributes are removed so content cannot style or control the host page or another map. `target="_blank"` links get `rel="noopener noreferrer"`. Sanitization is not CSS isolation for the host page's own styles; use `shadowDom` for that. Navigation, popup links, and rich-content URL attributes are parsed with browser-compatible normalization at runtime even for definitions that bypass the editor. Relative and protocol-relative URLs and `http`, `https`, `mailto`, and `tel` are allowed; malformed, `javascript`, `data`, and other protocols are ignored. Users can zoom with the accessible buttons and, where enabled, hold Space and drag to pan. `settings.zoomControls` configures button visibility/position, fractional step, reset-to-initial or reset-to-fit behavior, and cursor-anchored wheel zoom. Wheel input is off unless explicitly enabled; modifier modes preserve normal page scrolling when the modifier is not held.
+Interactive areas support pointer input and Enter/Space keyboard activation unless disabled.
+
+**Selection.** Each view has at most one **selected** area, painted with its `active` style. Activating an area selects it: a pointer click or tap, Enter/Space, choosing it in the place directory, or loading an area deep link (`#view/area`). Tapping or pressing Enter/Space on a hover-only area also selects it; tapping it again unpins its tooltip and clears the selection. The selection persists while the pointer hovers other areas and after focus moves on. It clears on Escape inside the map (text fields keep their own Escape), activating empty map space (including transparent pixels of an alpha-masked image region), closing the selected area's popup, hiding its layer, `reset()`, or leaving the view; returning with Back does not restore it. Disabled areas cannot be selected, and activating one leaves the selection unchanged. Host pages can call `select(areaId)` and `clearSelection()` and observe `area:select`. The selected element gets `aria-current="true"` and keeps its `button` role. When `deepLink` is enabled the hash mirrors the selection (`#view/area`, or `#view` once cleared).
+
+Style precedence is disabled, then selected (`active`), then hover/focus, then resting (always-highlight, choropleth value, or default). Disabled areas therefore keep their disabled style even under a choropleth, and a selected area keeps `active` while hovered.
+
+Keyboard focus applies the hover style and exposes configured tooltip content through `aria-describedby`; `accessibility.tabIndex` remains authoritative in both light and Shadow DOM. Hover-only areas do not dispatch their action from the keyboard or touch, but focus reveals their details, Enter/Space announces them, and a touch tap pins the tooltip until the visitor taps elsewhere. View navigation announces the destination and, when initiated inside the map, moves focus to the active scene control or first interactive destination. Popup close restores its SVG trigger, including in Shadow DOM. Popovers anchor to the area's rendered shape and tooltips to the pointer or focused area. Both stay inside the renderer box: they flip to the side with room and shift along the edge, and a popover that is still too tall scrolls its body while Close stays visible. An open popover follows zoom, pan, host resizes and late-loading images, and stops tracking when it closes, the view changes or the map is destroyed. The popup `position` sets the preferred side, and `auto` starts below the area. Tooltip and popup HTML is sanitized with DOMPurify and inserted as a DOM fragment. Formatting, lists, links, and images are kept; `<style>`, `<link>`, `<base>`, forms and other controls, embedded documents, inline SVG/MathML, and `style`, `id`, and `name` attributes are removed so content cannot style or control the host page or another map. `target="_blank"` links get `rel="noopener noreferrer"`. Sanitization is not CSS isolation for the host page's own styles; use `shadowDom` for that. Navigation, popup links, and rich-content URL attributes are parsed with browser-compatible normalization at runtime even for definitions that bypass the editor. Relative and protocol-relative URLs and `http`, `https`, `mailto`, and `tel` are allowed; malformed, `javascript`, `data`, and other protocols are ignored. Users can zoom with the accessible buttons and, where enabled, hold Space and drag to pan. `settings.zoomControls` configures button visibility/position, fractional step, reset-to-initial or reset-to-fit behavior, and cursor-anchored wheel zoom. Wheel input is off unless explicitly enabled; modifier modes preserve normal page scrolling when the modifier is not held.
 
 `assetBaseUrl` applies only to reusable assets referenced by backgrounds and foreground images. Relative tooltip/popup media and navigation URLs retain normal host-document URL semantics. Absolute, protocol-relative, data URI, and raw SVG asset sources are preserved.
 

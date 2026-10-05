@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { unzipSync, strFromU8 } from "fflate";
+import { randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, extname, join, resolve } from "node:path";
@@ -203,4 +204,78 @@ test("production editor remains operable with touch emulation", async ({ browser
   await page.getByRole("button", { name: "Preview", exact: true }).tap();
   await expect(page.getByTestId("preview-screen")).toBeVisible();
   await context.close();
+});
+
+test("image-heavy export compresses off the main thread, can be cancelled, and keeps options (#171)", async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  const fixture = JSON.parse(await readFile(fixturePath, "utf8"));
+  // Incompressible raster payloads kept inline, so map.json and index.html are
+  // each megabytes long and fflate deflates them in its workers.
+  for (let index = 0; index < 5; index++) {
+    fixture.assets.push({ id: `heavy-${index}`, type: "image/png", name: `heavy-${index}.png`, src: `data:image/png;base64,${randomBytes(2_000_000).toString("base64")}`, width: 10, height: 10, inline: true });
+  }
+  const upload = testInfo.outputPath("heavy-assets.json");
+  await mkdir(testInfo.outputDir, { recursive: true });
+  await writeFile(upload, JSON.stringify(fixture));
+
+  await page.goto("/");
+  await loadFixture(page, upload);
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  await page.getByLabel("Upload base path").fill("/kept/base");
+  await page.getByLabel("Container ID").fill("kept-map");
+
+  // Options survive leaving the screen (Reveal → fix → Export).
+  await page.getByRole("button", { name: "Design", exact: true }).click();
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  await expect(page.getByLabel("Upload base path")).toHaveValue("/kept/base");
+  await expect(page.getByLabel("Container ID")).toHaveValue("kept-map");
+  await expect(page.getByLabel(/Keep embedded assets/)).toBeChecked();
+
+  // Cancel mid-compression: nothing downloads and export stays available.
+  const downloads: string[] = [];
+  page.on("download", (download) => downloads.push(download.suggestedFilename()));
+  const confirm = page.getByTestId("export-anyway");
+  await page.getByTestId("export-button").click();
+  if (await confirm.isVisible()) await confirm.click();
+  await page.getByTestId("export-cancel").click();
+  await expect(page.getByText("Export cancelled")).toBeVisible();
+  await expect(page.getByTestId("export-button")).toBeEnabled();
+
+  // Measure the longest gap between animation frames during a full export.
+  await page.evaluate(() => {
+    const state = { last: performance.now(), maxGap: 0, running: true };
+    (window as unknown as { __frames: typeof state }).__frames = state;
+    const tick = (now: number) => {
+      state.maxGap = Math.max(state.maxGap, now - state.last);
+      state.last = now;
+      if (state.running) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  const packageDownload = page.waitForEvent("download");
+  await page.getByTestId("export-button").click();
+  if (await confirm.isVisible()) await confirm.click();
+  const downloaded = await packageDownload;
+  const maxGap = await page.evaluate(() => {
+    const state = (window as unknown as { __frames: { maxGap: number; running: boolean } }).__frames;
+    state.running = false;
+    return state.maxGap;
+  });
+  testInfo.annotations.push({ type: "max-frame-gap-ms", description: String(Math.round(maxGap)) });
+  expect(downloads).toHaveLength(1);
+  expect(maxGap).toBeLessThan(1_000);
+
+  const archivePath = await downloaded.path();
+  if (!archivePath) throw new Error("Export download has no local path");
+  const archive = unzipSync(new Uint8Array(await readFile(archivePath)));
+  const total = Object.values(archive).reduce((sum, bytes) => sum + bytes.byteLength, 0);
+  await expect(page.getByText(/Uncompressed package:/)).toContainText(`${(total / 1024 / 1024).toFixed(1)} MB`);
+  expect(strFromU8(archive["embed.html"])).toContain("/kept/base/map.json");
+
+  // The exported standalone page still opens offline from disk.
+  const extracted = testInfo.outputPath("heavy-extracted");
+  await mkdir(extracted, { recursive: true });
+  await writeFile(join(extracted, "index.html"), archive["index.html"]);
+  await page.goto(`file://${join(extracted, "index.html")}`);
+  await expect(page.getByRole("button", { name: "Zoom in" })).toBeVisible();
 });
