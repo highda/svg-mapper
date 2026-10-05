@@ -4,18 +4,24 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        orchestrated batch (owner-approved, max 3 parallel subagents) — #173, #171, #196
-Branch:       feat/173-layer-toggle-camera, feat/171-*, feat/196-*
-Started:      2026-10-05
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ### Notes / gotchas
-- Owner allowed up to 3 parallel subagents in separate worktrees; the orchestrating session holds the claims, merges PRs and keeps this file. Several `agent:in-progress` labels at once are intentional during this run.
-- Local e2e: the installed Playwright expects a newer headless shell than /opt/pw-browsers provides; use a temporary uncommitted config pointing at /opt/pw-browsers/chromium and a unique port per worktree.
+- Local e2e: the installed Playwright expects a newer headless shell than /opt/pw-browsers provides; use a temporary uncommitted config pointing at /opt/pw-browsers/chromium.
 - #223 approved by owner (same-origin iframe fallback); waits on #218, #221, #222.
+- #217 owner decision recorded on the issue: remove `theme` and `showTitle`, implement `showBreadcrumbs` end to end.
 
 ---
 
 ## Ledger (most recent first)
+- 2026-10-05 — closed #174 — editor fields and dialogs get complete keyboard semantics (shared ModalDialog with focus return, aria-invalid/describedby on Export fields, labelled controls); PR #230.
+- 2026-10-05 — closed #178 — behavioural desktop-authoring and exported-container regression specs, browser-support evidence and release checks; PR #235.
+- 2026-10-05 — closed #171 — export packaging runs fflate asynchronously from one cached manifest that also drives the preview and estimate; cancellable from the header; PR #231.
+- 2026-10-05 — closed #197 — renderer-only integration guide (docs/renderer-standalone.md) with a minimal hand-authored example and conformance tests; PR #234.
+- 2026-10-05 — closed #214 — the authored active style is a persistent per-view selection with select()/clearSelection() and area:select; PR #233.
+- 2026-10-05 — closed #196 — map.json contract versioned with a published JSON Schema; PR #229.
+- 2026-10-05 — closed #173 — toggling layers preserves camera and focus; PR #227.
 - 2026-10-05 — closed #195 — scripts/check-boundaries.mjs (TS scanner) enforces shared/renderer/editor import rules and the renderer bundle against scripts/dependency-allowlist.json, mirrored in ASSIGNMENT §2.6; wired into static-checks; PR #226.
 - 2026-10-05 — closed #164 — layer/image locks enforced in the store (geometry, insert, delete, reorder); locked content stays selectable and non-geometry editable; mixed selections move only unlocked items; new content targets selected/first unlocked layer; lockNotice explains refusals; PR #225.
 - 2026-10-05 — closed #170 — export reserves every emitted asset path (case-insensitive) so generated suffixes never collide with later names; e2e extracts the ZIP and checks each image's pixels; PR #224.
