@@ -18,7 +18,7 @@ import type {
   View,
 } from "@svg-mapper/shared";
 import { useId, useState } from "react";
-import { useStore } from "../../store";
+import { geometryLockReason, useStore } from "../../store";
 import { validateActionUrl } from "../../lib/url-validate";
 import { createAlphaHitMask, MAX_ALPHA_MASK_DIMENSION } from "../../lib/alpha-mask";
 import { colorToHex, isValidCssColor, parseCssColor, withHexColor, withOpacity } from "../../lib/css-color";
@@ -1380,22 +1380,28 @@ function AreaInspector() {
   if (!selectedAreaId) return null;
 
   let area = null;
+  let areaLayer = null;
   for (const view of project.views) {
     for (const layer of view.layers) {
       const found = layer.areas.find((a) => a.id === selectedAreaId);
-      if (found) { area = found; break; }
+      if (found) { area = found; areaLayer = layer; break; }
     }
     if (area) break;
   }
-  if (!area) return null;
+  if (!area || !areaLayer) return null;
 
   const a = area;
+  const geometryLock = geometryLockReason(areaLayer, a);
   const style = a.style as AreaStyle;
   const disabledStyle = style.disabled ?? { ...style.default, fill: "#9ca3af", stroke: "#6b7280" };
   const tooltip = a.tooltip as Tooltip | undefined;
   const selectedAreas = project.views.flatMap((view) =>
     view.layers.flatMap((layer) => layer.areas.filter((candidate) => selectedAreaIds.includes(candidate.id))),
   );
+  const lockedSelectionCount = project.views.flatMap((view) =>
+    view.layers.flatMap((layer) => layer.areas.filter((candidate) =>
+      selectedAreaIds.includes(candidate.id) && geometryLockReason(layer, candidate) !== null)),
+  ).length;
   const hasMixedStyles = selectedAreas.some((candidate) => JSON.stringify(candidate.style) !== JSON.stringify(a.style));
   const hasMixedActions = selectedAreas.some((candidate) => JSON.stringify(candidate.action) !== JSON.stringify(a.action));
 
@@ -1421,6 +1427,11 @@ function AreaInspector() {
       {selectedAreas.length > 1 && (
         <div className="space-y-1 rounded border border-neutral-700 bg-neutral-800/60 p-2">
           <p className="text-[10px] text-neutral-400">Arrange {selectedAreas.length} selected areas</p>
+          {lockedSelectionCount > 0 && (
+            <p className="text-[10px] text-amber-400">
+              {lockedSelectionCount} locked {lockedSelectionCount === 1 ? "area keeps its" : "areas keep their"} position.
+            </p>
+          )}
           <div className="grid grid-cols-3 gap-1">
             {(["left", "center", "right", "top", "middle", "bottom"] as const).map((alignment) => (
               <button key={alignment} type="button" onClick={() => alignAreas(selectedAreaIds, alignment)} className="rounded bg-neutral-700 px-1 py-1 text-[10px] capitalize text-white hover:bg-neutral-600">
@@ -1435,7 +1446,15 @@ function AreaInspector() {
           <button type="button" onClick={() => duplicateAreas(selectedAreaIds)} className="w-full rounded bg-blue-700 px-2 py-1 text-xs text-white hover:bg-blue-600">Duplicate selection</button>
         </div>
       )}
-      <GeometryEditor areaId={a.id} geometry={a.geometry as unknown as { type: string }} />
+      {/* Locked geometry stays readable; the store refuses edits regardless (#164). */}
+      <fieldset disabled={geometryLock !== null} className="min-w-0 space-y-1 disabled:opacity-60" aria-describedby={geometryLock ? "geometry-lock-note" : undefined}>
+        {geometryLock && (
+          <p id="geometry-lock-note" className="text-[10px] text-amber-400">
+            {geometryLock}. Unlock it to move or resize this area.
+          </p>
+        )}
+        <GeometryEditor areaId={a.id} geometry={a.geometry as unknown as { type: string }} />
+      </fieldset>
 
       <SectionHeader title="Style" scope="Area" />
       <div className="space-y-1 rounded border border-neutral-700 bg-neutral-800/60 p-2">
