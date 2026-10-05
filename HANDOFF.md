@@ -4,8 +4,19 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #166 — fix(editor): tie recovery status to the exact saved revision
+Branch:       claude/kind-albattani-vjpp90
+Started:      2026-10-05
+Last commit:  (claim)
+
+### What's done
+- Claimed #166 (selected by scripts/select-task.mjs).
+
+### What's next
+- Revision counter + savedRevision; pending on edit; stale-write guard; serialized clear/write; validated draft reads; idb-keyval.
+
+### Notes / gotchas
+- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/166-*`.
 
 ---
 
