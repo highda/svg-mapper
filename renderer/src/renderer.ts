@@ -192,9 +192,8 @@ class Renderer implements ClickMapInstance {
   private hoveredId: string | null = null;
   private focusedId: string | null = null;
   private pinnedTooltipId: string | null = null;
-  /** Area showing its transient pressed (`style.active`) state, and what pressed it. */
-  private pressedId: string | null = null;
-  private pressedBy: "pointer" | "key" | null = null;
+  /** The current view's selected area, painted with `style.active` until cleared. */
+  private selectedId: string | null = null;
   /** Directory reveal waiting for its destination view to finish rendering. */
   private pendingReveal: { viewId: string; run: () => void } | null = null;
   /** Re-filters the directory after effective layer visibility changes. */
@@ -461,12 +460,9 @@ class Renderer implements ClickMapInstance {
     window.addEventListener("keydown", this.onWindowKeyDown);
     window.addEventListener("keyup", this.onWindowKeyUp);
     this.svgEl.addEventListener("pointerdown", (e) => this.onPanStart(e));
-    this.svgEl.addEventListener("pointerdown", (e) => this.onAreaPointerDown(e));
-    this.svgEl.addEventListener("keyup", (e) => this.onKeyUp(e));
+    this.root.addEventListener("keydown", (e) => this.onRootKeyDown(e));
     window.addEventListener("pointermove", this.onWindowPointerMove);
     window.addEventListener("pointerup", this.onWindowPointerUp);
-    window.addEventListener("pointercancel", this.onWindowPointerCancel);
-    window.addEventListener("blur", this.onWindowBlur);
 
     // Close popover on outside click
     document.addEventListener("click", this.onDocumentClick);
@@ -624,9 +620,9 @@ class Renderer implements ClickMapInstance {
       this.currentViewBox = { x: bounds.x + bounds.w / 2 - width / 2, y: bounds.y + bounds.h / 2 - height / 2, w: width, h: height };
       this.applyViewBox();
       this.emitCameraChange("reveal");
+      this.setSelection(area.id);
       el.focus();
       this.ariaLiveEl.textContent = `${area.name}, ${view.name}`;
-      this.updateDeepLinkHash(view.id, area.id);
     };
     // Only the latest choice may reveal: a newer one replaces any pending reveal.
     this.pendingReveal = null;
@@ -666,8 +662,9 @@ class Renderer implements ClickMapInstance {
     this.hoveredId = null;
     this.focusedId = null;
     this.pinnedTooltipId = null;
-    this.pressedId = null;
-    this.pressedBy = null;
+    // Navigation and reset already announced the cleared selection; the old
+    // nodes are replaced below, so the view always starts unselected.
+    this.selectedId = null;
     this.hideTooltip();
     this.closePopover();
     this.viewW = view.canvas.width;
@@ -1120,10 +1117,7 @@ class Renderer implements ClickMapInstance {
   };
 
   private onWindowPointerMove = (e: PointerEvent) => this.onPanMove(e);
-  private onWindowPointerUp = () => {
-    this.onPanEnd();
-    this.releasePress("pointer");
-  };
+  private onWindowPointerUp = () => this.onPanEnd();
 
   private onPanStart(e: PointerEvent) {
     if (!this.spaceHeld || !this.currentViewBox) return;
@@ -1390,11 +1384,11 @@ class Renderer implements ClickMapInstance {
 
   /**
    * The single style resolver for an area's current state. Precedence:
-   * disabled, then pressed (`style.active`), then hover/focus, then resting
+   * disabled, then selected (`style.active`), then hover/focus, then resting
    * (always-highlight, choropleth or default).
    */
   private applyAreaStyle(area: Area, el: SVGElement) {
-    if (!area.disabled && this.pressedId === area.id) {
+    if (!area.disabled && this.selectedId === area.id) {
       this.applyStyle(el, area.style.active);
     } else if (!area.disabled && (this.hoveredId === area.id || this.focusedId === area.id)) {
       this.applyStyle(el, area.style.hover);
@@ -1403,23 +1397,37 @@ class Renderer implements ClickMapInstance {
     }
   }
 
-  private setPressed(area: Area, by: "pointer" | "key") {
-    if (this.pressedId !== null && this.pressedId !== area.id) this.releasePress();
-    this.pressedId = area.id;
-    this.pressedBy = by;
-    const el = this.findAreaEl(area.id);
-    if (el) this.applyAreaStyle(area, el);
-  }
-
-  /** End the pressed state (release, cancel, blur) and restore the resolved style. */
-  private releasePress(by?: "pointer" | "key") {
-    const id = this.pressedId;
-    if (id === null || (by && this.pressedBy !== by)) return;
-    this.pressedId = null;
-    this.pressedBy = null;
-    const area = this.findAreaInCurrentView(id);
-    const el = this.findAreaEl(id);
-    if (area && el) this.applyAreaStyle(area, el);
+  /**
+   * Make `id` the current view's selected area, or clear the selection with
+   * null. Repaints both areas through the resolver, mirrors the selection in
+   * `aria-current` and (optionally) an enabled deep link, and emits
+   * `area:select`. Unknown, hidden and disabled areas cannot be selected.
+   */
+  private setSelection(id: string | null, updateHash = true) {
+    const area = id === null ? null : this.findAreaInCurrentView(id);
+    const el = id === null ? null : this.findAreaEl(id);
+    if (id !== null && (!area || !el || area.disabled)) return;
+    const previous = this.selectedId;
+    if (previous === id) return;
+    this.selectedId = id;
+    if (previous !== null) {
+      const prevArea = this.findAreaInCurrentView(previous);
+      const prevEl = this.findAreaEl(previous);
+      prevEl?.removeAttribute("aria-current");
+      if (prevArea && prevEl) this.applyAreaStyle(prevArea, prevEl);
+    }
+    if (area && el) {
+      el.setAttribute("aria-current", "true");
+      this.applyAreaStyle(area, el);
+    }
+    if (updateHash) this.updateDeepLinkHash(this.currentViewId, id ?? undefined);
+    this.emit({
+      type: "area:select",
+      instanceId: this.instanceId,
+      viewId: this.currentViewId,
+      areaId: id,
+      areaName: area?.name ?? null,
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -1543,25 +1551,40 @@ class Renderer implements ClickMapInstance {
 
   private onClick(e: MouseEvent) {
     const hit = this.getAreaFromEvent(e);
-    if (!hit) return;
+    if (!hit) {
+      // Activating empty map space (including transparent pixels of an
+      // alpha-masked image region) clears the selection; a disabled area or a
+      // Space-drag pan does not.
+      const el = (e.target as Element).closest?.("[data-area-id]");
+      const area = el ? this.findAreaInCurrentView(el.getAttribute("data-area-id") ?? "") : null;
+      if (!this.spaceHeld && !area?.disabled) this.setSelection(null);
+      return;
+    }
     const { area } = hit;
 
     const trigger = area.trigger ?? "both";
     if (trigger === "hover") {
       // Touch has no durable hover state. Tapping a hover-only area toggles its
-      // authored tooltip without dispatching the click action.
-      if (!area.tooltip?.enabled) return;
-      if (this.pinnedTooltipId === area.id) {
+      // authored tooltip (and its selection) without dispatching the click action.
+      if (this.pinnedTooltipId === area.id || this.selectedId === area.id) {
         this.pinnedTooltipId = null;
         if (this.focusedId === null && this.hoveredId === null) this.hideTooltip();
+        this.setSelection(null);
       } else {
+        this.setSelection(area.id);
+        if (!area.tooltip?.enabled) return;
         this.pinnedTooltipId = area.id;
         this.showTooltip(area);
         this.positionTooltipForArea(area);
       }
       return;
     }
+    this.activateArea(area);
+  }
 
+  /** Select the area, announce the click, then run its action. */
+  private activateArea(area: Area) {
+    this.setSelection(area.id);
     this.emit({
       type: "area:click",
       areaId: area.id,
@@ -1569,7 +1592,6 @@ class Renderer implements ClickMapInstance {
       action: area.action,
       ...(area.metadata !== undefined ? { metadata: area.metadata } : {}),
     });
-    this.updateDeepLinkHash(this.currentViewId, area.id);
     this.dispatchAction(area.action, area);
   }
 
@@ -1578,9 +1600,9 @@ class Renderer implements ClickMapInstance {
     const hit = this.getAreaFromEvent(e);
     if (!hit) return;
     e.preventDefault();
-    if (!e.repeat) this.setPressed(hit.area, "key");
     const trigger = hit.area.trigger ?? "both";
     if (trigger === "hover") {
+      this.setSelection(hit.area.id);
       if (hit.area.tooltip?.enabled) {
         this.showTooltip(hit.area);
         this.positionTooltipForArea(hit.area);
@@ -1588,30 +1610,20 @@ class Renderer implements ClickMapInstance {
       }
       return;
     }
-    this.emit({
-      type: "area:click",
-      areaId: hit.area.id,
-      areaName: hit.area.name,
-      action: hit.area.action,
-      ...(hit.area.metadata !== undefined ? { metadata: hit.area.metadata } : {}),
-    });
-    this.updateDeepLinkHash(this.currentViewId, hit.area.id);
-    this.dispatchAction(hit.area.action, hit.area);
+    this.activateArea(hit.area);
   }
 
-  private onKeyUp(e: KeyboardEvent) {
-    if (e.key === "Enter" || e.key === " ") this.releasePress("key");
+  /**
+   * Escape inside the map clears the selection. An open popup handles Escape
+   * itself (closing it also clears its area's selection), and text fields keep
+   * their native Escape behaviour.
+   */
+  private onRootKeyDown(e: KeyboardEvent) {
+    if (e.key !== "Escape" || this.selectedId === null || this.openPopoverId !== null) return;
+    const target = e.composedPath()[0];
+    if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement) return;
+    this.setSelection(null);
   }
-
-  /** Primary-button presses show `style.active` until release or cancel. */
-  private onAreaPointerDown(e: PointerEvent) {
-    if (this.spaceHeld || (typeof e.button === "number" && e.button !== 0)) return;
-    const hit = this.getAreaFromEvent(e);
-    if (hit) this.setPressed(hit.area, "pointer");
-  }
-
-  private onWindowPointerCancel = () => this.releasePress("pointer");
-  private onWindowBlur = () => this.releasePress();
 
   private onFocusIn(e: FocusEvent) {
     const hit = this.getAreaFromEvent(e);
@@ -1631,7 +1643,6 @@ class Renderer implements ClickMapInstance {
     const area = this.findAreaInCurrentView(this.focusedId);
     const el = this.findAreaEl(this.focusedId);
     this.focusedId = null;
-    if (this.pressedBy === "key") this.releasePress("key");
     if (area && el) this.applyAreaStyle(area, el);
     if (this.hoveredId === null && this.pinnedTooltipId === null) this.hideTooltip();
   }
@@ -1698,7 +1709,7 @@ class Renderer implements ClickMapInstance {
     const removed = this.syncLayers(view);
     if (removed.length > 0) {
       const gone = (id: string | null) => id !== null && !this.findAreaEl(id);
-      if (gone(this.pressedId)) { this.pressedId = null; this.pressedBy = null; }
+      if (gone(this.selectedId)) this.setSelection(null);
       if (gone(this.hoveredId)) this.hoveredId = null;
       if (gone(this.focusedId)) this.focusedId = null;
       if (gone(this.pinnedTooltipId)) this.pinnedTooltipId = null;
@@ -1998,6 +2009,8 @@ class Renderer implements ClickMapInstance {
     if (this.popoverReturnFocus?.isConnected) this.popoverReturnFocus.focus();
     this.popoverReturnFocus = null;
     this.emit({ type: "popup:close", popupId });
+    // Closing an area's details ends its selection.
+    if (this.selectedId === popupId) this.setSelection(null);
   }
 
   private getActiveElement(): Element | null {
@@ -2111,6 +2124,8 @@ class Renderer implements ClickMapInstance {
     if (areaId) {
       const el = this.findAreaEl(areaId);
       el?.setAttribute("data-deep-linked", "true");
+      // The link already names this area, so the hash is left as written.
+      this.setSelection(areaId, false);
     }
   }
 
@@ -2181,6 +2196,7 @@ class Renderer implements ClickMapInstance {
     const prev = this.currentViewId;
     this.navigationInProgress = true;
     this.emit({ type: "view:leave", instanceId: this.instanceId, viewId: prev, nextViewId: viewId });
+    this.setSelection(null, false);
     this.navigationInProgress = false;
     if (options.historyMode !== "browser") this.navigationStack.push(prev);
     this.currentViewId = viewId;
@@ -2218,6 +2234,7 @@ class Renderer implements ClickMapInstance {
     const from = this.currentViewId;
     this.navigationInProgress = true;
     this.emit({ type: "view:leave", instanceId: this.instanceId, viewId: from, nextViewId: prev });
+    this.setSelection(null, false);
     this.navigationInProgress = false;
     this.currentViewId = prev;
     this.fade(() => {
@@ -2240,6 +2257,7 @@ class Renderer implements ClickMapInstance {
     if (this.navigationInProgress) return;
     this.navigationInProgress = true;
     if (from !== to) this.emit({ type: "view:leave", instanceId: this.instanceId, viewId: from, nextViewId: to });
+    this.setSelection(null, false);
     this.navigationStack = [];
     this.layerVisibility.clear();
     this.currentViewId = this.def.settings.initialViewId;
@@ -2253,6 +2271,14 @@ class Renderer implements ClickMapInstance {
     this.navigationInProgress = false;
     this.updateDeepLinkHash(this.currentViewId);
     if (this.def.settings.enableHistory) this.replaceOwnedHistoryState(this.currentViewId);
+  }
+
+  select(areaId: string) {
+    if (!this.destroyed) this.setSelection(areaId);
+  }
+
+  clearSelection() {
+    if (!this.destroyed) this.setSelection(null);
   }
 
   getCurrentView() {
@@ -2279,8 +2305,6 @@ class Renderer implements ClickMapInstance {
     window.removeEventListener("keyup", this.onWindowKeyUp);
     window.removeEventListener("pointermove", this.onWindowPointerMove);
     window.removeEventListener("pointerup", this.onWindowPointerUp);
-    window.removeEventListener("pointercancel", this.onWindowPointerCancel);
-    window.removeEventListener("blur", this.onWindowBlur);
     window.removeEventListener("popstate", this.onPopState);
     document.removeEventListener("click", this.onDocumentClick);
     document.removeEventListener("keydown", this.onDocumentKeyDown);
@@ -2320,6 +2344,8 @@ type QueuedOp =
   | { kind: "goToView"; viewId: string }
   | { kind: "goBack" }
   | { kind: "reset" }
+  | { kind: "select"; areaId: string }
+  | { kind: "clearSelection" }
   | { kind: "destroy" }
   | { kind: "setChoroplethData"; data: Array<{ id: string; value: number }> };
 
@@ -2387,6 +2413,8 @@ class FailedRenderer implements ClickMapInstance {
   goToView() {}
   goBack() {}
   reset() {}
+  select() {}
+  clearSelection() {}
   setChoroplethData() {}
   getCurrentView() {
     return "";
@@ -2454,6 +2482,8 @@ class DeferredRenderer implements ClickMapInstance {
           else if (op.kind === "goToView") this.inner.goToView(op.viewId);
           else if (op.kind === "goBack") this.inner.goBack();
           else if (op.kind === "reset") this.inner.reset();
+          else if (op.kind === "select") this.inner.select(op.areaId);
+          else if (op.kind === "clearSelection") this.inner.clearSelection();
           else if (op.kind === "destroy") this.inner.destroy();
           else if (op.kind === "setChoroplethData") this.inner.setChoroplethData(op.data);
         }
@@ -2478,6 +2508,12 @@ class DeferredRenderer implements ClickMapInstance {
   }
   reset() {
     this.inner ? this.inner.reset() : this.queue.push({ kind: "reset" });
+  }
+  select(areaId: string) {
+    this.inner ? this.inner.select(areaId) : this.queue.push({ kind: "select", areaId });
+  }
+  clearSelection() {
+    this.inner ? this.inner.clearSelection() : this.queue.push({ kind: "clearSelection" });
   }
   getCurrentView() {
     return this.inner?.getCurrentView() ?? "";

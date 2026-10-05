@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { App } from "../App";
 import { createRectArea } from "../lib/area-utils";
 import { createNewProject } from "../lib/project";
 import { useStore } from "../store";
+import { useStylePreview } from "../store/style-preview";
 
 describe("area color inspector", () => {
   beforeEach(() => {
@@ -32,7 +33,7 @@ describe("area color inspector", () => {
 
     expect(screen.getByLabelText("Default fill color picker")).toHaveValue("#3b82f6");
     expect(screen.getByLabelText("Hover stroke CSS color")).toHaveValue("rgba(59,130,246,0.9)");
-    expect(screen.getByLabelText("Active fill opacity")).toHaveValue("35");
+    expect(screen.getByLabelText("Active fill opacity")).toHaveValue("45");
     expect(screen.getByLabelText("Disabled fill CSS color")).toHaveValue("transparent");
   });
 
@@ -60,5 +61,26 @@ describe("area color inspector", () => {
     fireEvent.change(field, { target: { value: "#abcdef80" } });
     fireEvent.blur(field);
     expect(selectedArea().style.default.stroke).toBe("#abcdef80");
+  });
+  it("previews the Active (selected) and Hover states of the selected area on the canvas", () => {
+    const { unmount } = render(<App />);
+    const area = selectedArea();
+    const shape = () => document.querySelector(`path[stroke-width="${area.style.active.strokeWidth}"][fill="${area.style.active.fill}"]`);
+    const picker = screen.getByRole("group", { name: "Canvas style preview" });
+    expect(within(picker).getByRole("button", { name: "Default" })).toHaveAttribute("aria-pressed", "true");
+    expect(shape()).toBeNull();
+
+    fireEvent.click(within(picker).getByRole("button", { name: "Active" }));
+    expect(within(picker).getByRole("button", { name: "Active" })).toHaveAttribute("aria-pressed", "true");
+    expect(shape()).not.toBeNull();
+    expect(screen.getByText(/Selected: shown after a visitor chooses the area/)).toBeInTheDocument();
+
+    fireEvent.click(within(picker).getByRole("button", { name: "Hover" }));
+    expect(shape()).toBeNull();
+    expect(document.querySelector(`path[fill="${area.style.hover.fill}"]`)).not.toBeNull();
+
+    // The preview is ephemeral: leaving the inspected selection resets it.
+    unmount();
+    expect(useStylePreview.getState().state).toBe("default");
   });
 });

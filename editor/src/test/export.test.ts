@@ -49,6 +49,7 @@ describe("generateExportPackage", () => {
     expect(hooks).toContain('"view:enter"');
     expect(hooks).toContain('"view:leave"');
     expect(hooks).toContain('"camera:change"');
+    expect(hooks).toContain('"area:select"');
     expect(embed).toContain('src="/maps/my-map/hooks.js"');
     expect(embed).toContain("attachClickMapHooks(map)");
   });
