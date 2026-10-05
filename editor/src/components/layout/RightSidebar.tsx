@@ -27,6 +27,7 @@ import { validateActionUrl } from "../../lib/url-validate";
 import { createAlphaHitMask, MAX_ALPHA_MASK_DIMENSION } from "../../lib/alpha-mask";
 import { colorToHex, isValidCssColor, parseCssColor, withHexColor, withOpacity } from "../../lib/css-color";
 import { validateViewCss } from "../../lib/view-css";
+import { DetailsSettingsSection, PopupPresentationField } from "../details/DetailsInspector";
 import { InspectorSection } from "../inspector/InspectorSection";
 import { useLayoutPrefs } from "../../store/layout-prefs";
 
@@ -316,8 +317,13 @@ function StylePreviewPicker({ disabled }: { disabled: boolean }) {
 // No-selection: View inspector
 // ---------------------------------------------------------------------------
 
+function navigationSummary(view: View): string {
+  const parts = [view.ui.showBackButton && "Back", view.ui.showBreadcrumbs && "Trail"].filter(Boolean);
+  return parts.length ? parts.join(", ") : "Off";
+}
+
 function ViewInspector({ view }: { view: View }) {
-  const { renameView, setCanvasSize, project, setViewBackground, setViewBackgroundFit, setViewBackgroundPosition, updateSettings, setEditorState, setViewCustomCss } = useStore();
+  const { renameView, setCanvasSize, project, setViewBackground, setViewBackgroundFit, setViewBackgroundPosition, updateSettings, setEditorState, setViewCustomCss, setViewUi } = useStore();
   const [customCss, setCustomCss] = useState(view.customCss ?? "");
   const customCssError = validateViewCss(customCss);
   const canvasSize = view.canvas;
@@ -399,6 +405,9 @@ function ViewInspector({ view }: { view: View }) {
             onCommit={(v) => setCanvasSize(canvasSize.width, v)}
           />
         </Row>
+      </InspectorSection>
+      <InspectorSection id="project.details" title="Popup details" scope="Project" summary={project.settings.details?.presentation ?? "popover"}>
+        <DetailsSettingsSection />
       </InspectorSection>
       <InspectorSection id="project.labels" title="Area labels" scope="Project" summary={project.settings.areaLabels?.enabled ? "On" : "Off"}>
         <CheckToggle
@@ -623,6 +632,19 @@ function ViewInspector({ view }: { view: View }) {
             />
           </Row>
         ))}
+      </InspectorSection>
+      <InspectorSection id="view.navigation" title="Navigation" scope="View" defaultOpen={false} summary={navigationSummary(view)}>
+        <p className="text-xs text-neutral-400">Shown in this view after a visitor arrives from another view.</p>
+        <CheckToggle
+          checked={view.ui.showBackButton}
+          onChange={(showBackButton) => setViewUi(view.id, { showBackButton })}
+          label="Show back button"
+        />
+        <CheckToggle
+          checked={view.ui.showBreadcrumbs}
+          onChange={(showBreadcrumbs) => setViewUi(view.id, { showBreadcrumbs })}
+          label="Show breadcrumb trail"
+        />
       </InspectorSection>
       <InspectorSection id="project.grid" title="Editor grid" scope="Project" summary={grid.enabled ? `Snap ${grid.size}px` : "Off"}>
         <CheckToggle
@@ -1078,6 +1100,7 @@ function PopupContentEditor({
           <option value="right">Right</option>
         </FieldSelect>
       </Row>
+      <PopupPresentationField areaId={areaId} action={action} />
     </div>
   );
 }

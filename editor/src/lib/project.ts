@@ -24,8 +24,7 @@ export function createDefaultView(canvas = { width: 1600, height: 900 }): View {
     },
     ui: {
       showBackButton: false,
-      showBreadcrumbs: true,
-      showTitle: true,
+      showBreadcrumbs: false,
     },
     layers: [],
   };
@@ -39,7 +38,6 @@ export function createNewProject(name = "Untitled Map"): ProjectFile {
     responsive: true,
     maintainAspectRatio: true,
     sizingMode: "fluid-width",
-    theme: "default",
     enableHistory: true,
     enableKeyboardNavigation: true,
   };
@@ -92,6 +90,18 @@ export function assertProjectFile(value: unknown): asserts value is ProjectFile 
   throw new Error(result.message);
 }
 
+/**
+ * Removes fields an earlier 1.x build wrote but nothing ever read (#217):
+ * `settings.theme` and `views[].ui.showTitle`. The decoder tolerates them, so
+ * older files still open; dropping them here keeps them out of saves and
+ * exports. Mutates and returns the decoded file.
+ */
+export function dropRetiredFields(file: ProjectFile): ProjectFile {
+  delete (file.settings as Partial<Record<"theme", unknown>>).theme;
+  for (const view of file.views) delete (view.ui as Partial<Record<"showTitle", unknown>>).showTitle;
+  return file;
+}
+
 export function parseProjectFile(json: string): ProjectFile {
   let parsed: unknown;
   try {
@@ -100,7 +110,7 @@ export function parseProjectFile(json: string): ProjectFile {
     throw new Error("Invalid map.json: the file is not valid JSON.");
   }
   assertProjectFile(parsed);
-  return parsed;
+  return dropRetiredFields(parsed);
 }
 
 export function serializeProjectFile(project: ProjectFile): string {

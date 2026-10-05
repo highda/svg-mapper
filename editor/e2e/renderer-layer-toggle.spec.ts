@@ -158,8 +158,12 @@ for (const shadowDom of [false, true]) {
 
     test("rapid cross-view directory choices reveal only the final result", async ({ page }) => {
       await mount(page, shadowDom);
-      await page.locator(".clickmap-directory-result", { hasText: "North gate" }).click();
-      await page.locator(".clickmap-directory-result", { hasText: "South gate" }).click();
+      // Both choices land within one task, inside the 150 ms fade: two
+      // separate Playwright clicks can straddle it and legitimately reveal north.
+      await page.evaluate(`(() => {
+        const results = Array.from(${scope}.querySelectorAll(".clickmap-directory-result"));
+        for (const name of ["North gate", "South gate"]) results.find((el) => el.textContent.includes(name)).click();
+      })()`);
       await expect.poll(() => focusedArea(page)).toBe("south-gate");
       await page.waitForTimeout(400);
       expect(await page.evaluate("window.reveals")).toEqual(["south"]);

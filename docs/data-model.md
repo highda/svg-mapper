@@ -1,6 +1,6 @@
 # Data model
 
-`map.json` (`ClickMapDefinition`) is the contract between the builder and the renderer, and what anyone must produce to use the renderer without the builder: by hand, from a script, or from a CMS ([guide](renderer-standalone.md)). The current `schemaVersion` is `"1.0.0"`.
+`map.json` (`ClickMapDefinition`) is the contract between the builder and the renderer, and what anyone must produce to use the renderer without the builder: by hand, from a script, or from a CMS ([guide](renderer-standalone.md)). The current `schemaVersion` is `"1.1.0"`.
 
 One structural schema, the Valibot schema in [`shared/schema.ts`](../shared/schema.ts), is the source of all three machine-readable forms of the contract:
 
@@ -15,7 +15,7 @@ The release renderer ZIP ships the JSON Schema as `clickmap-definition.schema.js
 `schemaVersion` is `MAJOR.MINOR.PATCH`:
 
 - A **major** change is breaking: an existing field changes meaning or type, or a field becomes required. A renderer or editor reads exactly one major version, currently `1`.
-- **Minor** and **patch** changes are additive: new optional fields or values that older readers may ignore. Any `1.x.y` is accepted. This release writes `1.0.0`.
+- **Minor** and **patch** changes are additive: new optional fields or values that older readers may ignore. Any `1.x.y` is accepted. This release writes `1.1.0`; 1.1 added `settings.details` and the popup action's `presentation`, which 1.0 readers ignore (their popups stay popovers).
 
 A file whose `schemaVersion` is a well-formed version with another major is refused before anything is mounted:
 
@@ -23,6 +23,8 @@ A file whose `schemaVersion` is a well-formed version with another major is refu
 | --- | --- |
 | Renderer | `create()` emits `error` with code `UNSUPPORTED_SCHEMA_VERSION` and shows it in the container's `.clickmap-root--error` element. The message has the form ``Unsupported map.json at $.schemaVersion: version 2.0.0 is newer than the supported major version 1 (1.x.y).`` |
 | Editor | Opening the file (or restoring such a draft) is refused and the current document is kept: ``This map uses schemaVersion 2.0.0, which is newer than this editor supports (1.x). Open it with a newer version of svg-mapper.`` An older major reports that it is an older format this editor cannot open. |
+
+Unknown keys are ignored by both readers, so a file may carry extra fields. In particular, builds before #217 wrote two fields that nothing ever read, `settings.theme` and `view.ui.showTitle`. They were removed from the schema rather than given a meaning (theming is done with [shared styles](#top-level-definition) and per-view `customCss`). Files that still contain them load unchanged in the renderer, and the editor drops both keys when it opens such a file or restores such a draft, so they are not saved or exported again. Since the format is unreleased, the removal did not bump `schemaVersion`; it ships in `1.1.0` alongside the details fields.
 
 A missing or malformed `schemaVersion` (for example `"1.0"`) is an ordinary structural error (`INVALID_DEFINITION`, path `$.schemaVersion`). The format is not yet released, so there is no migration between majors; a future breaking change will define its own upgrade path.
 
@@ -75,11 +77,45 @@ When opening JSON, the editor decodes the complete structure before replacing th
 
 ## Settings
 
-Required settings are `initialViewId`, `responsive`, `maintainAspectRatio`, `theme`, `enableHistory`, and `enableKeyboardNavigation`. New files also write `sizingMode`; the legacy booleans remain readable for schema 1.0 compatibility.
+Required settings are `initialViewId`, `responsive`, `maintainAspectRatio`, `enableHistory`, and `enableKeyboardNavigation`. New files also write `sizingMode`; the legacy booleans remain readable for schema 1.0 compatibility.
 
-Optional settings include `contentTemplate` (sanitized HTML with `{{name}}`, `{{id}}`, `{{viewName}}`, or `{{metadata.key}}`), `areaLabels`, `sceneSwitcher`, `zoomControls`, `directory`, and canvas-unit `padding`. Zoom controls can set their corner, fractional `step`, reset target (`initial` or fitted minimum), and `wheelMode` (`off`, a required modifier, or `always`). Wheel zoom defaults to off so an embedded map does not capture page scrolling.
+Optional settings include `contentTemplate` (sanitized HTML with `{{name}}`, `{{id}}`, `{{viewName}}`, or `{{metadata.key}}`), `areaLabels`, `sceneSwitcher`, `zoomControls`, `directory`, `details`, and canvas-unit `padding`. Zoom controls can set their corner, fractional `step`, reset target (`initial` or fitted minimum), and `wheelMode` (`off`, a required modifier, or `always`). Wheel zoom defaults to off so an embedded map does not capture page scrolling.
 
 `directory` opts the published map into a static, cross-view place finder. `metadataKeys` chooses fields searched alongside every area name. `categoryKey` and `categories: [{ value, label }]` expose an author-curated filter legend with visible text labels. Areas on hidden layers are excluded, using effective runtime visibility after `toggleLayer` actions. Disabled areas remain listed as unavailable but cannot be selected. A selected result changes views if needed, fits the area's bounds into the camera, and focuses its SVG control. All indexing and filtering happens in the browser and remains offline-capable.
+
+`details` sets how popup actions show their content and lays out the details panel ([Details presentations](#details-presentations)).
+
+### Details presentations
+
+A popup action's content can be shown three ways. The action's own `presentation` wins; otherwise `settings.details.presentation` applies; otherwise `popover`.
+
+| `presentation` | Shows the content |
+| --- | --- |
+| `popover` | Anchored next to the area, as before (`position` picks the preferred side). |
+| `panel` | In a details panel docked to one side of the renderer box. |
+| `modal` | In a centred dialog over the whole page, with a backdrop. Browsers without native `<dialog>` (Firefox 97) show a popover instead. |
+
+`settings.details` fields, all optional:
+
+| Field | Meaning |
+| --- | --- |
+| `presentation` | Default for popup actions without their own: `popover` (default), `panel`, or `modal`. |
+| `side` | `left`, `right` (default), `top`, or `bottom`. |
+| `size` | Panel width (left/right) or height (top/bottom): a fraction `0 < f ≤ 1` of the renderer box, or a `px`, `%`, `em`, or `rem` length string. Viewport units are rejected. Default `"35%"`. |
+| `sheetBelow` | Renderer width in CSS px below which the panel becomes a bottom sheet. Default `560`, the compact breakpoint. |
+| `defaultContent` | `{ title?, body? }` shown in the panel while nothing is selected. `body` is sanitized HTML; `{{viewName}}` is replaced with the current view's name. |
+| `hideWhenIdle` | When `true`, the panel stays hidden until an area's details are shown, even with default content. |
+| `label` | Accessible name of the panel while it shows untitled default content. Default: `"Details"`. |
+
+Content templates (`contentTemplate`) drive panel and modal content exactly as they drive popovers, so one template can serve every area.
+
+Panel layout rules. Everything is measured on the renderer box, never the window:
+
+- **Docked (renderer at least `sheetBelow` wide).** The panel takes `size` of the box on its side and the map takes the rest. In `fixed` and `fill-container` the panel shares the box, so the map gets smaller. In `fluid-width` a left or right panel sits beside the map: the map keeps its aspect ratio in the remaining width and the panel matches the map's height. A top or bottom panel in `fluid-width` stacks above or below the map. It has a fixed height when `size` is an absolute length, and otherwise grows with its content.
+- **Sheet (narrower than `sheetBelow`, width only).** In `fixed` and `fill-container` the panel becomes a bottom sheet over the lower part of the map, at most half its height, and scrolls inside. In `fluid-width`, which owns its height, it stacks below the map at its content height instead of covering it.
+- Visitor controls stay on the map, beside a docked panel and above a sheet. The panel is only built when the default or some area uses it, so other maps are unchanged.
+
+The panel follows the selection: it shows the selected area's content, swaps content when another area is selected, and returns to the default content (or hides) when the selection is cleared. Closing the panel clears the selection.
 
 ### Container sizing
 
@@ -99,7 +135,14 @@ Backgrounds and areas are world-attached: they share a viewBox and pan/zoom toge
 
 An `Asset` has `id`, MIME `type`, `name`, `src`, intrinsic `width` and `height`, and `inline`. Supported types are PNG, JPEG, WebP, and SVG. Editor storage normally uses a data URI or inline SVG markup. External-asset export writes those embedded bytes under `assets/...` and rewrites their `src`; pre-existing remote URLs and relative paths are preserved and disclosed as external dependencies instead of pointing at files absent from the package.
 
-A `View` has `id`, `name`, URL-friendly `slug`, its own required `canvas: {width,height}`, optional `background: {assetId, fit, position?}`, `viewport`, `ui`, optional `customCss`, and `layers`. The editor keeps slugs nonempty and unique for deep links, while `settings.initialViewId` selects the opening view. View duplication assigns fresh IDs to the copied view, layers, and areas and remaps actions that target those copied objects. Deleting a referenced view can atomically retarget surviving `goToView` actions; retaining them instead deliberately produces validation errors before publication. Background fit is `contain`, `cover`, `fill`, or `none`. `position` is a normalized `{x,y}` alignment/focal point: `{0,0}` is top-left, `{0.5,0.5}` is the default center, and `{1,1}` is bottom-right. It aligns contained or intrinsic artwork and selects the focal region retained by `cover`; values are clamped to 0–1. Viewport holds minimum, maximum, and initial zoom plus pan/zoom flags. UI flags control the title, breadcrumbs, and back button.
+A `View` has `id`, `name`, URL-friendly `slug`, its own required `canvas: {width,height}`, optional `background: {assetId, fit, position?}`, `viewport`, `ui`, optional `customCss`, and `layers`. The editor keeps slugs nonempty and unique for deep links, while `settings.initialViewId` selects the opening view. View duplication assigns fresh IDs to the copied view, layers, and areas and remaps actions that target those copied objects. Deleting a referenced view can atomically retarget surviving `goToView` actions; retaining them instead deliberately produces validation errors before publication. Background fit is `contain`, `cover`, `fill`, or `none`. `position` is a normalized `{x,y}` alignment/focal point: `{0,0}` is top-left, `{0.5,0.5}` is the default center, and `{1,1}` is bottom-right. It aligns contained or intrinsic artwork and selects the focal region retained by `cover`; values are clamped to 0–1. Viewport holds minimum, maximum, and initial zoom plus pan/zoom flags.
+
+`ui` holds two navigation flags, both read for the view the visitor is currently in. They show nothing until the visitor has navigated (with a `goToView` action, the scene switcher, or `goToView()`), because the initial view has no history:
+
+- `showBackButton` adds a **Back** button that returns to the previous view.
+- `showBreadcrumbs` adds a breadcrumb trail: a `<nav aria-label="Breadcrumb">` list of the visited views, oldest first, ending at the current view (marked `aria-current="page"`). Every earlier entry is a button. Activating one returns to that view and drops the views visited after it, exactly as pressing Back that many times would, but in one navigation (one `view:change` event and, with `enableHistory`, one browser history entry). The trail is the navigation stack, so a visitor who goes A → B → A sees `A › B › A`. It wraps onto further lines instead of widening its control column, and long view names are truncated with the full name as the tooltip.
+
+Both controls sit in the top-left cell of the visitor-controls grid, Back first. New views write both flags as `false`.
 
 `customCss` is an advanced, portable view override. The browser's own CSS parser reads it, and the renderer rebuilds it from the parsed rules: every selector is placed under the unique instance target (leading `:root`, `html`, `body`, or `.clickmap-root` mean the map root itself), keyframes and cascade-layer names are renamed per instance, animations are renamed only through `animation-name`, and only the active view's stylesheet is mounted. Declarations the browser cannot parse are dropped as in any stylesheet. Inspector-authored SVG presentation attributes remain the baseline; normal CSS declarations override them, while inline runtime state such as cursor and overlay placement may require `!important`. Imports, resource functions (`url()`, `image-set()`, and similar, including escaped spellings), global resource rules (`@font-face`, `@property`, `@page`, and similar), nesting, and unknown at-rules are rejected. The Inspector, Export validation, and the renderer use the same check, and Export reports a rejection as an error linked to its view. Supported grouping rules are `@media`, `@supports`, `@container`, and `@layer`; `@keyframes` and `@-webkit-keyframes` are renamed per instance.
 
@@ -123,7 +166,7 @@ An optional `image` references an asset by `assetId`. `fit` is `fill`, `contain`
 
 Each `style` contains `default`, `hover`, and `active` states, plus optional `disabled`. `active` is the selected state: the renderer paints it on the area a visitor last activated (pointer, Enter/Space, the place directory, or an area deep link) until the selection is cleared, and it wins over `hover`. Only `disabled` outranks it. New areas get an `active` style distinct from `hover`. A state is `{ fill, stroke, strokeWidth }`; colors are CSS color strings.
 
-Actions are `none`; `url` with `href` and target; `goToView` with a target ID and optional transition; `popup` with inline content and position; `toggleLayer` with a layer ID in the area's view; or `customEvent` with a non-empty event name and optional JSON-object payload. Runtime layer visibility begins from the authored `visible` value, survives leaving and re-entering a view, and returns to authored values when the renderer is reset. Hidden layers are removed from pointer and keyboard interaction.
+Actions are `none`; `url` with `href` and target; `goToView` with a target ID and optional transition; `popup` with inline content, popover position, and optional `presentation` (see [Details presentations](#details-presentations)); `toggleLayer` with a layer ID in the area's view; or `customEvent` with a non-empty event name and optional JSON-object payload. Runtime layer visibility begins from the authored `visible` value, survives leaving and re-entering a view, and returns to authored values when the renderer is reset. Hidden layers are removed from pointer and keyboard interaction.
 
 ## Minimal example
 
@@ -131,9 +174,9 @@ Actions are `none`; `url` with `href` and target; `goToView` with a target ID an
 {
   "schemaVersion": "1.0.0",
   "project": { "id": "project_demo", "name": "Demo", "createdAt": "2026-01-01T00:00:00.000Z", "updatedAt": "2026-01-01T00:00:00.000Z" },
-  "settings": { "initialViewId": "view_main", "responsive": true, "maintainAspectRatio": true, "theme": "default", "enableHistory": true, "enableKeyboardNavigation": true },
+  "settings": { "initialViewId": "view_main", "responsive": true, "maintainAspectRatio": true, "enableHistory": true, "enableKeyboardNavigation": true },
   "assets": [],
-  "views": [{ "id": "view_main", "name": "Main", "slug": "main", "canvas": { "width": 800, "height": 450 }, "viewport": { "minZoom": 1, "maxZoom": 4, "initialZoom": 1, "panEnabled": true, "zoomEnabled": true }, "ui": { "showBackButton": false, "showBreadcrumbs": true, "showTitle": true }, "layers": [] }],
+  "views": [{ "id": "view_main", "name": "Main", "slug": "main", "canvas": { "width": 800, "height": 450 }, "viewport": { "minZoom": 1, "maxZoom": 4, "initialZoom": 1, "panEnabled": true, "zoomEnabled": true }, "ui": { "showBackButton": false, "showBreadcrumbs": true }, "layers": [] }],
   "popups": [], "sharedStyles": {}, "customEvents": []
 }
 ```

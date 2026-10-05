@@ -69,7 +69,7 @@ function definition(scene: Scene) {
     project: { id: "image-hits", name: "Image hits", createdAt: "2026-10-05T00:00:00.000Z", updatedAt: "2026-10-05T00:00:00.000Z" },
     settings: {
       initialViewId: "main",
-      responsive: true, maintainAspectRatio: true, theme: "default",
+      responsive: true, maintainAspectRatio: true,
       enableHistory: false, enableKeyboardNavigation: true,
       sizingMode: "fill-container",
       areaLabels: { enabled: false },
@@ -79,7 +79,7 @@ function definition(scene: Scene) {
     views: [{
       id: "main", name: "Main", slug: "main", canvas: { width: 400, height: 300 },
       viewport: { minZoom: 1, maxZoom: 4, initialZoom: 1, panEnabled: true, zoomEnabled: true },
-      ui: { showBackButton: false, showBreadcrumbs: false, showTitle: false },
+      ui: { showBackButton: false, showBreadcrumbs: false },
       layers: [
         { id: "ground", name: "Ground", visible: true, locked: false, opacity: 1, areas: [
           { id: "under", name: "Under", geometry: { type: "rect", x: 20, y: 20, width: 360, height: 260 }, style, action: { type: "customEvent", eventName: "under" } },

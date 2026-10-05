@@ -42,6 +42,26 @@
   overflow: visible;
 }
 
+/* Pan (#215): grab over a zoomed, pannable map; grabbing (everywhere) while dragging. */
+.clickmap-root--pannable .clickmap-areas {
+  cursor: grab;
+}
+
+.clickmap-root--panning,
+.clickmap-root--panning * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+.clickmap-areas:focus-visible {
+  outline: 2px solid #005fcc;
+  outline-offset: -2px;
+}
+
+.clickmap-areas:focus:not(:focus-visible) {
+  outline: none;
+}
+
 /* Area shapes — focus style */
 .clickmap-areas [data-area-id]:focus {
   outline: 2px solid #005fcc;
@@ -129,7 +149,9 @@
   padding-right: 14px;
 }
 
-.clickmap-popover-close {
+.clickmap-popover-close,
+.clickmap-details-close,
+.clickmap-modal-close {
   position: absolute;
   top: 4px;
   right: 6px;
@@ -140,6 +162,8 @@
   line-height: 1;
   color: inherit;
 }
+
+.clickmap-details-close,.clickmap-modal-close{top:6px;right:8px;padding:2px 6px;font-size:22px}
 
 /* Popover arrow (pseudo-element) */
 .clickmap-popover--top::after {
@@ -185,6 +209,23 @@
   border-right-color: #fff;
   border-left: none;
 }
+
+/* Details panel and modal (#220); see docs/data-model.md "Details presentations". */
+.clickmap-root--details{display:flex}
+.clickmap-root--details-left{flex-direction:row-reverse}
+.clickmap-root--details-top{flex-direction:column-reverse}
+.clickmap-root--details-bottom,.clickmap-root--sheet{flex-direction:column}
+.clickmap-root--details>.clickmap-view{flex:1 1 0;min-width:0;min-height:0}
+.clickmap-root--details[data-sizing=fluid-width]:is(.clickmap-root--details-top,.clickmap-root--details-bottom,.clickmap-root--sheet)>.clickmap-view{flex:none}
+.clickmap-details{position:relative;flex:0 0 var(--clickmap-details-size,35%);display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;background:#fff;color:#171717;font-size:14px;line-height:1.5;box-shadow:inset 0 0 0 1px #e5e7eb}
+.clickmap-details[hidden]{display:none}
+.clickmap-root--details-left>.clickmap-details,.clickmap-root--details-right>.clickmap-details{contain:size}
+.clickmap-details-body,.clickmap-modal-body{min-height:0;overflow:auto;overscroll-behavior:contain;padding:14px 40px 14px 16px}
+.clickmap-root--sheet>.clickmap-details{contain:none;flex:none;position:absolute;z-index:150;left:0;right:0;bottom:0;max-height:50%;border-radius:12px 12px 0 0;box-shadow:0 -4px 16px rgba(0,0,0,.18)}
+.clickmap-root--sheet[data-sizing=fluid-width]>.clickmap-details{position:relative;max-height:none;border-radius:0;box-shadow:inset 0 1px #e5e7eb}
+.clickmap-modal{box-sizing:border-box;width:min(560px,calc(100% - 32px));max-height:calc(100% - 32px);padding:0;border:0;border-radius:10px;background:#fff;color:#171717;font:15px/1.5 system-ui,sans-serif;box-shadow:0 12px 40px rgba(0,0,0,.3)}
+.clickmap-modal[open]{display:flex;flex-direction:column}
+.clickmap-modal::backdrop{background:rgba(0,0,0,.45)}
 
 /*
  * Visitor controls share one grid over the map instead of each being pinned
@@ -247,6 +288,33 @@
   outline: 2px solid #005fcc;
   outline-offset: 2px;
 }
+
+/* Breadcrumb trail: wraps rather than widening the control column. */
+.clickmap-breadcrumbs {
+  order: 1;
+  max-width: 100%;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  font-size: 12px;
+}
+.clickmap-breadcrumbs ol { display: flex; flex-wrap: wrap; align-items: center; margin: 0; padding: 2px 4px; list-style: none; }
+.clickmap-breadcrumbs li { display: flex; align-items: center; min-width: 0; }
+.clickmap-breadcrumbs li + li::before { content: "\203A"; content: "\203A" / ""; padding: 0 2px; color: #666; }
+.clickmap-crumb {
+  max-width: 12em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 3px 4px;
+  font: inherit;
+  color: #333;
+}
+button.clickmap-crumb { border: 0; border-radius: 3px; background: none; color: #1d4ed8; text-decoration: underline; cursor: pointer; }
+button.clickmap-crumb:hover { background: rgba(0, 0, 0, 0.07); }
+button.clickmap-crumb:focus-visible { outline: 2px solid #005fcc; outline-offset: 1px; }
+.clickmap-crumb[aria-current] { font-weight: 600; }
 
 /* Scene switcher */
 .clickmap-scene-switcher {
