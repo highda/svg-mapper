@@ -4,23 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #166 — fix(editor): tie recovery status to the exact saved revision
-Branch:       claude/kind-albattani-vjpp90
-Started:      2026-10-05
-Last commit:  (claim)
-
-### What's done
-- Claimed #166 (selected by scripts/select-task.mjs).
-
-### What's next
-- Revision counter + savedRevision; pending on edit; stale-write guard; serialized clear/write; validated draft reads; idb-keyval.
-
-### Notes / gotchas
-- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/166-*`.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-10-05 — closed #166 — "draft saved" and the unload guard compare against the exact durably written snapshot; serialized idb-keyval storage with epoch guard; corrupt drafts decoded, reported and kept until discarded; PR #206.
 - 2026-10-03 — closed #165 — inspector no longer remounts per commit (focus/slider kept; resync only on undo/redo/load, per-field value keys); zoom/tooltip/mask edits keep unrelated settings; batch styles detach presets; PR #204.
 - 2026-10-02 — closed #163 — move/resize/circle drags are one undo entry restored from a pointerdown baseline; cancel/lost capture/Escape/blur roll back with no history; no-op clicks record nothing; undo/redo keep a valid active view; PR #202.
 - 2026-10-01 — closed #162 — Ctrl/Cmd commands dispatch before tool letters (Ctrl+C no longer picks circle); one shared guard keeps shortcuts out of fields, selects, contenteditable, IME and dialogs; hierarchy selection activates its view; PR #200.
