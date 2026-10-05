@@ -13,6 +13,7 @@
     "typescript": "^5.4.0"
   },
   "dependencies": {
-    "dompurify": "^3.4.16"
+    "dompurify": "^3.4.16",
+    "valibot": "^1.5.0"
   }
 }

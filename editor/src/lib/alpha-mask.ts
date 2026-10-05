@@ -1,6 +1,8 @@
 import type { AlphaHitMask, Asset } from "@svg-mapper/shared";
 
-export const MAX_ALPHA_MASK_DIMENSION = 128;
+// One limit for the editor generator and the shared decoder.
+export { MAX_ALPHA_MASK_DIMENSION } from "@svg-mapper/shared";
+import { MAX_ALPHA_MASK_DIMENSION } from "@svg-mapper/shared";
 
 export async function createAlphaHitMask(
   asset: Asset,

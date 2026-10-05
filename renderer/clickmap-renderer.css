@@ -435,16 +435,19 @@
   color: inherit;
 }
 
-/* Loading state */
-.clickmap-root--loading::after {
-  content: "Loading…";
-  position: absolute;
-  inset: 0;
+/* Loading and error states (host status shown while no map is mounted) */
+.clickmap-root--loading,
+.clickmap-root--error {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.7);
+  min-height: 120px;
+  padding: 16px;
   font-size: 14px;
+  text-align: center;
+}
+.clickmap-root--loading {
+  background: rgba(255, 255, 255, 0.7);
   color: #666;
 }
 
@@ -457,16 +460,8 @@
 }
 
 /* Error state */
-.clickmap-root--error::after {
-  content: attr(data-error);
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.clickmap-root--error {
   background: #fff3f3;
   color: #c00;
   font-size: 13px;
-  padding: 16px;
-  text-align: center;
 }
