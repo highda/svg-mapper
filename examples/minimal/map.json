@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "1.0.0",
+  "project": {
+    "id": "project_minimal",
+    "name": "Minimal office map",
+    "createdAt": "2026-10-05T00:00:00.000Z",
+    "updatedAt": "2026-10-05T00:00:00.000Z"
+  },
+  "settings": {
+    "initialViewId": "view_office",
+    "sizingMode": "fluid-width",
+    "responsive": true,
+    "maintainAspectRatio": true,
+    "theme": "default",
+    "enableHistory": false,
+    "enableKeyboardNavigation": true
+  },
+  "assets": [
+    {
+      "id": "asset_office",
+      "type": "image/svg+xml",
+      "name": "office.svg",
+      "src": "office.svg",
+      "width": 600,
+      "height": 400,
+      "inline": false
+    }
+  ],
+  "views": [
+    {
+      "id": "view_office",
+      "name": "Office",
+      "slug": "office",
+      "canvas": { "width": 600, "height": 400 },
+      "background": { "assetId": "asset_office", "fit": "contain" },
+      "viewport": { "minZoom": 1, "maxZoom": 4, "initialZoom": 1, "panEnabled": true, "zoomEnabled": true },
+      "ui": { "showBackButton": false, "showBreadcrumbs": false, "showTitle": true },
+      "layers": [
+        {
+          "id": "layer_rooms",
+          "name": "Rooms",
+          "visible": true,
+          "locked": false,
+          "opacity": 1,
+          "areas": [
+            {
+              "id": "area_meeting_room",
+              "name": "Meeting room",
+              "geometry": { "type": "rect", "x": 40, "y": 40, "width": 240, "height": 160 },
+              "style": {
+                "default": { "fill": "rgba(37, 99, 235, 0.08)", "stroke": "#2563eb", "strokeWidth": 2 },
+                "hover": { "fill": "rgba(37, 99, 235, 0.25)", "stroke": "#1d4ed8", "strokeWidth": 3 },
+                "active": { "fill": "rgba(37, 99, 235, 0.4)", "stroke": "#1e3a8a", "strokeWidth": 3 }
+              },
+              "action": {
+                "type": "popup",
+                "content": { "title": "Meeting room", "body": "<p>Seats 8. Book it at the front desk.</p>" }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "popups": [],
+  "sharedStyles": {},
+  "customEvents": []
+}

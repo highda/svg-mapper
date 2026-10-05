@@ -17,8 +17,9 @@ import type {
   Viewport,
   View,
 } from "@svg-mapper/shared";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { geometryLockReason, useStore } from "../../store";
+import { useStylePreview, type StylePreviewState } from "../../store/style-preview";
 import { validateActionUrl } from "../../lib/url-validate";
 import { createAlphaHitMask, MAX_ALPHA_MASK_DIMENSION } from "../../lib/alpha-mask";
 import { colorToHex, isValidCssColor, parseCssColor, withHexColor, withOpacity } from "../../lib/css-color";
@@ -206,16 +207,19 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
 
 function StyleStateEditor({
   label,
+  hint,
   styleState,
   onChange,
 }: {
   label: string;
+  hint?: string;
   styleState: AreaStyleState;
   onChange: (s: AreaStyleState) => void;
 }) {
   return (
     <div className="space-y-1">
       <div className="text-[10px] font-medium text-neutral-400">{label}</div>
+      {hint && <p className="text-[10px] text-neutral-500">{hint}</p>}
       <Row label="Fill">
         <ColorField label={`${label} fill`} value={styleState.fill} onChange={(fill) => onChange({ ...styleState, fill })} />
       </Row>
@@ -231,6 +235,41 @@ function StyleStateEditor({
           onCommit={(v) => onChange({ ...styleState, strokeWidth: v })}
         />
       </Row>
+    </div>
+  );
+}
+
+const PREVIEW_STATES: { id: StylePreviewState; label: string }[] = [
+  { id: "default", label: "Default" },
+  { id: "hover", label: "Hover" },
+  { id: "active", label: "Active" },
+];
+
+/**
+ * Shows the selected area(s) on the canvas in one authored state. Ephemeral:
+ * it returns to Default when the inspected selection changes.
+ */
+function StylePreviewPicker({ disabled }: { disabled: boolean }) {
+  const previewState = useStylePreview((s) => s.state);
+  const setPreviewState = useStylePreview((s) => s.setState);
+  useEffect(() => () => setPreviewState("default"), [setPreviewState]);
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-1" role="group" aria-label="Canvas style preview">
+        <span className="mr-1 text-[10px] text-neutral-400">Preview</span>
+        {PREVIEW_STATES.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            aria-pressed={previewState === option.id}
+            onClick={() => setPreviewState(option.id)}
+            className={`rounded px-2 py-0.5 text-[10px] ${previewState === option.id ? "bg-blue-600 text-white" : "bg-neutral-700 text-neutral-300 hover:bg-neutral-600"}`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      {disabled && <p className="text-[10px] text-neutral-500">Disabled areas always show the Disabled style and cannot be selected.</p>}
     </div>
   );
 }
@@ -1505,6 +1544,7 @@ function AreaInspector() {
           </button>
         </div>
       )}
+      <StylePreviewPicker disabled={a.disabled === true} />
       <StyleStateEditor
         label="Default"
         styleState={style.default}
@@ -1517,6 +1557,7 @@ function AreaInspector() {
       />
       <StyleStateEditor
         label="Active"
+        hint="Selected: shown after a visitor chooses the area, until Escape, empty space, closing its popup, or another view."
         styleState={style.active}
         onChange={(s) => updateStyleState("active", s)}
       />

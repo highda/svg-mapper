@@ -4,7 +4,9 @@ import { geometryBounds, markerPathData, rectPathData } from "@svg-mapper/shared
 export const DEFAULT_AREA_STYLE: AreaStyle = {
   default: { fill: "rgba(59,130,246,0.08)", stroke: "rgba(59,130,246,0.6)", strokeWidth: 2 },
   hover:   { fill: "rgba(59,130,246,0.25)", stroke: "rgba(59,130,246,0.9)", strokeWidth: 2 },
-  active:  { fill: "rgba(59,130,246,0.35)", stroke: "rgba(59,130,246,1)",   strokeWidth: 3 },
+  // Selected: a deeper fill and dark, thicker outline, so a chosen area still
+  // reads as selected while the pointer hovers a neighbour (#214).
+  active:  { fill: "rgba(29,78,216,0.45)",  stroke: "rgba(30,58,138,1)",    strokeWidth: 3 },
 };
 
 function makeAreaId(): string {

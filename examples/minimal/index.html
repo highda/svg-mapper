@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Minimal office map</title>
+  <link rel="stylesheet" href="clickmap-renderer.css">
+</head>
+<body>
+  <div id="office-map" style="max-width: 600px"></div>
+  <p id="map-status" role="status">Loading…</p>
+
+  <script src="clickmap-renderer.js"></script>
+  <script>
+    const status = document.getElementById("map-status");
+    const map = ClickMapRenderer.create({
+      container: "#office-map",
+      definitionUrl: "map.json"
+    });
+    map.on("ready", (event) => {
+      status.textContent = "Loaded " + event.definition.project.name;
+    });
+    map.on("error", (event) => {
+      status.textContent = event.code + ": " + event.message;
+    });
+  </script>
+</body>
+</html>
