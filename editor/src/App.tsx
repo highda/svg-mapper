@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useStore } from "./store";
 import { TopBar } from "./components/layout/TopBar";
 import { LeftPanel } from "./components/layout/LeftPanel";
@@ -7,7 +7,7 @@ import { RightSidebar } from "./components/layout/RightSidebar";
 import { BottomBar } from "./components/layout/BottomBar";
 import { ErrorBanner } from "./components/ui/ErrorBanner";
 import { ShortcutsHelp } from "./components/ui/ShortcutsHelp";
-import { readDraft, removeDraft, type StoredDraft, writeDraft } from "./lib/draft-storage";
+import { CorruptDraftError, readDraft, removeDraft, type StoredDraft, writeDraft } from "./lib/draft-storage";
 import { projectSnapshot } from "./store";
 import { FirstUseGuide } from "./components/ui/FirstUseGuide";
 import { isEditableTarget, isModalOpen } from "./lib/shortcut-guard";
@@ -29,51 +29,93 @@ export function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
   const [recoverableDraft, setRecoverableDraft] = useState<StoredDraft | null>(null);
+  const [corruptDraft, setCorruptDraft] = useState<string | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
-  const [draftState, setDraftState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [writeError, setWriteError] = useState<string | null>(null);
+  const [pendingWrites, setPendingWrites] = useState(0);
   const [draftChecked, setDraftChecked] = useState(false);
   const initialSavedSnapshot = useRef(savedSnapshot);
-  const isDirty = projectSnapshot(project) !== savedSnapshot;
+  const currentSnapshot = projectSnapshot(project);
+  const isDirty = currentSnapshot !== savedSnapshot;
+
+  // Recovery is tied to the exact document that was durably written (#166):
+  // "saved" means the stored draft equals the current snapshot, never a flag
+  // left over from an earlier write. Removing or discarding the draft starts a
+  // new epoch so a write still in flight cannot mark anything saved.
+  const [durableSnapshot, setDurableSnapshot] = useState<string | null>(null);
+  const durableRef = useRef<string | null>(null);
+  const epochRef = useRef(0);
+  // The ref (read by the unload guard) resets at once; the status follows when removal settles.
+  const discardStoredDraft = useCallback((failure: string): Promise<void> => {
+    epochRef.current += 1;
+    durableRef.current = null;
+    return removeDraft()
+      .catch(() => setDraftError(failure))
+      .finally(() => setDurableSnapshot(null));
+  }, []);
 
   useEffect(() => {
     readDraft()
       .then((draft) => {
         if (draft && projectSnapshot(draft.project) !== initialSavedSnapshot.current) setRecoverableDraft(draft);
       })
-      .catch((error: unknown) => setDraftError(storageError(error, "Local draft storage is unavailable.")))
+      .catch((error: unknown) => {
+        if (error instanceof CorruptDraftError) setCorruptDraft(error.message);
+        else setDraftError(storageError(error, "Local draft storage is unavailable."));
+      })
       .finally(() => setDraftChecked(true));
   }, []);
 
   useEffect(() => {
-    if (!isDirty) return;
+    // Never overwrite a draft the user has not resolved yet (recoverable or corrupt).
+    if (!isDirty || !draftChecked || recoverableDraft || corruptDraft) return;
+    if (currentSnapshot === durableRef.current) return;
     const timeout = window.setTimeout(() => {
-      setDraftState("saving");
+      const epoch = epochRef.current;
+      setPendingWrites((count) => count + 1);
       writeDraft(project)
-        .then(() => setDraftState("saved"))
+        .then(() => {
+          if (epoch !== epochRef.current) return;
+          durableRef.current = currentSnapshot;
+          setDurableSnapshot(currentSnapshot);
+          setWriteError(null);
+        })
         .catch((error: unknown) => {
-          setDraftState("error");
-          setDraftError(storageError(error, "The local draft could not be saved."));
-        });
+          if (epoch === epochRef.current) setWriteError(storageError(error, "The local draft could not be saved."));
+        })
+        .finally(() => setPendingWrites((count) => count - 1));
     }, 500);
     return () => window.clearTimeout(timeout);
-  }, [isDirty, project]);
+  }, [isDirty, project, currentSnapshot, draftChecked, recoverableDraft, corruptDraft]);
 
   useEffect(() => {
-    if (!draftChecked || isDirty || recoverableDraft) return;
-    removeDraft()
-      .then(() => setDraftState("idle"))
-      .catch((error: unknown) => setDraftError(storageError(error, "The stored draft could not be removed.")));
-  }, [draftChecked, isDirty, recoverableDraft]);
+    if (!draftChecked || isDirty || recoverableDraft || corruptDraft) return;
+    void discardStoredDraft("The stored draft could not be removed.");
+  }, [draftChecked, isDirty, recoverableDraft, corruptDraft, discardStoredDraft]);
 
   useEffect(() => {
+    // Reads the store at unload time, so an edit made after the last render is still protected.
     function warnBeforeUnload(event: BeforeUnloadEvent) {
-      if (!isDirty || draftState === "saved") return;
+      const state = useStore.getState();
+      const snapshot = projectSnapshot(state.project);
+      if (snapshot === state.savedSnapshot || snapshot === durableRef.current) return;
       event.preventDefault();
       event.returnValue = "";
     }
     window.addEventListener("beforeunload", warnBeforeUnload);
     return () => window.removeEventListener("beforeunload", warnBeforeUnload);
-  }, [draftState, isDirty]);
+  }, []);
+
+  const draftState: "idle" | "saving" | "saved" | "error" = !isDirty
+    ? "idle"
+    : currentSnapshot === durableSnapshot
+      ? "saved"
+      : writeError
+        ? "error"
+        : pendingWrites > 0
+          ? "saving"
+          : "idle";
+  const recoveryError = draftError ?? writeError;
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -105,9 +147,17 @@ export function App() {
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-neutral-900 text-neutral-200">
       <TopBar draftState={draftState} />
       <FirstUseGuide />
-      {draftError && (
+      {recoveryError && (
         <div role="alert" className="bg-amber-950 px-3 py-1 text-xs text-amber-200">
-          Local recovery unavailable: {draftError} Download the project to protect your work.
+          Local recovery unavailable: {recoveryError} Download the project to protect your work.
+        </div>
+      )}
+      {corruptDraft && (
+        <div role="alert" className="flex flex-wrap items-center gap-2 bg-amber-950 px-3 py-1 text-xs text-amber-200">
+          <span>{corruptDraft} It is kept until you discard it; new changes are not saved locally meanwhile, so download the project to protect your work.</span>
+          <button type="button" className="rounded px-2 py-0.5 text-amber-100 underline hover:bg-amber-900" onClick={() => {
+            void discardStoredDraft("The stored draft could not be removed.").then(() => setCorruptDraft(null));
+          }}>Discard stored draft</button>
         </div>
       )}
       <ErrorBanner />
@@ -135,7 +185,7 @@ export function App() {
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button className="rounded px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700" onClick={() => {
-                removeDraft().catch(() => setDraftError("The stored draft could not be removed."));
+                void discardStoredDraft("The stored draft could not be removed.");
                 setRecoverableDraft(null);
               }}>Discard draft</button>
               <button autoFocus className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-500" onClick={() => {
