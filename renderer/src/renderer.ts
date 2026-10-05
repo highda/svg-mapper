@@ -1246,7 +1246,7 @@ class Renderer implements ClickMapInstance {
       shape.setAttribute("role", "button");
       shape.setAttribute(
         "aria-label",
-        area.accessibility?.ariaLabel ?? area.name
+        area.accessibility?.ariaLabel?.trim() || area.name
       );
       if (area.tooltip?.enabled) {
         shape.setAttribute("aria-describedby", this.tooltipEl.id);

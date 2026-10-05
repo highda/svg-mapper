@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { DialogClose, ModalDialog } from "./ModalDialog";
 
 const SHORTCUTS = [
   { keys: "V", description: "Select tool" },
@@ -22,55 +22,45 @@ const SHORTCUTS = [
   { keys: "+ / =", description: "Zoom in" },
   { keys: "- / _", description: "Zoom out" },
   { keys: "0", description: "Reset zoom" },
-  { keys: "?", description: "Show this help" },
+  { keys: "?", description: "Show or hide this help" },
 ];
 
 interface ShortcutsHelpProps {
+  open: boolean;
   onClose: () => void;
 }
 
-export function ShortcutsHelp({ onClose }: ShortcutsHelpProps) {
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
+export function ShortcutsHelp({ open, onClose }: ShortcutsHelpProps) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-      onClick={onClose}
+    <ModalDialog
+      open={open}
+      onDismiss={onClose}
+      closeOnOutsideClick
+      dialogId="shortcuts-help"
+      title="Keyboard shortcuts"
+      titleClassName="text-sm font-semibold text-neutral-100"
+      description="Shortcuts work on the Design canvas when focus is not in a text field."
+      descriptionClassName="mt-1 text-[11px] text-neutral-500"
+      overlayClassName="bg-black/60"
+      className="relative max-w-96 rounded-lg border border-neutral-700 bg-neutral-900 p-5 shadow-2xl"
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Keyboard shortcuts"
-        className="max-h-[calc(100%-2rem)] w-96 overflow-y-auto overscroll-contain rounded-lg border border-neutral-700 bg-neutral-900 p-5 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
+      <DialogClose
+        aria-label="Close keyboard shortcuts"
+        className="absolute right-4 top-4 rounded px-1.5 text-xs text-neutral-500 hover:text-neutral-300"
       >
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-neutral-100">Keyboard Shortcuts</h2>
-          <button
-            onClick={onClose}
-            className="text-xs text-neutral-500 hover:text-neutral-300"
-          >
-            ✕
-          </button>
-        </div>
-        <ul className="space-y-1">
-          {SHORTCUTS.map(({ keys, description }) => (
-            <li key={keys} className="flex items-center justify-between text-xs">
-              <span className="text-neutral-400">{description}</span>
-              <kbd className="rounded bg-neutral-800 px-1.5 py-0.5 font-mono text-[10px] text-neutral-300">
-                {keys}
-              </kbd>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-3 text-[10px] text-neutral-600">Click outside or press Esc to close</p>
-      </div>
-    </div>
+        ✕
+      </DialogClose>
+      <ul className="mt-3 space-y-1">
+        {SHORTCUTS.map(({ keys, description }) => (
+          <li key={keys} className="flex items-center justify-between text-xs">
+            <span className="text-neutral-400">{description}</span>
+            <kbd className="rounded bg-neutral-800 px-1.5 py-0.5 font-mono text-[10px] text-neutral-300">
+              {keys}
+            </kbd>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 text-[10px] text-neutral-600">Press Esc or ? or click outside to close</p>
+    </ModalDialog>
   );
 }

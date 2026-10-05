@@ -109,6 +109,8 @@ A `Layer` has `id`, `name`, `visible`, `locked`, `opacity`, and ordered `areas`.
 
 Every `Area` has an `id`, `name`, `geometry`, three-state `style`, and `action`. Optional fields configure tooltips, accessibility, arbitrary JSON `metadata`, pointer `trigger` (`click`, `hover`, or `both`), permanent highlight, disabled state, and label overrides.
 
+`accessibility` is `{ ariaLabel, tabIndex }`. A non-blank `ariaLabel` replaces the area name as the hotspot's accessible name; blank falls back to the name. `tabIndex` is the hotspot's keyboard order (`0` normal, `-1` skipped). The editor omits the object when both are defaults, writes only `0` or `-1` itself, and preserves other imported values.
+
 An optional `image` references an asset by `assetId`. `fit` is `fill`, `contain`, or `cover`; `opacity` is 0–1; `rotation` is in degrees around the rectangle center; and `visible`, `locked`, and `decorative` control editor/runtime presentation and semantics. Image elements use rectangle geometry for position and size, can use any existing action, and share normal layer paint order. PNG and WebP images may additionally contain a bounded deterministic `hitMask`: integer `width` and `height` from 1 to 128 and base64 `data` of exactly ceil(width × height / 8) bytes; other formats retain the rectangular hit area. Geometry numbers must be finite.
 
 | Geometry `type` | Coordinates |

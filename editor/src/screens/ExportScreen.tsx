@@ -10,6 +10,7 @@ import {
 import { useStore } from "../store";
 import { toDefinition } from "../lib/project";
 import { buildExportManifest, ExportCancelledError, zipExportManifest } from "../lib/export-package";
+import { ModalDialog } from "../components/ui/ModalDialog";
 import rendererJs from "../../../renderer/dist/clickmap-renderer.js?raw";
 import rendererCss from "../../../renderer/dist/clickmap-renderer.css?raw";
 
@@ -77,6 +78,12 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   );
 }
 
+const CONFIG_ERRORS = {
+  containerId: "Container ID must start with a letter and contain only letters, numbers, _ or -.",
+  basePath: "Upload base path is required.",
+  hostSize: "Host width and height must each be one CSS length, such as 100%, 600px, or 100vh.",
+} as const;
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -92,6 +99,7 @@ export function ExportScreen() {
   const updateSettings = useStore((s) => s.updateSettings);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const cancelWarningsRef = useRef<HTMLButtonElement>(null);
   const [exportCancelled, setExportCancelled] = useState(false);
   // A ref, not state, so a second click in the same frame cannot start a
   // second compression before React re-renders the disabled button.
@@ -113,13 +121,17 @@ export function ExportScreen() {
   const initialView = project.views.find((view) => view.id === project.settings.initialViewId) ?? project.views[0];
   const canvasLabel = initialView ? `${initialView.canvas.width} × ${initialView.canvas.height} px` : "canvas size";
   const hostSize = useMemo(() => ({ width: hostWidth, height: hostHeight }), [hostWidth, hostHeight]);
-  const configError = !/^[A-Za-z][A-Za-z0-9_-]*$/.test(containerId)
-    ? "Container ID must start with a letter and contain only letters, numbers, _ or -."
+  const configErrorField = !/^[A-Za-z][A-Za-z0-9_-]*$/.test(containerId)
+    ? "containerId"
     : !basePath.trim()
-      ? "Upload base path is required."
+      ? "basePath"
       : sizingMode === "fill-container" && !(isHostLength(hostWidth) && isHostLength(hostHeight))
-        ? "Host width and height must each be one CSS length, such as 100%, 600px, or 100vh."
+        ? "hostSize"
         : null;
+  const configError = configErrorField ? CONFIG_ERRORS[configErrorField] : null;
+  // The invalid field points at the visible message (#174).
+  const invalidProps = (field: keyof typeof CONFIG_ERRORS) =>
+    configErrorField === field ? { "aria-invalid": true, "aria-describedby": "export-config-error" } : {};
   // One manifest drives both the preview/estimate and the download. Asset
   // decoding is cached per assets revision, so typing a base path or
   // container ID only rebuilds the small deployment files.
@@ -278,10 +290,10 @@ export function ExportScreen() {
           </label>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <label className="text-xs text-neutral-300">Upload base path
-              <input value={basePath} onChange={(event) => updateExportOptions({ basePath: event.target.value })} placeholder="/maps/store-directory" className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100" />
+              <input {...invalidProps("basePath")} value={basePath} onChange={(event) => updateExportOptions({ basePath: event.target.value })} placeholder="/maps/store-directory" className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100" />
             </label>
             <label className="text-xs text-neutral-300">Container ID
-              <input value={containerId} onChange={(event) => updateExportOptions({ containerId: event.target.value })} className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100" />
+              <input {...invalidProps("containerId")} value={containerId} onChange={(event) => updateExportOptions({ containerId: event.target.value })} className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100" />
             </label>
             <label className="text-xs text-neutral-300 sm:col-span-2">Map sizing
               <select
@@ -298,16 +310,16 @@ export function ExportScreen() {
             {sizingMode === "fill-container" && (
               <>
                 <label className="text-xs text-neutral-300">Host width
-                  <input value={hostWidth} onChange={(event) => updateExportOptions({ hostWidth: event.target.value })} placeholder="100%" className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100" />
+                  <input {...invalidProps("hostSize")} value={hostWidth} onChange={(event) => updateExportOptions({ hostWidth: event.target.value })} placeholder="100%" className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100" />
                 </label>
                 <label className="text-xs text-neutral-300">Host height
-                  <input value={hostHeight} onChange={(event) => updateExportOptions({ hostHeight: event.target.value })} placeholder="600px" className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100" />
+                  <input {...invalidProps("hostSize")} value={hostHeight} onChange={(event) => updateExportOptions({ hostHeight: event.target.value })} placeholder="600px" className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-2 py-1.5 text-neutral-100" />
                 </label>
                 <p className="text-[11px] text-neutral-500 sm:col-span-2">The host needs a real height. Use 100vw × 100vh for a full-window map; a percentage height needs sized parents.</p>
               </>
             )}
           </div>
-          {configError && <p role="alert" className="mt-2 text-xs text-red-300">{configError}</p>}
+          {configError && <p id="export-config-error" role="alert" className="mt-2 text-xs text-red-300">{configError}</p>}
           <p className="mt-2 text-[11px] leading-relaxed text-neutral-500">
             Includes renderer JS and CSS plus {inlineAssets ? `one map.json with embedded asset data; no assets folder is required${manifest.externalDependencies.length > 0 ? " (external references remain external)" : ""}` : `${manifest.assetFileCount} file${manifest.assetFileCount === 1 ? "" : "s"} in assets/ referenced by map.json`}. Uncompressed package: {formatBytes(manifest.uncompressedBytes)} across {Object.keys(manifest.files).length} files ({formatBytes(manifest.assetBytes)} of embedded source assets); the ZIP download is compressed and usually smaller.
           </p>
@@ -335,38 +347,42 @@ export function ExportScreen() {
         </section>
       </div>
 
-      {/* Warnings confirmation dialog */}
-      {confirmingWarnings && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50">
-          <div className="mx-4 w-full max-w-80 rounded-lg border border-neutral-700 bg-neutral-900 p-4 shadow-xl">
-            <h3 className="text-sm font-semibold text-neutral-100">Export with warnings?</h3>
-            <p className="mt-1.5 text-xs text-neutral-400">
-              This project has {warnings.length} warning{warnings.length === 1 ? "" : "s"}.
-              You can export anyway, but consider reviewing them first.
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                onClick={() => setConfirmingWarnings(false)}
-                className="rounded px-3 py-1 text-xs text-neutral-300 hover:bg-neutral-800"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  // Close first: progress and Cancel live in the header.
-                  setConfirmingWarnings(false);
-                  void doExport();
-                }}
-                disabled={exporting}
-                data-testid="export-anyway"
-                className="rounded bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-500"
-              >
-                Export anyway
-              </button>
-            </div>
-          </div>
+      {/* Warnings confirmation dialog: Escape cancels, focus returns to Download ZIP (#174). */}
+      <ModalDialog
+        open={confirmingWarnings}
+        onDismiss={() => { if (!exporting) setConfirmingWarnings(false); }}
+        title="Export with warnings?"
+        titleClassName="text-sm font-semibold text-neutral-100"
+        description={<>This project has {warnings.length} warning{warnings.length === 1 ? "" : "s"}. You can export anyway, but consider reviewing them first.</>}
+        descriptionClassName="mt-1.5 text-xs text-neutral-400"
+        overlayClassName="bg-black/50"
+        initialFocusRef={cancelWarningsRef}
+        className="max-w-80 rounded-lg border border-neutral-700 bg-neutral-900 p-4 shadow-xl"
+      >
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            ref={cancelWarningsRef}
+            type="button"
+            onClick={() => setConfirmingWarnings(false)}
+            className="rounded px-3 py-1 text-xs text-neutral-300 hover:bg-neutral-800"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              // Close first: progress and Cancel live in the header.
+              setConfirmingWarnings(false);
+              void doExport();
+            }}
+            disabled={exporting}
+            data-testid="export-anyway"
+            className="rounded bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-500"
+          >
+            Export anyway
+          </button>
         </div>
-      )}
+      </ModalDialog>
     </main>
   );
 }

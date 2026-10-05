@@ -26,8 +26,10 @@ test("copy and paste an area from the tree without switching tools", async ({ pa
   // The help dialog blocks editing shortcuts.
   await page.keyboard.press("?");
   await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeVisible();
+  // The background is hidden from assistive technology while the dialog is open (#174).
+  await expect(page.getByRole("button", { name: "Rectangle (R)" })).toHaveCount(0);
   await page.keyboard.press("v");
-  await expect(page.getByRole("button", { name: "Rectangle (R)" })).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("?");
   await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Rectangle (R)" })).toHaveAttribute("aria-pressed", "true");
 });

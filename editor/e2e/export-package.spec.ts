@@ -42,8 +42,10 @@ async function staticServer(root: string) {
 async function downloadAndHostPackage(page: Page, hostRoot: string) {
   const packageDownload = page.waitForEvent("download");
   await page.getByTestId("export-button").click();
+  // Wait for either the download or the warning dialog; checking visibility once races the dialog.
   const warningConfirmation = page.getByTestId("export-anyway");
-  if (await warningConfirmation.isVisible()) await warningConfirmation.click();
+  const confirmationShown = warningConfirmation.waitFor({ timeout: 10_000 }).then(() => true, () => false);
+  if (await Promise.race([packageDownload.then(() => false), confirmationShown])) await warningConfirmation.click();
   const downloadedPackage = await packageDownload;
   const downloadedPath = await downloadedPackage.path();
   if (!downloadedPath) throw new Error("Export download has no local path");
