@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Area, CircleGeometry } from "@svg-mapper/shared";
 import { assetDisplaySource, fitImageRect, geometryBounds } from "@svg-mapper/shared";
-import { useStore } from "../../store";
+import { canEditGeometry, useStore } from "../../store";
 import { AreaShape } from "./AreaShape";
 import { isActivatableTarget, shouldIgnoreShortcut } from "../../lib/shortcut-guard";
 import {
@@ -113,6 +113,8 @@ export function Canvas() {
     handle?: RectHandle;
     areaGeoBefore?: Area["geometry"];
     areaGeometriesBefore?: Array<{ id: string; geometry: Area["geometry"] }>;
+    /** Every area the move was requested for, locked ones included (#164). */
+    movingIds?: string[];
     panBefore?: { x: number; y: number };
     previewRect?: { x: number; y: number; width: number; height: number } | null;
     selectionBefore?: string[];
@@ -438,13 +440,14 @@ export function Canvas() {
         if (a) { geoSnapshot = a.geometry; break; }
       }
     }
+    // Locked layers and position-locked images never enter the preview, so
+    // their geometry is untouched for the whole drag (#164).
     const geometrySnapshots: Array<{ id: string; geometry: Area["geometry"] }> = [];
     for (const view of project.views) {
       if (view.id !== activeViewId) continue;
       for (const layer of view.layers) {
-        if (layer.locked) continue;
         for (const area of layer.areas) {
-          if (movingIds.includes(area.id) && area.geometry.type !== "path") {
+          if (movingIds.includes(area.id) && area.geometry.type !== "path" && canEditGeometry(layer, area)) {
             geometrySnapshots.push({ id: area.id, geometry: area.geometry });
           }
         }
@@ -459,11 +462,23 @@ export function Canvas() {
       areaId,
       areaGeoBefore: geoSnapshot,
       areaGeometriesBefore: geometrySnapshots,
+      movingIds,
     };
   }
 
+  /** Resize handles act only on areas whose geometry is editable (#164). */
+  function isGeometryEditable(areaId: string): boolean {
+    for (const candidateView of project.views) {
+      for (const layer of candidateView.layers) {
+        const area = layer.areas.find((candidate) => candidate.id === areaId);
+        if (area) return canEditGeometry(layer, area);
+      }
+    }
+    return false;
+  }
+
   function onHandlePointerDown(e: React.PointerEvent, areaId: string, handle: RectHandle) {
-    if (!svgRef.current) return;
+    if (!svgRef.current || !isGeometryEditable(areaId)) return;
     const svg = svgRef.current;
     const sp = svgPoint(e, svg);
     const cp = toContent(sp);
@@ -489,7 +504,7 @@ export function Canvas() {
   }
 
   function onCircleHandlePointerDown(e: React.PointerEvent, areaId: string) {
-    if (!svgRef.current) return;
+    if (!svgRef.current || !isGeometryEditable(areaId)) return;
     const svg = svgRef.current;
     const sp = svgPoint(e, svg);
     const cp = toContent(sp);
@@ -663,11 +678,12 @@ export function Canvas() {
         area.geometry = snapGeometry(area.geometry);
         addArea(area);
       }
-    } else if (d.type === "move" && d.areaGeometriesBefore?.length) {
+    } else if (d.type === "move" && d.movingIds?.length) {
       const dx = grid.enabled ? snapValue(cp.x - d.startContent.x, grid.size) : cp.x - d.startContent.x;
       const dy = grid.enabled ? snapValue(cp.y - d.startContent.y, grid.size) : cp.y - d.startContent.y;
       restoreDragBaseline(d);
-      useStore.getState().moveAreas(d.areaGeometriesBefore.map(({ id }) => id), dx, dy);
+      // The store skips locked areas itself and reports them in one notice.
+      useStore.getState().moveAreas(d.movingIds, dx, dy);
     } else if (d.type === "resize" && d.areaId && d.handle && d.areaGeoBefore) {
       if (d.areaGeoBefore.type !== "rect") return;
       const dx = cp.x - d.startContent.x;
@@ -800,6 +816,7 @@ export function Canvas() {
                     key={area.id}
                     area={area}
                     selected={selectedAreaIds.includes(area.id)}
+                    geometryLocked={!canEditGeometry(l, area)}
                     zoom={zoom}
                     onPointerDown={onAreaPointerDown}
                     onHandlePointerDown={onHandlePointerDown}

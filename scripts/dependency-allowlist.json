@@ -1,0 +1,5 @@
+{
+  "$comment": "Runtime npm packages each standalone layer may import. Enforced by scripts/check-boundaries.mjs; policy in ASSIGNMENT.md section 2.6. A reviewed PR that adds a runtime library extends this list deliberately. The renderer bundle may contain the union of both lists.",
+  "shared": ["dompurify", "valibot"],
+  "renderer": ["@floating-ui/*"]
+}

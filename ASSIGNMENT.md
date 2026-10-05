@@ -97,6 +97,7 @@ Libraries are allowed in both the editor and the renderer when they replace frag
 - **License:** permissive licenses only (MIT, ISC, BSD, Apache-2.0, or similar). Record any non-trivial new runtime dependency in the PR description.
 - **Maintenance:** prefer actively maintained packages with a small API. Upgrades go through normal PRs with passing checks. Security fixes take priority over other work.
 - The renderer must still load from a plain `<script>` tag. Bundled libraries are compiled into `clickmap-renderer.js`, not loaded from a CDN at runtime.
+- **Allowlist:** runtime packages that `/shared` and `/renderer` may import are listed in [`scripts/dependency-allowlist.json`](./scripts/dependency-allowlist.json); currently `dompurify` and `valibot` for `/shared`, and `@floating-ui/*` for `/renderer`. The renderer bundle may contain only the union of the two. CI (`scripts/check-boundaries.mjs`) fails on anything else, on `/shared` or `/renderer` importing editor code, and on editor production code importing `renderer/src` instead of `renderer/dist`. A PR that adds a runtime library updates the allowlist, and this line, deliberately.
 
 ---
 
@@ -122,7 +123,8 @@ The same JSON shape is the editor's persistence format **and** the renderer's in
 
 This brief no longer duplicates the schema, because copies drift out of date. The canonical sources are:
 
-- [`shared/types.ts`](shared/types.ts): the TypeScript declarations (`ProjectFile`, `ClickMapDefinition`, views, layers, areas, geometry and action variants).
+- [`shared/schema.ts`](shared/schema.ts): the single structural schema. The runtime decoder, the published JSON Schema [`shared/schema/clickmap-definition.schema.json`](shared/schema/clickmap-definition.schema.json), and the drift checks against the types are all derived from it.
+- [`shared/types.ts`](shared/types.ts): the documented TypeScript declarations (`ProjectFile`, `ClickMapDefinition`, views, layers, areas, geometry and action variants), kept in lockstep with the schema at compile time.
 - [`docs/data-model.md`](docs/data-model.md): field-by-field reference, sizing modes, and decoding rules.
 - [`docs/export-format.md`](docs/export-format.md) and [`docs/renderer-api.md`](docs/renderer-api.md): package layout and runtime API.
 

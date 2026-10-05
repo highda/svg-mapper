@@ -8,6 +8,8 @@ import { useStore } from "../../store";
 interface Props {
   area: Area;
   selected: boolean;
+  /** Locked layer or position-locked image: selectable, but never moved or resized (#164). */
+  geometryLocked?: boolean;
   zoom?: number;
   onPointerDown: (e: React.PointerEvent, areaId: string) => void;
   onHandlePointerDown: (e: React.PointerEvent, areaId: string, handle: RectHandle) => void;
@@ -21,6 +23,7 @@ const HANDLE_R = 5;
 export function AreaShape({
   area,
   selected,
+  geometryLocked = false,
   zoom = 1,
   onPointerDown,
   onHandlePointerDown,
@@ -69,9 +72,11 @@ export function AreaShape({
         fill={activeStyle.fill}
         stroke={activeStyle.stroke}
         strokeWidth={activeStyle.strokeWidth}
-        style={{ cursor: isDisabled ? "not-allowed" : "move" }}
+        style={{ cursor: geometryLocked ? "pointer" : "move" }}
+        data-locked={geometryLocked ? "true" : undefined}
         onPointerDown={(e) => {
-          if (isDisabled || area.image?.locked) return;
+          // Disabled hotspots and locked content stay selectable so they can
+          // be inspected and unlocked; Canvas excludes locked geometry from moves.
           e.stopPropagation();
           onPointerDown(e, area.id);
         }}
@@ -113,7 +118,7 @@ export function AreaShape({
       )}
 
       {/* Rect resize handles */}
-      {selected && isRect && (() => {
+      {selected && isRect && !geometryLocked && (() => {
         const handles = getRectHandles(area.geometry as Parameters<typeof getRectHandles>[0]);
         return (Object.entries(handles) as [RectHandle, { x: number; y: number }][]).map(
           ([handle, pos]) => (
@@ -136,7 +141,7 @@ export function AreaShape({
       })()}
 
       {/* Circle resize handle (east point) */}
-      {selected && isCircle && (() => {
+      {selected && isCircle && !geometryLocked && (() => {
         const g = area.geometry as CircleGeometry & { type: "circle" };
         const ex = g.cx + g.r;
         const ey = g.cy;

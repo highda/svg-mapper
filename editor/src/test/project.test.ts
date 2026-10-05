@@ -49,11 +49,22 @@ describe("parseProjectFile", () => {
     expect(() => parseProjectFile(json)).toThrow("at $");
   });
 
-  it("rejects unsupported versions and reports the field path", () => {
+  it("refuses a newer or older schemaVersion major with a clear message", () => {
     const project = createNewProject();
     expect(() => parseProjectFile(JSON.stringify({ ...project, schemaVersion: "2.0.0" }))).toThrow(
-      "$.schemaVersion",
+      "This map uses schemaVersion 2.0.0, which is newer than this editor supports (1.x). Open it with a newer version of svg-mapper.",
     );
+    expect(() => parseProjectFile(JSON.stringify({ ...project, schemaVersion: "0.9.0" }))).toThrow(
+      "an older format this editor cannot open",
+    );
+  });
+
+  it("opens additive minor and patch versions and rejects malformed versions by path", () => {
+    const project = createNewProject();
+    expect(parseProjectFile(JSON.stringify({ ...project, schemaVersion: "1.12.3" })).schemaVersion).toBe("1.12.3");
+    for (const bad of ["1.0", "v1.0.0", "01.0.0", 1]) {
+      expect(() => parseProjectFile(JSON.stringify({ ...project, schemaVersion: bad }))).toThrow("$.schemaVersion");
+    }
   });
 
   it("rejects missing and wrong nested fields with precise paths", () => {

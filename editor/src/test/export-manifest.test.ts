@@ -111,7 +111,8 @@ describe("zipExportManifest", () => {
     const entries = unzipSync(zip);
     const expected = unzipSync(zipExportManifestSync(manifest));
     expect(Object.keys(entries)).toEqual(Object.keys(expected));
-    for (const [name, bytes] of Object.entries(expected)) expect(entries[name]).toEqual(bytes);
+    // Compare bytes directly: deep-equality over ~200 KB arrays alone takes seconds.
+    for (const [name, bytes] of Object.entries(expected)) expect(Buffer.from(entries[name]).equals(Buffer.from(bytes)), name).toBe(true);
     // PNGs are stored, so the archive is at least their raw size.
     expect(zip.byteLength).toBeGreaterThan(400_000);
   });

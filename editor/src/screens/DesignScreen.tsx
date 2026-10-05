@@ -5,7 +5,7 @@ import { Toolbar } from "../components/ui/Toolbar";
 import { importFileAsAsset, isAllowedAssetType } from "../lib/asset";
 
 export function DesignScreen() {
-  const { activeViewId, importAsset, setViewBackground, setViewBackgroundFit, addImageElement, openError, clearOpenError, canvasSizeSuggestion, dismissCanvasSizeSuggestion, setCanvasSize } = useStore();
+  const { activeViewId, importAsset, setViewBackground, setViewBackgroundFit, addImageElement, openError, clearOpenError, canvasSizeSuggestion, dismissCanvasSizeSuggestion, setCanvasSize, lockNotice, clearLockNotice } = useStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
@@ -97,6 +97,20 @@ export function DesignScreen() {
             </button>
           </div>
         )}
+
+        {/* Locked content that an edit skipped or refused (#164) */}
+        {/* Floats over the canvas so it never shifts shapes mid-edit. */}
+        <div role="status" aria-live="polite" className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex justify-center px-2">
+          {lockNotice && (
+            <div className="pointer-events-auto flex max-w-xl items-center gap-2 rounded border border-amber-700 bg-amber-950/95 px-3 py-1.5 text-xs text-amber-200 shadow-lg">
+              <span aria-hidden="true">🔒</span>
+              <span className="flex-1" data-testid="lock-notice">{lockNotice}</span>
+              <button onClick={clearLockNotice} aria-label="Dismiss lock notice" className="text-amber-400 hover:text-amber-200">
+                ✕
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Background placement choice */}
         {canvasSizeSuggestion && (
