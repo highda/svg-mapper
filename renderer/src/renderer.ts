@@ -178,6 +178,7 @@ class Renderer implements ClickMapInstance {
   private tooltipEl!: HTMLDivElement;
   private popoverEl!: HTMLDivElement;
   private backBtn: HTMLButtonElement | null = null;
+  private breadcrumbsEl: HTMLElement | null = null;
   private sceneSwitcherEl: HTMLDivElement | null = null;
   private zoomControlsEl: HTMLDivElement | null = null;
   private ariaLiveEl!: HTMLDivElement;
@@ -646,6 +647,7 @@ class Renderer implements ClickMapInstance {
     this.syncLayers(view);
     this.renderLabels(view);
     this.svgEl.style.touchAction = view.viewport.panEnabled ? "none" : "auto";
+    this.renderBreadcrumbs(view);
     this.renderBackButton(view);
     this.renderSceneSwitcher();
     this.renderZoomControls();
@@ -843,6 +845,40 @@ class Renderer implements ClickMapInstance {
     btn.addEventListener("click", () => this.goBack());
     this.slots.get("top-left")!.prepend(btn);
     this.backBtn = btn;
+  }
+
+  /**
+   * The trail of visited views, oldest first, ending at the current view
+   * (#217). Earlier entries are buttons that return to that view, dropping
+   * the views visited after it; the current view is marked aria-current.
+   */
+  private renderBreadcrumbs(view: View) {
+    this.breadcrumbsEl?.remove();
+    this.breadcrumbsEl = null;
+    const stack = this.navigationStack;
+    if (!view.ui.showBreadcrumbs || stack.length === 0) return;
+
+    const nav = document.createElement("nav");
+    nav.className = "clickmap-breadcrumbs";
+    nav.setAttribute("aria-label", "Breadcrumb");
+    const list = document.createElement("ol");
+    [...stack, view.id].forEach((viewId, depth) => {
+      const item = document.createElement("li");
+      const current = depth === stack.length;
+      const crumb = document.createElement(current ? "span" : "button");
+      crumb.className = "clickmap-crumb";
+      crumb.textContent = crumb.title = this.def.views.find((candidate) => candidate.id === viewId)?.name ?? viewId;
+      if (current) crumb.setAttribute("aria-current", "page");
+      else {
+        crumb.setAttribute("type", "button");
+        crumb.addEventListener("click", () => this.goBackTo(depth));
+      }
+      item.append(crumb);
+      list.append(item);
+    });
+    nav.append(list);
+    this.slots.get("top-left")!.prepend(nav);
+    this.breadcrumbsEl = nav;
   }
 
   // -------------------------------------------------------------------------
@@ -2292,6 +2328,13 @@ class Renderer implements ClickMapInstance {
     });
     if (this.def.settings.enableHistory) this.pushOwnedHistoryState(prev);
     else this.updateDeepLinkHash(prev);
+  }
+
+  /** Returns to the view at `depth` in the navigation stack, dropping the later entries. */
+  private goBackTo(depth: number) {
+    if (this.navigationInProgress || depth >= this.navigationStack.length) return;
+    this.navigationStack.length = depth + 1;
+    this.goBack();
   }
 
   reset() {

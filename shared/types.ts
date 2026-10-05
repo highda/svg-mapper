@@ -286,9 +286,10 @@ export interface Viewport {
 }
 
 export interface ViewUI {
+  /** Shows a Back control after the visitor has navigated into this view. */
   showBackButton: boolean;
+  /** Shows the trail of visited views (the navigation stack) while this view is active. */
   showBreadcrumbs: boolean;
-  showTitle: boolean;
 }
 
 export interface View {
@@ -390,7 +391,6 @@ export interface DirectorySettings {
 // Project settings
 // ---------------------------------------------------------------------------
 
-export type ThemeName = "default" | string;
 export type ContainerSizingMode = "fixed" | "fluid-width" | "fill-container";
 
 export interface Settings {
@@ -399,7 +399,6 @@ export interface Settings {
   maintainAspectRatio: boolean;
   /** Explicit host-container sizing contract. Legacy files infer this from responsive flags. */
   sizingMode?: ContainerSizingMode;
-  theme: ThemeName;
   enableHistory: boolean;
   enableKeyboardNavigation: boolean;
   /** Mustache-style template evaluated for tooltip/popover content. */

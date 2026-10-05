@@ -10,7 +10,6 @@
     "initialViewId": "view_main_campus",
     "responsive": true,
     "maintainAspectRatio": true,
-    "theme": "default",
     "enableHistory": true,
     "enableKeyboardNavigation": true
   },
@@ -53,8 +52,7 @@
       },
       "ui": {
         "showBackButton": false,
-        "showBreadcrumbs": false,
-        "showTitle": true
+        "showBreadcrumbs": false
       },
       "layers": [
         {
@@ -213,8 +211,7 @@
       },
       "ui": {
         "showBackButton": true,
-        "showBreadcrumbs": true,
-        "showTitle": true
+        "showBreadcrumbs": true
       },
       "layers": [
         {

@@ -51,7 +51,6 @@ A useful map needs one view, a background, and one area with an action. This is 
     "sizingMode": "fluid-width",
     "responsive": true,
     "maintainAspectRatio": true,
-    "theme": "default",
     "enableHistory": false,
     "enableKeyboardNavigation": true
   },
@@ -74,7 +73,7 @@ A useful map needs one view, a background, and one area with an action. This is 
       "canvas": { "width": 600, "height": 400 },
       "background": { "assetId": "asset_office", "fit": "contain" },
       "viewport": { "minZoom": 1, "maxZoom": 4, "initialZoom": 1, "panEnabled": true, "zoomEnabled": true },
-      "ui": { "showBackButton": false, "showBreadcrumbs": false, "showTitle": true },
+      "ui": { "showBackButton": false, "showBreadcrumbs": false },
       "layers": [
         {
           "id": "layer_rooms",
@@ -115,7 +114,8 @@ Notes on the fields:
 - **Every area needs all three style states** (`default`, `hover`, `active`). The renderer paints `style` as written and fills in nothing.
 - **Actions**: `popup` is used here. For navigation, add a second view and use `{ "type": "goToView", "targetViewId": "view_other" }`; [`examples/campus/map.json`](../examples/campus/map.json) does this. The other actions are `url`, `toggleLayer`, `customEvent`, and `none`.
 - **Empty collections are required.** `assets`, `popups`, `sharedStyles`, and `customEvents` must be present, even when empty.
-- **Required but not read by the renderer.** Any valid value works for `settings.theme`, `settings.enableKeyboardNavigation` (keyboard support is always on), `ui.showTitle`, `ui.showBreadcrumbs`, layer `locked`, and the `project` timestamps. They exist for the editor or for later use.
+- **Navigation UI.** `ui.showBackButton` and `ui.showBreadcrumbs` add a Back button and a breadcrumb trail to a view once the visitor has navigated into it; see [views](data-model.md#assets-views-and-layers).
+- **Required but not read by the renderer.** Any valid value works for `settings.enableKeyboardNavigation` (keyboard support is always on), layer `locked`, and the `project` timestamps. They exist for the editor or for later use.
 
 To go further, the campus example adds a second view, `goToView` links, tooltips, accessibility labels, and metadata. The full field reference is the [data model](data-model.md).
 

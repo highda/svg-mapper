@@ -248,6 +248,33 @@
   outline-offset: 2px;
 }
 
+/* Breadcrumb trail: wraps rather than widening the control column. */
+.clickmap-breadcrumbs {
+  order: 1;
+  max-width: 100%;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  font-size: 12px;
+}
+.clickmap-breadcrumbs ol { display: flex; flex-wrap: wrap; align-items: center; margin: 0; padding: 2px 4px; list-style: none; }
+.clickmap-breadcrumbs li { display: flex; align-items: center; min-width: 0; }
+.clickmap-breadcrumbs li + li::before { content: "\203A"; content: "\203A" / ""; padding: 0 2px; color: #666; }
+.clickmap-crumb {
+  max-width: 12em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 3px 4px;
+  font: inherit;
+  color: #333;
+}
+button.clickmap-crumb { border: 0; border-radius: 3px; background: none; color: #1d4ed8; text-decoration: underline; cursor: pointer; }
+button.clickmap-crumb:hover { background: rgba(0, 0, 0, 0.07); }
+button.clickmap-crumb:focus-visible { outline: 2px solid #005fcc; outline-offset: 1px; }
+.clickmap-crumb[aria-current] { font-weight: 600; }
+
 /* Scene switcher */
 .clickmap-scene-switcher {
   position: relative; /* offsetParent for keeping the active button in view */
