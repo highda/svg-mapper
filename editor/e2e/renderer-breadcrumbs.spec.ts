@@ -47,9 +47,9 @@ for (const shadowDom of [false, true]) {
     });
     await goTo(page, second!);
     await goTo(page, third!);
-    await expect(trail).toBeVisible();
+    // The trail can show while the second view's fade still runs; wait for the third.
+    await expect(trail.getByRole("listitem")).toHaveCount(3);
     const names = await crumbs(trail);
-    expect(names).toHaveLength(3);
     await expect(trail.locator('[aria-current="page"]')).toHaveText(names[2]!);
     await expect(trail.getByRole("button")).toHaveCount(2);
 

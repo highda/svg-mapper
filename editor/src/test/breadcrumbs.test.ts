@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { decodeDefinition, definitionSchema } from "@svg-mapper/shared";
+import { CURRENT_SCHEMA_VERSION, decodeDefinition, definitionSchema } from "@svg-mapper/shared";
 import { create, __setInlinedCSS } from "../../../renderer/src/renderer";
 import { createNewProject, parseProjectFile, serializeProjectFile, toDefinition } from "../lib/project";
 import { decodeDraft } from "../lib/draft-storage";
@@ -49,7 +49,8 @@ describe("retired fields (#217)", () => {
     expect(decodeDefinition(legacy).ok).toBe(true);
 
     const opened = parseProjectFile(JSON.stringify(legacy));
-    expect(opened.schemaVersion).toBe("1.0.0");
+    // Opening upgrades the version; the retired keys are gone either way.
+    expect(opened.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
     expect(opened.settings).not.toHaveProperty("theme");
     expect(opened.views.every((view) => !("showTitle" in view.ui))).toBe(true);
     expect(opened.views[0].ui.showBreadcrumbs).toBe(true);
