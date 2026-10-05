@@ -292,7 +292,7 @@ type ClickMapInstance = {
 - Animate View transitions (`fade` minimum; others optional).
 - Maintain navigation history; support `goBack()` and browser back button when `enableHistory: true`.
 - Resize to the embedding element (§2.5), preserving aspect ratio if configured.
-- Render tooltips and popups (modal, focus-trapped, ESC-to-close).
+- Render tooltips and popups (non-modal anchored dialogs, ESC-to-close; see §10.1).
 - Emit custom events to host page.
 
 The renderer must work when loaded from a `<script>` tag with no bundler, no React, and no CSS framework.
@@ -399,7 +399,7 @@ Warning: View "Basement" is not reachable from the initial View.
 - Each Area has an `aria-label` (defaults to Area `name`).
 - Enter / Space activate the focused Area.
 - Visible focus styles for Areas, back button, popup controls.
-- Popups trap focus while open; ESC closes; focus returns to the trigger.
+- Popups are non-modal dialogs named by their visible title: opening moves focus to them, Tab is never trapped, ESC inside the map closes them, and focus returns to the trigger. Keyboard handling is scoped to the map that owns focus, so several maps and the host page never compete for keys.
 - Back button is keyboard-accessible.
 - Tooltips are non-essential (their content must also be available another way for screen readers).
 - Respect `prefers-reduced-motion` (skip transitions).
