@@ -1,6 +1,6 @@
 import * as esbuild from "esbuild";
 import { argv } from "process";
-import { copyFileSync, mkdirSync, readFileSync } from "fs";
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 
 const watch = argv.includes("--watch");
 const rendererCss = readFileSync("clickmap-renderer.css", "utf8");
@@ -36,6 +36,9 @@ if (watch) {
   console.log("Watching for changes…");
 } else {
   const result = await esbuild.build({ ...opts, metafile: true });
+  // scripts/check-boundaries.mjs verifies the bundle inputs against the
+  // dependency allowlist. Not part of the published renderer files.
+  writeFileSync("dist/clickmap-renderer.meta.json", JSON.stringify(result.metafile));
 
   const analysis = await esbuild.analyzeMetafile(result.metafile);
   console.log(analysis);
