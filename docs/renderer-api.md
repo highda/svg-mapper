@@ -24,7 +24,7 @@ The release renderer ZIP includes `clickmap-renderer.d.ts` for TypeScript integr
 
 ## Architecture boundary
 
-The renderer is a standalone runtime. `renderer/src/` depends only on `shared/` and on allowlisted runtime packages compiled into the bundle; it never imports editor code. The editor is an optional authoring tool that consumes the renderer only as its built files (`renderer/dist/*?raw`); editor tests may still import `renderer/src`. The package allowlist lives in `scripts/dependency-allowlist.json` (policy: ASSIGNMENT §2.6), and `scripts/check-boundaries.mjs` enforces these rules, including the esbuild metafile inputs of `clickmap-renderer.js`, in CI.
+The renderer is a standalone runtime. `renderer/src/` depends only on `shared/` and on allowlisted runtime packages compiled into the bundle; it never imports editor code. The editor is an optional authoring tool that consumes the renderer only as its built files (`renderer/dist/*?raw`); editor tests may still import `renderer/src`. The package allowlist lives in `scripts/dependency-allowlist.json` (policy: ASSIGNMENT §2.6), and `scripts/check-boundaries.mjs` enforces these rules, including the esbuild metafile inputs of `clickmap-renderer.js`, in CI. Build-time Node tooling of the shared package lives in `shared/scripts/` (the JSON Schema generator); like `renderer/build.mjs`, it may use Node built-ins and devDependencies, and runtime code may neither import nor bundle it.
 
 ## Options
 

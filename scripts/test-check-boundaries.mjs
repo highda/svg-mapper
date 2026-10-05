@@ -35,6 +35,19 @@ test('shared/ may import itself and allowlisted packages only', () => {
   assert.equal(check('shared/x.ts', 'const m = await import("zustand");').length, 1);
 });
 
+test('shared/scripts is build-time tooling: unrestricted itself, never imported or bundled', () => {
+  assert.deepEqual(
+    check('shared/scripts/json-schema.mjs', 'import { writeFileSync } from "node:fs";\nimport { toJsonSchema } from "@valibot/to-json-schema";\nimport { definitionSchema } from "../schema.ts";'),
+    [],
+  );
+  assert.match(check('shared/schema.ts', 'import "./scripts/json-schema.mjs";')[0], /^shared\/schema\.ts:1: .*shared\/scripts\/ is build-time tooling and must not be imported by runtime code/);
+  assert.match(check('renderer/src/r.ts', 'import "../../shared/scripts/json-schema.mjs";')[0], /shared\/scripts\/ is build-time tooling/);
+  assert.match(check('shared/x.ts', 'import { toJsonSchema } from "@valibot/to-json-schema";')[0], /"@valibot\/to-json-schema" is not on the shared allowlist/);
+  assert.match(checkBundleInputs(['../shared/scripts/json-schema.mjs'], allowlist)[0], /the renderer bundle may contain only/);
+  // A sibling whose name only starts with "scripts" is still runtime code.
+  assert.equal(check('shared/scripts-helpers.ts', 'import "node:fs";').length, 1);
+});
+
 test('renderer/src may import renderer/src, shared/ and its own allowlist only', () => {
   assert.deepEqual(
     check(
