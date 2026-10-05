@@ -28,7 +28,7 @@ Required settings are `initialViewId`, `responsive`, `maintainAspectRatio`, `the
 
 Optional settings include `contentTemplate` (sanitized HTML with `{{name}}`, `{{id}}`, `{{viewName}}`, or `{{metadata.key}}`), `areaLabels`, `sceneSwitcher`, `zoomControls`, `directory`, and canvas-unit `padding`. Zoom controls can set their corner, fractional `step`, reset target (`initial` or fitted minimum), and `wheelMode` (`off`, a required modifier, or `always`). Wheel zoom defaults to off so an embedded map does not capture page scrolling.
 
-`directory` opts the published map into a static, cross-view place finder. `metadataKeys` chooses fields searched alongside every area name. `categoryKey` and `categories: [{ value, label }]` expose an author-curated filter legend with visible text labels. Areas on hidden layers are excluded. Disabled areas remain listed as unavailable but cannot be selected. A selected result changes views if needed, fits the area's bounds into the camera, and focuses its SVG control. All indexing and filtering happens in the browser and remains offline-capable.
+`directory` opts the published map into a static, cross-view place finder. `metadataKeys` chooses fields searched alongside every area name. `categoryKey` and `categories: [{ value, label }]` expose an author-curated filter legend with visible text labels. Areas on hidden layers are excluded, using effective runtime visibility after `toggleLayer` actions. Disabled areas remain listed as unavailable but cannot be selected. A selected result changes views if needed, fits the area's bounds into the camera, and focuses its SVG control. All indexing and filtering happens in the browser and remains offline-capable.
 
 ### Container sizing
 
@@ -68,7 +68,7 @@ An optional `image` references an asset by `assetId`. `fit` is `fill`, `contain`
 | `path` | SVG path string `d` |
 | `marker` | `x`, `y`, and a `MarkerAnchor` |
 
-Each `style` contains `default`, `hover`, and `active` states, plus optional `disabled`. A state is `{ fill, stroke, strokeWidth }`; colors are CSS color strings.
+Each `style` contains `default`, `hover`, and `active` states, plus optional `disabled`. The renderer shows `active` while an area is pressed by pointer or Enter/Space. A state is `{ fill, stroke, strokeWidth }`; colors are CSS color strings.
 
 Actions are `none`; `url` with `href` and target; `goToView` with a target ID and optional transition; `popup` with inline content and position; `toggleLayer` with a layer ID in the area's view; or `customEvent` with a non-empty event name and optional JSON-object payload. Runtime layer visibility begins from the authored `visible` value, survives leaving and re-entering a view, and returns to authored values when the renderer is reset. Hidden layers are removed from pointer and keyboard interaction.
 
