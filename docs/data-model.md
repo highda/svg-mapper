@@ -79,7 +79,7 @@ Required settings are `initialViewId`, `responsive`, `maintainAspectRatio`, `the
 
 Optional settings include `contentTemplate` (sanitized HTML with `{{name}}`, `{{id}}`, `{{viewName}}`, or `{{metadata.key}}`), `areaLabels`, `sceneSwitcher`, `zoomControls`, `directory`, and canvas-unit `padding`. Zoom controls can set their corner, fractional `step`, reset target (`initial` or fitted minimum), and `wheelMode` (`off`, a required modifier, or `always`). Wheel zoom defaults to off so an embedded map does not capture page scrolling.
 
-`directory` opts the published map into a static, cross-view place finder. `metadataKeys` chooses fields searched alongside every area name. `categoryKey` and `categories: [{ value, label }]` expose an author-curated filter legend with visible text labels. Areas on hidden layers are excluded. Disabled areas remain listed as unavailable but cannot be selected. A selected result changes views if needed, fits the area's bounds into the camera, and focuses its SVG control. All indexing and filtering happens in the browser and remains offline-capable.
+`directory` opts the published map into a static, cross-view place finder. `metadataKeys` chooses fields searched alongside every area name. `categoryKey` and `categories: [{ value, label }]` expose an author-curated filter legend with visible text labels. Areas on hidden layers are excluded, using effective runtime visibility after `toggleLayer` actions. Disabled areas remain listed as unavailable but cannot be selected. A selected result changes views if needed, fits the area's bounds into the camera, and focuses its SVG control. All indexing and filtering happens in the browser and remains offline-capable.
 
 ### Container sizing
 
@@ -103,7 +103,7 @@ A `View` has `id`, `name`, URL-friendly `slug`, its own required `canvas: {width
 
 `customCss` is an advanced, portable view override. The browser's own CSS parser reads it, and the renderer rebuilds it from the parsed rules: every selector is placed under the unique instance target (leading `:root`, `html`, `body`, or `.clickmap-root` mean the map root itself), keyframes and cascade-layer names are renamed per instance, animations are renamed only through `animation-name`, and only the active view's stylesheet is mounted. Declarations the browser cannot parse are dropped as in any stylesheet. Inspector-authored SVG presentation attributes remain the baseline; normal CSS declarations override them, while inline runtime state such as cursor and overlay placement may require `!important`. Imports, resource functions (`url()`, `image-set()`, and similar, including escaped spellings), global resource rules (`@font-face`, `@property`, `@page`, and similar), nesting, and unknown at-rules are rejected. The Inspector, Export validation, and the renderer use the same check, and Export reports a rejection as an error linked to its view. Supported grouping rules are `@media`, `@supports`, `@container`, and `@layer`; `@keyframes` and `@-webkit-keyframes` are renamed per instance.
 
-A `Layer` has `id`, `name`, `visible`, `locked`, `opacity`, and ordered `areas`. Layer and area order are paint order. A rectangular area may carry an `image` that turns it into reusable foreground scene content while retaining the same transform, action, and ordering model.
+A `Layer` has `id`, `name`, `visible`, `locked`, `opacity`, and ordered `areas`. `locked` is an editor-only guard: the editor refuses geometry, insertion, deletion, duplication, and reordering edits to a locked layer's areas (the renderer ignores it). Layer and area order are paint order. A rectangular area may carry an `image` that turns it into reusable foreground scene content while retaining the same transform, action, and ordering model.
 
 ## Areas
 
@@ -119,7 +119,7 @@ An optional `image` references an asset by `assetId`. `fit` is `fill`, `contain`
 | `path` | SVG path string `d` |
 | `marker` | `x`, `y`, and a `MarkerAnchor` |
 
-Each `style` contains `default`, `hover`, and `active` states, plus optional `disabled`. A state is `{ fill, stroke, strokeWidth }`; colors are CSS color strings.
+Each `style` contains `default`, `hover`, and `active` states, plus optional `disabled`. The renderer shows `active` while an area is pressed by pointer or Enter/Space. A state is `{ fill, stroke, strokeWidth }`; colors are CSS color strings.
 
 Actions are `none`; `url` with `href` and target; `goToView` with a target ID and optional transition; `popup` with inline content and position; `toggleLayer` with a layer ID in the area's view; or `customEvent` with a non-empty event name and optional JSON-object payload. Runtime layer visibility begins from the authored `visible` value, survives leaving and re-entering a view, and returns to authored values when the renderer is reset. Hidden layers are removed from pointer and keyboard interaction.
 

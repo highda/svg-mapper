@@ -150,6 +150,183 @@ describe("renderer interaction model", () => {
     expect(document.querySelector(`[data-area-id="${amenity.id}"]`)).toBeNull();
   });
 
+  it("keeps the camera and keyboard focus when a layer toggles, with labels and directory in sync", () => {
+    const project = createNewProject();
+    project.settings.zoomControls = { enabled: true, position: "top-right" };
+    project.views[0].viewport.zoomEnabled = true;
+    project.views[0].viewport.maxZoom = 4;
+    project.settings.areaLabels = { enabled: true, hideWhenSmaller: false };
+    project.settings.directory = { enabled: true };
+    const trigger = createRectArea(0, 0, 20, 20);
+    trigger.name = "Show amenities";
+    trigger.action = { type: "toggleLayer", targetLayerId: "amenities" };
+    const amenity = createRectArea(40, 0, 20, 20);
+    amenity.name = "Accessible toilets";
+    project.views[0].layers = [
+      { id: "controls", name: "Controls", visible: true, locked: false, opacity: 1, areas: [trigger] },
+      { id: "amenities", name: "Amenities", visible: false, locked: false, opacity: 1, areas: [amenity] },
+    ];
+    const instance = create({ container: "#map", definition: toDefinition(project) });
+    const camera = vi.fn();
+    instance.on("camera:change", camera);
+    const svg = document.querySelector<SVGSVGElement>(".clickmap-areas")!;
+    const directory = () => document.querySelector(".clickmap-directory-results")!.textContent;
+    const label = () => document.querySelector(`[data-label-area="${amenity.id}"]`);
+
+    document.querySelector<HTMLButtonElement>(".clickmap-zoom-in")!.click();
+    const zoomed = svg.getAttribute("viewBox");
+    expect(zoomed).not.toBe("0 0 1600 900");
+    camera.mockClear();
+    const triggerEl = areaElement(trigger.id);
+    triggerEl.focus();
+    expect(label()).toBeNull();
+    expect(directory()).not.toContain("Accessible toilets");
+
+    triggerEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(svg.getAttribute("viewBox")).toBe(zoomed);
+    expect(camera).not.toHaveBeenCalled();
+    expect(areaElement(trigger.id)).toBe(triggerEl);
+    expect(document.activeElement).toBe(triggerEl);
+    expect(label()).not.toBeNull();
+    expect(directory()).toContain("Accessible toilets");
+    // Geometry and labels keep authored layer order.
+    expect(Array.from(svg.children).map((child) => child.getAttribute("data-layer-id") ?? child.getAttribute("class")))
+      .toEqual(["controls", "amenities", "clickmap-area-labels"]);
+
+    triggerEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(svg.getAttribute("viewBox")).toBe(zoomed);
+    expect(label()).toBeNull();
+    expect(directory()).not.toContain("Accessible toilets");
+
+    triggerEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(directory()).toContain("Accessible toilets");
+    instance.reset();
+    expect(svg.getAttribute("viewBox")).toBe("0 0 1600 900");
+    expect(label()).toBeNull();
+    expect(directory()).not.toContain("Accessible toilets");
+  });
+
+  it("moves focus to the nearest remaining area when the focused trigger hides its own layer", () => {
+    const project = createNewProject();
+    const first = createRectArea(0, 0, 20, 20);
+    first.name = "First";
+    const trigger = createRectArea(40, 0, 20, 20);
+    trigger.name = "Hide me";
+    trigger.tooltip = { enabled: true, title: "Hide me" };
+    trigger.action = { type: "toggleLayer", targetLayerId: "overlay" };
+    const next = createRectArea(80, 0, 20, 20);
+    next.name = "Next";
+    project.views[0].layers = [
+      { id: "base", name: "Base", visible: true, locked: false, opacity: 1, areas: [first] },
+      { id: "overlay", name: "Overlay", visible: true, locked: false, opacity: 1, areas: [trigger] },
+      { id: "top", name: "Top", visible: true, locked: false, opacity: 1, areas: [next] },
+    ];
+    create({ container: "#map", definition: toDefinition(project) });
+
+    areaElement(trigger.id).focus();
+    areaElement(trigger.id).dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(document.querySelector(`[data-area-id="${trigger.id}"]`)).toBeNull();
+    expect(document.activeElement).toBe(areaElement(next.id));
+    expect(areaElement(next.id)).toHaveAttribute("fill", next.style.hover.fill);
+    expect(document.querySelector(".clickmap-aria-live")).toHaveTextContent("Overlay hidden");
+  });
+
+  it("shows the active style while pressed and restores the resolved style on release or cancel", () => {
+    const plain = createRectArea(0, 0, 10, 10);
+    plain.style = structuredClone(plain.style);
+    plain.style.active = { fill: "#ff0000", stroke: "#00ff00", strokeWidth: 5 };
+    const valued = createRectArea(20, 0, 10, 10);
+    valued.style = structuredClone(valued.style);
+    valued.style.active = { fill: "#0000ff", stroke: "#000000", strokeWidth: 3 };
+    const disabled = createRectArea(40, 0, 10, 10);
+    disabled.disabled = true;
+    disabled.style = { ...structuredClone(disabled.style), disabled: { fill: "#aaaaaa", stroke: "#333333", strokeWidth: 1 } };
+    const project = createNewProject();
+    project.views[0].layers = [{
+      id: "layer_1", name: "Layer 1", visible: true, locked: false, opacity: 1, areas: [plain, valued, disabled],
+    }];
+    create({
+      container: "#map",
+      definition: toDefinition(project),
+      choropleth: { data: [{ id: valued.id, value: 1 }, { id: disabled.id, value: 2 }], colorLow: "#000000", colorHigh: "#ffffff" },
+    });
+
+    // Pointer press and release.
+    areaElement(plain.id).dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 }));
+    expect(areaElement(plain.id)).toHaveAttribute("fill", "#ff0000");
+    expect(areaElement(plain.id)).toHaveAttribute("stroke-width", "5");
+    window.dispatchEvent(new Event("pointerup"));
+    expect(areaElement(plain.id)).toHaveAttribute("fill", plain.style.default.fill);
+
+    // Secondary buttons do not press.
+    areaElement(plain.id).dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 2 }));
+    expect(areaElement(plain.id)).toHaveAttribute("fill", plain.style.default.fill);
+
+    // Cancel restores the choropleth resting colour.
+    expect(areaElement(valued.id)).toHaveAttribute("fill", "rgb(0,0,0)");
+    areaElement(valued.id).dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 }));
+    expect(areaElement(valued.id)).toHaveAttribute("fill", "#0000ff");
+    window.dispatchEvent(new Event("pointercancel"));
+    expect(areaElement(valued.id)).toHaveAttribute("fill", "rgb(0,0,0)");
+
+    // Keyboard press restores to the focused (hover) style on release.
+    areaElement(valued.id).focus();
+    areaElement(valued.id).dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    expect(areaElement(valued.id)).toHaveAttribute("fill", "#0000ff");
+    areaElement(valued.id).dispatchEvent(new KeyboardEvent("keyup", { key: " ", bubbles: true }));
+    expect(areaElement(valued.id)).toHaveAttribute("fill", valued.style.hover.fill);
+    areaElement(valued.id).dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    areaElement(valued.id).blur();
+    expect(areaElement(valued.id)).toHaveAttribute("fill", "rgb(0,0,0)");
+
+    // Disabled areas never press and keep their disabled style under a choropleth.
+    expect(areaElement(disabled.id)).toHaveAttribute("fill", "#aaaaaa");
+    areaElement(disabled.id).dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 }));
+    expect(areaElement(disabled.id)).toHaveAttribute("fill", "#aaaaaa");
+  });
+
+  it("reveals only the final directory choice after cross-view navigation completes", () => {
+    vi.useFakeTimers();
+    try {
+      const project = createNewProject();
+      const makeView = (id: string, areaName: string, x: number) => {
+        const area = createRectArea(x, 400, 40, 40);
+        area.id = `${id}-place`;
+        area.name = areaName;
+        return { ...structuredClone(project.views[0]), id, name: id, slug: id,
+          layers: [{ id: `${id}-layer`, name: "Places", visible: true, locked: false, opacity: 1, areas: [area] }] };
+      };
+      project.views = [makeView("home", "Home place", 100), makeView("north", "North place", 400), makeView("south", "South place", 1200)];
+      project.settings.initialViewId = "home";
+      project.settings.directory = { enabled: true };
+      const instance = create({ container: "#map", definition: toDefinition(project) });
+      const reveals: string[] = [];
+      instance.on("camera:change", (event) => { if (event.reason === "reveal") reveals.push(event.viewId); });
+      const choose = (name: string) => Array.from(document.querySelectorAll<HTMLButtonElement>(".clickmap-directory-result"))
+        .find((button) => button.textContent?.startsWith(name))!.click();
+
+      choose("North place");
+      choose("South place");
+      expect(reveals).toEqual([]);
+      vi.advanceTimersByTime(1000);
+      expect(instance.getCurrentView()).toBe("south");
+      expect(reveals).toEqual(["south"]);
+      expect(document.activeElement).toBe(areaElement("south-place"));
+
+      // Same destination twice while it is still fading in: the latest wins once rendered.
+      choose("Home place");
+      expect(document.querySelector('[data-area-id="home-place"]')).toBeNull();
+      vi.advanceTimersByTime(1000);
+      expect(reveals).toEqual(["south", "home"]);
+
+      choose("North place");
+      instance.destroy();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("dispatches authored custom-event payloads", () => {
     const area = createRectArea(0, 0, 10, 10);
     area.action = { type: "customEvent", eventName: "map:request-details", payload: { propertyId: 42 } };
