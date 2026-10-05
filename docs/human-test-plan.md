@@ -33,6 +33,7 @@ The browser suite asserts behavior, not element presence (#178):
 | Regression | Measured evidence | Spec |
 | --- | --- | --- |
 | Outer document scrolls (#155) | document width/height overflow and scroll offsets after wheel, keyboard, and focus at 1024×600 and 1440×900 | `document-scroll` |
+| Fixed sidebars and buried inspector fields (#156) | panel widths after keyboard resize, collapse, reload, and reset; canvas width, focus, selection, and inspector scroll across window sizes; inspector section order | `workspace-layout` |
 | Blank sample artwork (#161) | rendered pixels of each sample background in Design and in Preview | `authoring-evidence` |
 | Copy/paste switches tools (#162) and drags or deletions undo partially (#163) | canvas geometry of the pasted, duplicated, resized, and restored areas | `authoring-evidence`, `drag-history`, `shortcuts` |
 | Zero-height fixed scene; window-driven sizing (#157) | map box per sizing mode as only the host changes, in a wider window | `renderer-sizing`, `preview-resize` |
@@ -101,6 +102,9 @@ generation; JPEG/SVG retain a clearly described rectangular hit area.
    drag it to sizes in between. Confirm that selection, open settings, focus,
    and unsaved state survive, and that the outer document never scrolls. Below
    the floor, confirm only that Save/Open and draft recovery stay reachable.
+   Drag both panel edges, then repeat with Tab, the arrow keys, and Enter on
+   each edge; confirm **Reset layout** restores the default widths and that
+   panel preferences never mark the project as changed.
 8. Draw, select, move, resize, duplicate, undo, and redo rectangle/circle/polygon areas.
 9. Use grid snapping and zoom-to-fit; pan at a zoom above 1.
 10. Confirm the background and areas remain registered during every camera change.
