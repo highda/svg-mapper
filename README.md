@@ -13,6 +13,7 @@ renderer archives as GitHub Releases.
 - [User guide](docs/user-guide.md) — the editor workflow from import to deployment
 - [Data model](docs/data-model.md) — saved project and exported `map.json` schema
 - [Renderer API](docs/renderer-api.md) — initialization, options, methods, events, and embedding
+- [Renderer without the builder](docs/renderer-standalone.md) — embed a hand-written or generated `map.json`, validate it, and know what the builder would have derived
 - [Export format](docs/export-format.md) — ZIP contents, asset modes, and hosting
 - [Product specification](ASSIGNMENT.md) and [agent workflow](AGENTS.md)
 - [Product reassessment](docs/product-reassessment.md) — actual capabilities, gaps, and image-first roadmap

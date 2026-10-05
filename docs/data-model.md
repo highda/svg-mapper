@@ -1,6 +1,6 @@
 # Data model
 
-`map.json` (`ClickMapDefinition`) is the contract between the builder and the renderer, and what anyone must produce to use the renderer without the builder: by hand, from a script, or from a CMS. The current `schemaVersion` is `"1.0.0"`.
+`map.json` (`ClickMapDefinition`) is the contract between the builder and the renderer, and what anyone must produce to use the renderer without the builder: by hand, from a script, or from a CMS ([guide](renderer-standalone.md)). The current `schemaVersion` is `"1.0.0"`.
 
 One structural schema, the Valibot schema in [`shared/schema.ts`](../shared/schema.ts), is the source of all three machine-readable forms of the contract:
 
