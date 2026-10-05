@@ -13,7 +13,17 @@ permissions:
   contents: write
 
 jobs:
+  # A release is gated on exactly the pull-request checks (static checks and
+  # the Chromium export-browser suite), run against the tagged commit.
+  checks:
+    uses: ./.github/workflows/checks.yml
+    permissions:
+      contents: read
+    with:
+      ref: ${{ inputs.tag || github.ref }}
+
   release:
+    needs: checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

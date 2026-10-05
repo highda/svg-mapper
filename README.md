@@ -20,6 +20,13 @@ renderer archives as GitHub Releases.
 - [Human test plan](docs/human-test-plan.md) — repeatable browser and usability checks
 - [Canonical QA gallery](examples/qa-gallery/README.md) — durable fixtures for browser passes
 
+## Browser support
+
+- **Exported maps:** Chrome and Edge 99+, Firefox 97+, Safari 16+ (macOS and iOS). This floor is the renderer's build target and follows from platform features it uses without polyfills (CSS `aspect-ratio`, cascade layers, `:focus-visible`, `overscroll-behavior`).
+- **Editor:** current desktop Chrome, Edge, Firefox, or Safari (Vite's `baseline-widely-available` target: Chrome/Edge 111+, Firefox 114+, Safari 16.4+), at 1024×600 or larger with mouse/trackpad and keyboard.
+
+Automated browser tests run in Chromium only. Firefox, Safari, and physical-device behavior are covered by the [human test plan](docs/human-test-plan.md) and [#113](https://github.com/highda/svg-mapper/issues/113), not by CI.
+
 ## Local development
 
 Requirements: a current Node.js release supported by Vite 8 and npm.

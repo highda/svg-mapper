@@ -65,7 +65,11 @@
     }
     async function loadFixture() {
       if (instance) instance.destroy();
-      document.querySelector('#map').replaceChildren();
+      // A shadow root cannot be detached: always mount into a fresh host so a
+      // switch back to light DOM is not hidden behind the previous shadow root.
+      var host = document.createElement('div');
+      host.id = 'map';
+      document.querySelector('#map').replaceWith(host);
       statusEl.textContent = 'Loading ' + fixture.value + '…';
       try {
         var response = await fetch(fixture.value);

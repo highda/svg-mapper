@@ -3,6 +3,13 @@ name: Required checks
 on:
   pull_request:
   workflow_dispatch:
+  # Release builds run these same gates on the tagged commit first.
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to check (defaults to the triggering ref)
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -17,6 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -49,6 +58,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
