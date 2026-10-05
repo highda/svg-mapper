@@ -10,7 +10,7 @@ Branch:       main
 ### Notes / gotchas
 - Local e2e: the installed Playwright expects a newer headless shell than /opt/pw-browsers provides; use a temporary uncommitted config pointing at /opt/pw-browsers/chromium.
 - #223 approved by owner (same-origin iframe fallback); waits on #221, #222.
-- Renderer gzip is 45,435 B of the 46,080 B budget. The build minifies the inlined CSS (#241) and mangles `private` member names not found in DOM/lib/bundled-package typings or shared/ (#246); new visitor-facing strings need a key in shared/strings.ts (sentinel test enforces it).
+- Renderer gzip is 45,435 B of the 46,080 B budget. The build minifies the inlined CSS (#241) and mangles `private` member names not found in DOM/lib/bundled-package typings or shared/ (#246); new visitor-facing strings need a key in shared/strings.ts (sentinel test enforces it). Owner (2026-10-05): the budget is not a hard wall — when a feature genuinely needs room, raise it in the same PR and say why, rather than squeezing code.
 - Known flakes handed to #232: renderer-controls "compact directory…", qa-gallery light/Shadow toggle, vitest draft-recovery timeout under load.
 - GitHub hosted runners intermittently fail to pick up jobs ("not acquired by Runner"); re-run the cancelled job.
 
