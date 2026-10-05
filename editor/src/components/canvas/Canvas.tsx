@@ -3,6 +3,8 @@ import type { Area, CircleGeometry } from "@svg-mapper/shared";
 import { assetDisplaySource, fitImageRect, geometryBounds } from "@svg-mapper/shared";
 import { canEditGeometry, useStore } from "../../store";
 import { AreaShape } from "./AreaShape";
+import { VertexHandles } from "./VertexHandles";
+import { activeVertexIndex, useVertexSelection } from "../../store/vertex-selection";
 import { isActivatableTarget, shouldIgnoreShortcut } from "../../lib/shortcut-guard";
 import {
   createRectArea,
@@ -19,6 +21,16 @@ import {
   calculateZoomToFit,
   type RectHandle,
 } from "../../lib/area-utils";
+import {
+  edgeMidpoints,
+  editableVertices,
+  insertVertex,
+  minVertexCount,
+  moveVertex,
+  removeVertex,
+  snapPoint,
+  type Point,
+} from "../../lib/vertex-edit";
 
 // ── Coordinate helpers ──────────────────────────────────────────────────────
 
@@ -50,6 +62,26 @@ function contentPoint(
 function areaCenter(area: Area): { x: number; y: number; width: number } | null {
   const b = geometryBounds(area.geometry);
   return b ? { x: b.x + b.width / 2, y: b.y + b.height / 2, width: b.width } : null;
+}
+
+type StoreState = ReturnType<typeof useStore.getState>;
+
+/**
+ * The area whose vertices can be edited right now (#176): the single selected
+ * area in the active view, on a visible layer, with editable geometry that has
+ * vertices. Locked layers and position-locked images never qualify (#164).
+ */
+function findVertexEditTarget(state: Pick<StoreState, "project" | "activeViewId" | "selectedAreaIds" | "activeTool">): { area: Area; vertices: Point[] } | null {
+  if (state.activeTool !== "select" || state.selectedAreaIds.length !== 1) return null;
+  const view = state.project.views.find((candidate) => candidate.id === state.activeViewId);
+  for (const layer of view?.layers ?? []) {
+    const area = layer.areas.find((candidate) => candidate.id === state.selectedAreaIds[0]);
+    if (!area) continue;
+    if (!layer.visible || !canEditGeometry(layer, area)) return null;
+    const vertices = editableVertices(area.geometry as Area["geometry"]);
+    return vertices ? { area: area as Area, vertices } : null;
+  }
+  return null;
 }
 
 // ── Canvas ───────────────────────────────────────────────────────────────────
@@ -110,6 +142,9 @@ export function Canvas() {
   const [isPanning, setIsPanning] = useState(false);
   // Circle drawing preview
   const [circlePreview, setCirclePreview] = useState<{ cx: number; cy: number; r: number } | null>(null);
+  // Explains a refused vertex removal (minimum vertex count) without a modal.
+  const [vertexNotice, setVertexNotice] = useState<{ areaId: string; text: string } | null>(null);
+  const vertexSelection = useVertexSelection();
 
   // Tooltip hover state
   const [hoveredAreaId, setHoveredAreaId] = useState<string | null>(null);
@@ -120,7 +155,7 @@ export function Canvas() {
 
   // Drag state (refs to avoid re-renders during drag)
   const drag = useRef<{
-    type: "pan" | "marquee" | "move" | "draw-rect" | "resize" | "draw-circle" | "resize-circle";
+    type: "pan" | "marquee" | "move" | "draw-rect" | "resize" | "draw-circle" | "resize-circle" | "vertex";
     startSvg: { x: number; y: number };
     startContent: { x: number; y: number };
     areaId?: string;
@@ -132,6 +167,11 @@ export function Canvas() {
     panBefore?: { x: number; y: number };
     previewRect?: { x: number; y: number; width: number; height: number } | null;
     selectionBefore?: string[];
+    /** Vertex drag (#176): the vertex index being placed and where it started. */
+    vertexIndex?: number;
+    vertexStart?: Point;
+    /** Set when the drag began on an edge midpoint: the edge that gains a vertex. */
+    insertEdge?: number;
   } | null>(null);
 
   const spaceHeld = useRef(false);
@@ -226,6 +266,7 @@ export function Canvas() {
         e.preventDefault();
         return;
       }
+      if (handleVertexKey(e)) return;
       if (e.key === "v" || e.key === "V") { setActiveTool("select"); return; }
       if (e.key === "r" || e.key === "R") { setActiveTool("rect"); return; }
       if (e.key === "p" || e.key === "P") { setActiveTool("polygon"); return; }
@@ -301,6 +342,50 @@ export function Canvas() {
       setIsSpaceDown(false);
       lastSpacePanPos.current = null;
     }
+    /**
+     * Keyboard editing of the active vertex (#176): arrows nudge it (Shift for
+     * 10 units, the grid step while snapping), Delete removes it, Escape lets
+     * go of it. Each key press is one undo entry. Returns true when handled.
+     */
+    function handleVertexKey(e: KeyboardEvent): boolean {
+      const state = useStore.getState();
+      const target = findVertexEditTarget(state);
+      if (!target) return false;
+      const index = activeVertexIndex(useVertexSelection.getState(), target.area.id, target.vertices.length);
+      if (index === null) return false;
+      const geo = target.area.geometry;
+      if (e.key === "Escape") {
+        useVertexSelection.getState().clear();
+        setVertexNotice(null);
+        return true;
+      }
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        const next = removeVertex(geo, index);
+        if (!next) {
+          setVertexNotice({ areaId: target.area.id, text: `A polygon needs at least ${minVertexCount(geo)} points, so this point stays. Add a point first, or press Escape and then Delete to remove the whole area.` });
+          return true;
+        }
+        setVertexNotice(null);
+        state.updateAreaGeometry(target.area.id, next);
+        useVertexSelection.getState().select(target.area.id, Math.max(0, index - 1));
+        return true;
+      }
+      const arrows: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+      const dir = arrows[e.key];
+      // Arrows belong to the canvas only; list and tree widgets keep theirs.
+      const keyTarget = e.target instanceof Element ? e.target : null;
+      const onCanvas = !keyTarget || keyTarget === document.body || (svgRef.current?.parentElement?.contains(keyTarget) ?? false);
+      if (!dir || !onCanvas) return false;
+      e.preventDefault();
+      const grid = state.project.editor?.grid;
+      const step = grid?.enabled ? grid.size : e.shiftKey ? 10 : 1;
+      const from = target.vertices[index]!;
+      const next = moveVertex(geo, index, snapPoint({ x: from.x + dir[0] * step, y: from.y + dir[1] * step }, grid));
+      if (next) state.updateAreaGeometry(target.area.id, next);
+      return true;
+    }
+
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
@@ -542,6 +627,61 @@ export function Canvas() {
     };
   }
 
+  /**
+   * A vertex handle drag moves one vertex; a midpoint handle drag inserts a
+   * vertex on that edge and places it. Either previews without history and
+   * commits once on release, so one gesture is one undo entry (#176).
+   */
+  function startVertexDrag(e: React.PointerEvent, areaId: string, index: number, insertEdge?: number) {
+    const svg = svgRef.current;
+    if (!svg || spaceHeld.current) return;
+    const target = findVertexEditTarget(useStore.getState());
+    if (!target || target.area.id !== areaId) return;
+    const geo = target.area.geometry;
+    const start = insertEdge === undefined ? target.vertices[index] : edgeMidpoints(geo)[insertEdge];
+    if (!start) return;
+    const sp = svgPoint(e, svg);
+    // Keep keyboard focus on the canvas so arrows and Delete reach the vertex.
+    svg.focus();
+    svg.setPointerCapture(e.pointerId);
+    if (insertEdge === undefined) useVertexSelection.getState().select(areaId, index);
+    setVertexNotice(null);
+    drag.current = {
+      type: "vertex",
+      startSvg: sp,
+      startContent: toContent(sp),
+      areaId,
+      areaGeoBefore: geo,
+      areaGeometriesBefore: [{ id: areaId, geometry: geo }],
+      vertexIndex: index,
+      vertexStart: start,
+      insertEdge,
+    };
+  }
+
+  function onVertexPointerDown(e: React.PointerEvent, areaId: string, index: number) {
+    startVertexDrag(e, areaId, index);
+  }
+
+  function onMidpointPointerDown(e: React.PointerEvent, areaId: string, edgeIndex: number) {
+    startVertexDrag(e, areaId, edgeIndex + 1, edgeIndex);
+  }
+
+  /** The geometry a vertex drag produces with the pointer at `sp`, or null for no edit. */
+  function vertexDragGeometry(d: NonNullable<typeof drag.current>, sp: { x: number; y: number }): Area["geometry"] | null {
+    if (!d.areaGeoBefore || d.vertexIndex === undefined || !d.vertexStart) return null;
+    // A press on a vertex that barely moves only picks it.
+    const moved = Math.abs(sp.x - d.startSvg.x) >= 3 || Math.abs(sp.y - d.startSvg.y) >= 3;
+    if (!moved && d.insertEdge === undefined) return null;
+    const cp = toContent(sp);
+    const point = snapPoint(moved
+      ? { x: d.vertexStart.x + cp.x - d.startContent.x, y: d.vertexStart.y + cp.y - d.startContent.y }
+      : d.vertexStart, grid);
+    return d.insertEdge === undefined
+      ? moveVertex(d.areaGeoBefore, d.vertexIndex, point)
+      : insertVertex(d.areaGeoBefore, d.insertEdge, point);
+  }
+
   function onSvgPointerMove(e: React.PointerEvent<SVGSVGElement>) {
     // Track cursor for tooltip positioning
     if (!svgRef.current) return;
@@ -617,6 +757,20 @@ export function Canvas() {
             const a = layer.areas.find((ar) => ar.id === d.areaId);
             if (a) {
               (a as Area).geometry = newGeo as (typeof a)["geometry"];
+              return;
+            }
+          }
+        }
+      });
+    } else if (d.type === "vertex" && d.areaId) {
+      const preview = vertexDragGeometry(d, sp) ?? d.areaGeoBefore;
+      if (!preview) return;
+      useStore.setState((s) => {
+        for (const v of s.project.views) {
+          for (const layer of v.layers) {
+            const a = layer.areas.find((ar) => ar.id === d.areaId);
+            if (a) {
+              (a as Area).geometry = preview as (typeof a)["geometry"];
               return;
             }
           }
@@ -717,6 +871,14 @@ export function Canvas() {
       const newR = grid.enabled ? Math.max(grid.size, snapValue(cp.x - geo.cx, grid.size)) : Math.max(1, cp.x - geo.cx);
       restoreDragBaseline(d);
       useStore.getState().updateAreaGeometry(d.areaId, { ...geo, r: newR });
+    } else if (d.type === "vertex" && d.areaId) {
+      const finalGeo = vertexDragGeometry(d, sp);
+      restoreDragBaseline(d);
+      if (!finalGeo) return;
+      useStore.getState().updateAreaGeometry(d.areaId, finalGeo);
+      if (d.insertEdge !== undefined && d.vertexIndex !== undefined) {
+        useVertexSelection.getState().select(d.areaId, d.vertexIndex);
+      }
     }
   }
 
@@ -745,6 +907,8 @@ export function Canvas() {
     : undefined;
   const showTooltip =
     hoveredArea?.tooltip?.enabled && hoveredArea.tooltip.title && hoverPos;
+
+  const vertexTarget = findVertexEditTarget({ project, activeViewId, selectedAreaIds, activeTool });
 
   return (
     <div className="relative flex-1">
@@ -870,6 +1034,19 @@ export function Canvas() {
             </g>
           )}
 
+          {/* Vertex handles of the selected polygon, above every area (#176) */}
+          {vertexTarget && (
+            <VertexHandles
+              areaId={vertexTarget.area.id}
+              vertices={vertexTarget.vertices}
+              midpoints={edgeMidpoints(vertexTarget.area.geometry)}
+              activeIndex={activeVertexIndex(vertexSelection, vertexTarget.area.id, vertexTarget.vertices.length)}
+              zoom={zoom}
+              onVertexPointerDown={onVertexPointerDown}
+              onMidpointPointerDown={onMidpointPointerDown}
+            />
+          )}
+
           {/* Rect drawing preview */}
           {marqueeRect && (
             <rect
@@ -942,6 +1119,12 @@ export function Canvas() {
           )}
         </g>
       </svg>
+
+      {vertexNotice && vertexNotice.areaId === vertexTarget?.area.id && (
+        <div role="status" data-testid="vertex-notice" className="pointer-events-none absolute inset-x-0 bottom-12 z-10 flex justify-center px-2">
+          <p className="max-w-md rounded bg-neutral-800/95 px-3 py-1.5 text-xs text-neutral-200 shadow-lg ring-1 ring-neutral-600">{vertexNotice.text}</p>
+        </div>
+      )}
 
       {/* Tooltip overlay */}
       {showTooltip && hoverPos && (

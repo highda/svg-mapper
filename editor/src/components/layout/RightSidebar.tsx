@@ -6,6 +6,7 @@ import type {
   AreaTrigger,
   BackgroundFit,
   CircleGeometry,
+  Geometry,
   MarkerGeometry,
   MarkerAnchor,
   PopupAction,
@@ -23,6 +24,8 @@ import { geometryBounds } from "@svg-mapper/shared";
 import { geometryLockReason, useStore } from "../../store";
 import { resizePathToBounds } from "../../lib/area-utils";
 import { useStylePreview, type StylePreviewState } from "../../store/style-preview";
+import { activeVertexIndex, useVertexSelection } from "../../store/vertex-selection";
+import { canRemoveVertex, edgeMidpoints, editableVertices, insertVertex, minVertexCount, moveVertex, removeVertex, snapPoint } from "../../lib/vertex-edit";
 import { validateActionUrl } from "../../lib/url-validate";
 import { createAlphaHitMask, MAX_ALPHA_MASK_DIMENSION } from "../../lib/alpha-mask";
 import { colorToHex, isValidCssColor, parseCssColor, withHexColor, withOpacity } from "../../lib/css-color";
@@ -118,12 +121,15 @@ function NumberField({
   min,
   max,
   step,
+  ariaLabel,
 }: {
   defaultValue: number;
   onCommit: (v: number) => void;
   min?: number;
   max?: number;
   step?: number;
+  /** Accessible name when the field is not inside a labelled Row. */
+  ariaLabel?: string;
 }) {
   function handleBlur(e: React.FocusEvent<HTMLInputElement>) {
     const n = parseFloat(e.target.value);
@@ -143,6 +149,7 @@ function NumberField({
       min={min}
       max={max}
       step={step ?? 1}
+      aria-label={ariaLabel}
       onBlur={handleBlur}
       onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } }}
       className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
@@ -313,8 +320,13 @@ function StylePreviewPicker({ disabled }: { disabled: boolean }) {
 // No-selection: View inspector
 // ---------------------------------------------------------------------------
 
+function navigationSummary(view: View): string {
+  const parts = [view.ui.showBackButton && "Back", view.ui.showBreadcrumbs && "Trail"].filter(Boolean);
+  return parts.length ? parts.join(", ") : "Off";
+}
+
 function ViewInspector({ view }: { view: View }) {
-  const { renameView, setCanvasSize, project, setViewBackground, setViewBackgroundFit, setViewBackgroundPosition, updateSettings, setEditorState, setViewCustomCss } = useStore();
+  const { renameView, setCanvasSize, project, setViewBackground, setViewBackgroundFit, setViewBackgroundPosition, updateSettings, setEditorState, setViewCustomCss, setViewUi } = useStore();
   const [customCss, setCustomCss] = useState(view.customCss ?? "");
   const customCssError = validateViewCss(customCss);
   const canvasSize = view.canvas;
@@ -624,6 +636,19 @@ function ViewInspector({ view }: { view: View }) {
           </Row>
         ))}
       </InspectorSection>
+      <InspectorSection id="view.navigation" title="Navigation" scope="View" defaultOpen={false} summary={navigationSummary(view)}>
+        <p className="text-xs text-neutral-400">Shown in this view after a visitor arrives from another view.</p>
+        <CheckToggle
+          checked={view.ui.showBackButton}
+          onChange={(showBackButton) => setViewUi(view.id, { showBackButton })}
+          label="Show back button"
+        />
+        <CheckToggle
+          checked={view.ui.showBreadcrumbs}
+          onChange={(showBreadcrumbs) => setViewUi(view.id, { showBreadcrumbs })}
+          label="Show breadcrumb trail"
+        />
+      </InspectorSection>
       <InspectorSection id="project.grid" title="Editor grid" scope="Project" summary={grid.enabled ? `Snap ${grid.size}px` : "Off"}>
         <CheckToggle
           checked={grid.enabled}
@@ -816,6 +841,74 @@ function LayerInspector() {
 // Area inspector
 // ---------------------------------------------------------------------------
 
+/**
+ * Keyboard-accessible point list for a polygon (#176): exact coordinates, plus
+ * add/remove controls. Each commit is one undo entry through the same store
+ * action as the canvas handles, so locks and history behave identically.
+ */
+function PolygonPointsEditor({ areaId, geometry }: { areaId: string; geometry: PolygonGeometry & { type: "polygon" } }) {
+  const updateAreaGeometry = useStore((state) => state.updateAreaGeometry);
+  const grid = useStore((state) => state.project.editor?.grid);
+  const vertexSelection = useVertexSelection();
+  const vertices = editableVertices(geometry) ?? [];
+  const active = activeVertexIndex(vertexSelection, areaId, vertices.length);
+  const removable = canRemoveVertex(geometry);
+
+  function commit(next: Geometry | null, select?: number) {
+    if (!next) return;
+    updateAreaGeometry(areaId, next);
+    if (select !== undefined) vertexSelection.select(areaId, select);
+  }
+
+  return (
+    <div className="space-y-1">
+      <p className="text-xs text-neutral-400">
+        {vertices.length} points. Drag a point on the canvas, or drag an edge midpoint to add one. Arrow keys nudge the picked point; Delete removes it.
+      </p>
+      <ol aria-label="Polygon points" className="space-y-1">
+        {vertices.map((point, index) => (
+          <li
+            key={index}
+            data-testid="polygon-point-row"
+            data-active={active === index ? "true" : undefined}
+            onFocusCapture={() => vertexSelection.select(areaId, index)}
+            className={`flex items-center gap-1 rounded px-0.5 ${active === index ? "bg-blue-950/60 ring-1 ring-blue-500" : ""}`}
+          >
+            <span className="w-5 shrink-0 text-right text-xs text-neutral-400" aria-hidden="true">{index + 1}</span>
+            <NumberField ariaLabel={`Point ${index + 1} X`} defaultValue={point.x} onCommit={(x) => commit(moveVertex(geometry, index, { x, y: point.y }))} />
+            <NumberField ariaLabel={`Point ${index + 1} Y`} defaultValue={point.y} onCommit={(y) => commit(moveVertex(geometry, index, { x: point.x, y }))} />
+            <button
+              type="button"
+              aria-label={`Add a point after point ${index + 1}`}
+              title="Add a point on the next edge"
+              onClick={() => {
+                const midpoint = edgeMidpoints(geometry)[index];
+                if (midpoint) commit(insertVertex(geometry, index, snapPoint(midpoint, grid)), index + 1);
+              }}
+              className="shrink-0 rounded bg-neutral-700 px-1.5 py-0.5 text-xs text-white hover:bg-neutral-600"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              aria-label={`Remove point ${index + 1}`}
+              title={removable ? "Remove this point" : `A polygon keeps at least ${minVertexCount(geometry)} points`}
+              disabled={!removable}
+              onClick={() => commit(removeVertex(geometry, index), Math.max(0, index - 1))}
+              className="shrink-0 rounded bg-neutral-700 px-1.5 py-0.5 text-xs text-white hover:bg-neutral-600 disabled:opacity-40"
+            >
+              −
+            </button>
+          </li>
+        ))}
+      </ol>
+      {!removable && (
+        <p className="text-xs text-neutral-500">A polygon keeps at least {minVertexCount(geometry)} points.</p>
+      )}
+    </div>
+  );
+}
+
 function GeometryEditor({
   areaId,
   geometry,
@@ -858,12 +951,7 @@ function GeometryEditor({
   }
 
   if (geometry.type === "polygon") {
-    const g = geometry as unknown as PolygonGeometry & { type: "polygon" };
-    return (
-      <div className="text-xs text-neutral-400">
-        {g.points.length} vertices — vertex editing not available yet
-      </div>
-    );
+    return <PolygonPointsEditor areaId={areaId} geometry={geometry as unknown as PolygonGeometry & { type: "polygon" }} />;
   }
 
   if (geometry.type === "path") {
