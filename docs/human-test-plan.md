@@ -24,18 +24,39 @@ locked npm dependencies for every workspace typecheck, editor lint/unit tests,
 production builds, and the documented `< 45 KB` renderer gzip budget. The
 second drives the production editor and a downloaded, extracted, separately
 hosted export in Chromium; failures upload traces, screenshots, and video for
-seven days without adding them to Git.
+seven days without adding them to Git. `.github/workflows/release.yml` calls the
+same workflow on the tagged commit and publishes nothing unless both jobs pass,
+so a release cannot skip a gate that pull requests enforce.
 
-Browser emulation is regression evidence, not a physical-device pass. Before a
-release, still complete and record Safari on macOS/iOS, at least one physical
-touch device, and the exported `index.html` over `file://`. Those environments
-remain manual because CI Chromium cannot establish their platform behavior.
+The browser suite asserts behavior, not element presence (#178):
+
+| Regression | Measured evidence | Spec |
+| --- | --- | --- |
+| Outer document scrolls (#155) | document width/height overflow and scroll offsets after wheel, keyboard, and focus at 1024×600 and 1440×900 | `document-scroll` |
+| Blank sample artwork (#161) | rendered pixels of each sample background in Design and in Preview | `authoring-evidence` |
+| Copy/paste switches tools (#162) and drags or deletions undo partially (#163) | canvas geometry of the pasted, duplicated, resized, and restored areas | `authoring-evidence`, `drag-history`, `shortcuts` |
+| Zero-height fixed scene; window-driven sizing (#157) | map box per sizing mode as only the host changes, in a wider window | `renderer-sizing`, `preview-resize` |
+| Uncontained popups (#159) | popup box inside a 360 px host with the page not widened | `renderer-overlays`, `exported-containers` |
+| Exported package hosting | both asset modes over HTTP and `file://`, a nested page path, two instances (one in Shadow DOM), a hidden host revealed later, painted artwork | `exported-containers`, `export-package` |
+| Gallery stuck after Shadow DOM | light → Shadow → light DOM map box | `qa-gallery` |
+| Host-style escape (#168) | computed styles outside the map and in a second instance | `view-css`, `renderer-sanitize` |
+
+Browser emulation is regression evidence, not a physical-device pass. CI runs
+Chromium only. Firefox and WebKit are not part of the suite: CI installs only
+Chromium and the agent container cannot run the other engines, so no result
+from them is claimed. Before a release, still complete and record Firefox,
+Safari on macOS/iOS, and at least one physical touch device (#113), including
+the exported `index.html` over `file://` in each (CI covers `file://` in
+Chromium only). Those environments remain manual because CI Chromium cannot
+establish their platform behavior. The supported
+browser floor is listed in [Export format](export-format.md#supported-browsers).
 
 ## Test record
 
 | Field | Value |
 | --- | --- |
 | Commit | |
+| CI run (checks or release workflow URL) | |
 | Browser and version | |
 | Operating system | |
 | Viewport / device | |
@@ -45,9 +66,10 @@ remain manual because CI Chromium cannot establish their platform behavior.
 | Hosting | localhost / Pages / file |
 
 Each executed row must preserve the expected and actual result, not only a
-Pass/Fail verdict. Use one row per browser, viewport, and input combination.
+Pass/Fail verdict or a count of green tests. Use one row per browser, viewport,
+and input combination, and link the evidence (issue attachment or CI artifact).
 
-| Check ID | Browser | Viewport | Input method | Expected result | Actual result | Console output | Screenshot reference | Result |
+| Check ID | Browser | Viewport | Input method | Expected result | Actual result | Console output | Evidence link | Result |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | example-editor | Chrome | 1024×600 | mouse + keyboard | Save/Open/Preview/Export and the selected object's properties are reachable; the page itself does not scroll. | | | `.codex/runtime/…` or issue attachment | Pass / Fail / Blocked |
 | example-embed | Chrome | 390×844, exported map in a full-width host | touch | Map controls are at least 44 px and operable without hover; page scrolling is not trapped. | | | `.codex/runtime/…` or issue attachment | Pass / Fail / Blocked |
@@ -123,6 +145,6 @@ and tall containers, then manually resize both width and height.
 ## Exit rule
 
 A pass is recorded only when every required matrix row has Expected, Actual,
-Console output, Screenshot reference, and Result filled in. File defects as
+Console output, Evidence link, and Result filled in. File defects as
 issues and link their numbers from Actual result; do not rewrite a fixture to
 hide a product defect.
