@@ -2272,7 +2272,7 @@ class DeferredRenderer implements ClickMapInstance {
         // Decode before any map DOM is mounted.
         const decoded = decodeDefinition(json);
         if (!decoded.ok) {
-          this.fail("INVALID_DEFINITION", decoded.message);
+          this.fail(decoded.code, decoded.message);
           return;
         }
         const fallbackUrl = new URL(options.definitionUrl!, document.baseURI).href;
@@ -2366,7 +2366,7 @@ export function create(options: RendererOptions): ClickMapInstance {
     // Decode before mounting: an invalid definition never builds partial DOM.
     const container = resolveContainer(options);
     const decoded = decodeDefinition(options.definition);
-    if (!decoded.ok) return new FailedRenderer(container, "INVALID_DEFINITION", decoded.message);
+    if (!decoded.ok) return new FailedRenderer(container, decoded.code, decoded.message);
     try {
       return new Renderer({ ...options, container }, decoded.value);
     } catch (error) {

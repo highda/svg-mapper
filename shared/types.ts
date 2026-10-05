@@ -2,7 +2,12 @@
 // Schema
 // ---------------------------------------------------------------------------
 
-export type SchemaVersion = "1.0.0";
+/**
+ * `schemaVersion` of a map definition: `MAJOR.MINOR.PATCH`. A major change is
+ * breaking; minor and patch changes are additive. This release reads major
+ * version 1 only (docs/data-model.md, "Versioning").
+ */
+export type SchemaVersion = `1.${number}.${number}`;
 
 // ---------------------------------------------------------------------------
 // Asset
