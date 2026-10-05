@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useStore } from "./store";
 import { TopBar } from "./components/layout/TopBar";
-import { LeftPanel } from "./components/layout/LeftPanel";
+import { DockedWorkspace } from "./components/layout/DockedWorkspace";
 import { Workspace } from "./components/layout/Workspace";
 import { RightSidebar } from "./components/layout/RightSidebar";
 import { BottomBar } from "./components/layout/BottomBar";
@@ -12,6 +12,7 @@ import { projectSnapshot } from "./store";
 import { FirstUseGuide } from "./components/ui/FirstUseGuide";
 import { ModalDialog } from "./components/ui/ModalDialog";
 import { isEditableTarget, isModalOpen } from "./lib/shortcut-guard";
+import { DESKTOP_QUERY, useMediaQuery } from "./lib/use-media-query";
 
 function storageError(error: unknown, fallback: string): string {
   return typeof error === "object" && error !== null && "message" in error && typeof error.message === "string"
@@ -26,7 +27,11 @@ export function App() {
   const project = useStore((s) => s.project);
   const savedSnapshot = useStore((s) => s.savedSnapshot);
   const restoreDraft = useStore((s) => s.restoreDraft);
-  const showChrome = screen !== "preview";
+  const desktop = useMediaQuery(DESKTOP_QUERY);
+  // Export and Preview are focused workspaces without the tree or inspector (#156).
+  const authoring = screen === "design" || screen === "tree" || screen === "flow";
+  const docked = desktop && authoring;
+  const showInspectorOverlay = !desktop && authoring;
   const [showHelp, setShowHelp] = useState(false);
   const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
   const [recoverableDraft, setRecoverableDraft] = useState<StoredDraft | null>(null);
@@ -163,19 +168,23 @@ export function App() {
         </div>
       )}
       <ErrorBanner />
-      {showChrome && screen === "design" && (
-        <div className="flex min-h-11 items-center gap-2 border-b border-neutral-700 bg-neutral-900 px-2 lg:hidden" aria-label="Mobile workspace controls">
+      {!desktop && screen === "design" && (
+        <div className="flex min-h-11 items-center gap-2 border-b border-neutral-700 bg-neutral-900 px-2" aria-label="Mobile workspace controls">
           <button type="button" className="min-h-9 rounded bg-blue-600 px-3 text-xs font-medium text-white" aria-current="page">Canvas</button>
           <button type="button" className="min-h-9 rounded px-3 text-xs text-neutral-300 hover:bg-neutral-800" onClick={() => setScreen("tree")}>Views &amp; layers</button>
           <button type="button" className="ml-auto min-h-9 rounded px-3 text-xs text-neutral-300 hover:bg-neutral-800" onClick={() => setMobileInspectorOpen(true)}>Inspector</button>
         </div>
       )}
-      <div className="flex min-h-0 flex-1">
-        {showChrome && screen !== "tree" && <LeftPanel />}
-        <Workspace />
-        {showChrome && <RightSidebar mobileOpen={mobileInspectorOpen} onMobileClose={() => setMobileInspectorOpen(false)} />}
-      </div>
-      {mobileInspectorOpen && <button type="button" aria-label="Close inspector overlay" className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={() => setMobileInspectorOpen(false)} />}
+      {docked ? (
+        <DockedWorkspace showTree={screen !== "tree"} />
+      ) : (
+        <div className="flex min-h-0 flex-1">
+          <Workspace />
+          {/* Below the supported width the inspector opens as an overlay; Export stays focused. */}
+          {showInspectorOverlay && <RightSidebar mobileOpen={mobileInspectorOpen} onMobileClose={() => setMobileInspectorOpen(false)} />}
+        </div>
+      )}
+      {showInspectorOverlay && mobileInspectorOpen && <button type="button" aria-label="Close inspector overlay" className="fixed inset-0 z-40 bg-black/60" onClick={() => setMobileInspectorOpen(false)} />}
       <BottomBar />
       <ShortcutsHelp open={showHelp} onClose={() => setShowHelp(false)} />
       {/* Recovery needs an explicit choice: Escape and outside clicks do nothing (#174). */}
