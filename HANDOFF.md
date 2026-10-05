@@ -4,24 +4,13 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        #169 — refactor(validation): share a declarative decoder and surface renderer load failures
-Branch:       claude/kind-albattani-vjpp90
-Started:      2026-10-05
-Last commit:  (claim)
-
-### What's done
-- Claimed #169 (selected by scripts/select-task.mjs).
-
-### What's next
-- Measure Valibot schema size vs renderer budget; shared structural decoder; decode before mounting; deferred init errors; loading/error host state; mask/geometry bounds.
-
-### Notes / gotchas
-- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/169-*`.
-- Renderer is at 37.0 KB of 40 KB.
+Issue:        (none — pick from agent:ready)
+Branch:       main
 
 ---
 
 ## Ledger (most recent first)
+- 2026-10-05 — closed #169 — one Valibot schema (shared/schema.ts) replaces the editor decoder; renderer decodes before mounting, shows accessible loading/error states, unwinds failed construction, delivers early errors to immediate subscribers, reports image failures; budget raised to 45 KB (owner decision, now 42.2 KB); PR #212.
 - 2026-10-05 — closed #168 — view CSS parsed by native CSSOM and rebuilt from rules (selectors, keyframes and @layer names scoped per instance; resources/global rules rejected after escape decoding); shared by Inspector, Export validation and renderer; css-tree rejected at 23.6 KB gzip; PR #210.
 - 2026-10-05 — closed #167 — DOMPurify HTML/SVG profiles in shared/sanitize.ts at renderer insertion, SVG import and export; popup HTML can no longer style the host; renderer budget raised to 40 KB (owner decision, now 36.6 KB); PR #208.
 - 2026-10-05 — closed #166 — "draft saved" and the unload guard compare against the exact durably written snapshot; serialized idb-keyval storage with epoch guard; corrupt drafts decoded, reported and kept until discarded; PR #206.
