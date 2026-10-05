@@ -1,6 +1,6 @@
 import { createStore, del, get, set, type UseStore } from "idb-keyval";
 import type { ProjectFile } from "@svg-mapper/shared";
-import { assertProjectFile } from "./project";
+import { assertProjectFile, dropRetiredFields } from "./project";
 
 // One local recovery draft: database "svg-mapper", store "drafts", key "current".
 const DATABASE = "svg-mapper";
@@ -48,7 +48,7 @@ export function decodeDraft(value: unknown): StoredDraft {
   } catch (cause) {
     throw new CorruptDraftError(cause instanceof Error ? cause.message : "invalid project");
   }
-  return { project: record.project, savedAt: record.savedAt };
+  return { project: dropRetiredFields(record.project), savedAt: record.savedAt };
 }
 
 export function readDraft(): Promise<StoredDraft | undefined> {

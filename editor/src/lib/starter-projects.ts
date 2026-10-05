@@ -36,7 +36,7 @@ function view(id: string, name: string, assetId: string, areas: Area[]): View {
     id, name, slug: id.replace("view-", ""), canvas: { width: 720, height: 480 },
     background: { assetId, fit: "contain", position: { x: .5, y: .5 } },
     viewport: { minZoom: 1, maxZoom: 3, initialZoom: 1, panEnabled: true, zoomEnabled: true },
-    ui: { showBackButton: true, showBreadcrumbs: true, showTitle: true },
+    ui: { showBackButton: true, showBreadcrumbs: true },
     layers: [{ id: `layer-${id}`, name: "Places", visible: true, locked: false, opacity: 1, areas }],
   };
 }

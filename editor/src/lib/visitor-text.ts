@@ -21,6 +21,7 @@ export const VISITOR_TEXT_GROUPS: ReadonlyArray<readonly [string, ReadonlyArray<
   ["Navigation", [
     ["back", "Back button"],
     ["backLabel", "Back button name"],
+    ["breadcrumbLabel", "Breadcrumb trail name"],
     ["viewsLabel", "Scene switcher name"],
     ["chooseView", "Scene dropdown name"],
     ["viewAnnounce", "View announcement"],

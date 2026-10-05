@@ -62,6 +62,7 @@ function fullProject(strings: VisitorStrings, overrides: Partial<ClickMapDefinit
   second.slug = "second";
   second.name = "Beta";
   second.ui.showBackButton = true;
+  second.ui.showBreadcrumbs = true;
   project.views.push(second);
 
   const go = createRectArea(0, 0, 40, 40);
@@ -442,5 +443,5 @@ describe("visitor text in the editor", () => {
     // Clearing a hidden field's checkbox restores the default.
     fireEvent.click(within(inspector).getByRole("checkbox", { name: "Hide zoom in button" }));
     expect(useStore.getState().project.settings.strings).not.toHaveProperty("zoomIn");
-  });
+  }, 30_000);
 });

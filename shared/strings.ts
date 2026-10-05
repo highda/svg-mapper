@@ -24,6 +24,7 @@ export const DEFAULT_VISITOR_STRINGS: Record<VisitorStringKey, string> = {
   revealAnnounce: "{name}, {view}",
   back: "← Back",
   backLabel: "Back",
+  breadcrumbLabel: "Breadcrumb",
   viewsLabel: "Views",
   chooseView: "Choose a view",
   viewAnnounce: "{name} view.",

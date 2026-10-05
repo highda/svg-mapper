@@ -335,7 +335,7 @@ campus-map-export/
 
 ### 8.3 CSS coverage
 
-`clickmap-renderer.css` defines defaults for: container, SVG/image layer, Areas (default/hover/active/focus), tooltip, popup, back button, breadcrumbs, loading state, error state. All class names are prefixed `clickmap-` to avoid host-page collisions.
+`clickmap-renderer.css` defines defaults for: container, SVG/image layer, Areas (default/hover/active/focus), tooltip, popup, visitor controls (back button, breadcrumb trail, scene switcher, zoom controls, place directory), loading state, error state. Theming beyond these defaults is done with shared style presets and per-view custom CSS; there is no theme setting. All class names are prefixed `clickmap-` to avoid host-page collisions.
 
 ### 8.4 README.txt
 
@@ -398,9 +398,9 @@ Warning: View "Basement" is not reachable from the initial View.
 - Areas are keyboard-focusable (`tabindex="0"`) in DOM order.
 - Each Area has an `aria-label` (defaults to Area `name`).
 - Enter / Space activate the focused Area.
-- Visible focus styles for Areas, back button, popup controls.
+- Visible focus styles for Areas, back button, breadcrumb links, popup controls.
 - Popups are non-modal dialogs named by their visible title: opening moves focus to them, Tab is never trapped, ESC inside the map closes them, and focus returns to the trigger. Keyboard handling is scoped to the map that owns focus, so several maps and the host page never compete for keys.
-- Back button is keyboard-accessible.
+- Back button and breadcrumb trail are keyboard-accessible (native buttons; the current view is marked `aria-current="page"`).
 - Tooltips are non-essential (their content must also be available another way for screen readers).
 - Respect `prefers-reduced-motion` (skip transitions).
 
