@@ -13,7 +13,7 @@ import * as v from "valibot";
 import type { ClickMapDefinition, ProjectFile, SchemaVersion } from "./types.js";
 
 /** The schemaVersion this build writes. */
-export const CURRENT_SCHEMA_VERSION = "1.0.0" satisfies SchemaVersion;
+export const CURRENT_SCHEMA_VERSION = "1.1.0" satisfies SchemaVersion;
 /** The only schemaVersion major this build reads. Minor and patch versions are additive. */
 export const SUPPORTED_SCHEMA_MAJOR = 1;
 
@@ -27,6 +27,10 @@ const atLeast = (minimum: number) => v.pipe(v.number(), v.finite(), v.minValue(m
 const unit = v.pipe(v.number(), v.finite(), v.minValue(0), v.maxValue(1));
 const opt = <T extends v.GenericSchema>(schema: T) => v.exactOptional(schema);
 const dict = v.record(v.string(), v.unknown());
+const presentation = v.picklist(["popover", "panel", "modal"]);
+
+/** A details panel size given as a CSS length: px, %, em or rem (never viewport units). */
+export const DETAILS_SIZE_PATTERN = /^(?:\d+(?:\.\d+)?|\.\d+)(?:px|%|em|rem)$/;
 
 const styleState = v.object({ fill: str, stroke: str, strokeWidth: atLeast(0) });
 const areaStyle = v.object({ default: styleState, hover: styleState, active: styleState, disabled: opt(styleState) });
@@ -39,6 +43,7 @@ const action = v.variant("type", [
     type: v.literal("popup"),
     content: v.object({ title: opt(str), body: opt(str), imageUrl: opt(str), linkHref: opt(str), linkLabel: opt(str) }),
     position: opt(v.picklist(["auto", "top", "bottom", "left", "right"])),
+    presentation: opt(presentation),
   }),
   v.object({ type: v.literal("toggleLayer"), targetLayerId: str }),
   v.object({ type: v.literal("customEvent"), eventName: str, payload: opt(dict) }),
@@ -171,6 +176,18 @@ const settings = v.object({
     metadataKeys: opt(v.array(str)),
     categoryKey: opt(str),
     categories: opt(v.array(v.object({ value: str, label: str }))),
+  })),
+  details: opt(v.object({
+    presentation: opt(presentation),
+    side: opt(v.picklist(["left", "right", "top", "bottom"])),
+    size: opt(v.union([
+      v.pipe(v.number(), v.finite(), v.gtValue(0), v.maxValue(1)),
+      v.pipe(v.string(), v.regex(DETAILS_SIZE_PATTERN, "a fraction 0–1 or a px, %, em or rem length")),
+    ])),
+    sheetBelow: opt(atLeast(0)),
+    label: opt(str),
+    defaultContent: opt(v.object({ title: opt(str), body: opt(str) })),
+    hideWhenIdle: opt(bool),
   })),
   padding: opt(v.object({ top: atLeast(0), right: atLeast(0), bottom: atLeast(0), left: atLeast(0) })),
 });
