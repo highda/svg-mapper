@@ -13,6 +13,7 @@ import type {
 import { scopeViewCss, validateViewCss } from "../../shared/view-css.js";
 import { validateActionUrl } from "../../shared/validation.js";
 import { sanitizeRichHtml } from "../../shared/sanitize.js";
+import { decodeDefinition } from "../../shared/schema.js";
 import { resolveSizingMode } from "../../shared/sizing.js";
 import { assetDisplaySource, fitImageRect, geometryBounds, markerPathData } from "../../shared/scene-geometry.js";
 import { Emitter } from "./emitter.js";
@@ -162,7 +163,7 @@ class Renderer implements ClickMapInstance {
   private emitter = new Emitter();
   private destroyed = false;
   private navigationStack: string[] = [];
-  private currentViewId: string;
+  private currentViewId = "";
   private options: RendererOptions;
   private assetBaseUrl: string;
 
@@ -272,6 +273,26 @@ class Renderer implements ClickMapInstance {
     }
   };
 
+  // Events raised while the instance is being built are held until create()
+  // has returned, so an immediate on("error") still receives them (#169).
+  private constructing = true;
+  private pendingEvents: ClickMapEvent[] = [];
+
+  private emit(event: ClickMapEvent) {
+    if (this.constructing) {
+      this.pendingEvents.push(event);
+      return;
+    }
+    this.flushPendingEvents();
+    this.emitter.emit(event);
+  }
+
+  private flushPendingEvents() {
+    const pending = this.pendingEvents;
+    this.pendingEvents = [];
+    if (!this.destroyed) for (const event of pending) this.emitter.emit(event);
+  }
+
   constructor(options: RendererOptions, def: ClickMapDefinition) {
     this.def = def;
     this.options = options;
@@ -291,6 +312,24 @@ class Renderer implements ClickMapInstance {
       throw new Error(`ClickMapRenderer: container not found: ${String(raw)}`);
     this.container = container;
 
+    try {
+      this.mount(options, def);
+    } catch (error) {
+      // Unwind partial DOM and listeners; create() reports the failure.
+      this.destroy();
+      throw error;
+    }
+
+    // Defer readiness until create() has returned so callers can subscribe on
+    // the immediately returned instance. A same-turn destroy cancels it.
+    this.constructing = false;
+    queueMicrotask(() => {
+      this.flushPendingEvents();
+      if (!this.destroyed) this.emitter.emit({ type: "ready", definition: def });
+    });
+  }
+
+  private mount(options: RendererOptions, def: ClickMapDefinition) {
     this.currentViewId = def.settings.initialViewId;
     const initialView = def.views.find((view) => view.id === this.currentViewId) ?? def.views[0];
     this.viewW = initialView?.canvas.width ?? 1;
@@ -322,12 +361,6 @@ class Renderer implements ClickMapInstance {
       this.roTimer = setTimeout(() => { this.roTimer = null; this.updateScale(); }, 16);
     });
     this.ro.observe(this.container);
-
-    // Defer readiness until create() has returned so callers can subscribe on
-    // the immediately returned instance. A same-turn destroy cancels it.
-    queueMicrotask(() => {
-      if (!this.destroyed) this.emitter.emit({ type: "ready", definition: def });
-    });
   }
 
   // -------------------------------------------------------------------------
@@ -590,7 +623,7 @@ class Renderer implements ClickMapInstance {
   private renderView(viewId: string) {
     const view = this.def.views.find((v) => v.id === viewId);
     if (!view) {
-      this.emitter.emit({
+      this.emit({
         type: "error",
         code: "VIEW_NOT_FOUND",
         message: `View "${viewId}" not found`,
@@ -627,14 +660,14 @@ class Renderer implements ClickMapInstance {
     const error = validateViewCss(css);
     if (error) {
       this.viewStyleEl.textContent = "";
-      this.emitter.emit({ type: "error", code: "INVALID_VIEW_CSS", message: `${view.name}: ${error}` });
+      this.emit({ type: "error", code: "INVALID_VIEW_CSS", message: `${view.name}: ${error}` });
       return;
     }
     try {
       this.viewStyleEl.textContent = scopeViewCss(css, `[data-clickmap-instance="${this.instanceId}"]`);
     } catch (reason) {
       this.viewStyleEl.textContent = "";
-      this.emitter.emit({ type: "error", code: "INVALID_VIEW_CSS", message: `${view.name}: ${(reason as Error).message}` });
+      this.emit({ type: "error", code: "INVALID_VIEW_CSS", message: `${view.name}: ${(reason as Error).message}` });
     }
   }
 
@@ -657,6 +690,7 @@ class Renderer implements ClickMapInstance {
     const image = svgEl<SVGImageElement>("image");
     image.setAttribute("class", "clickmap-bg-img");
     const src = assetDisplaySource(asset.src, this.assetBaseUrl);
+    this.reportAssetFailure(image, asset.name);
     image.setAttribute("href", src);
 
     const placed = fitImageRect({ width, height }, asset, fit, view.background.position);
@@ -1065,7 +1099,7 @@ class Renderer implements ClickMapInstance {
     const base = this.getBaseViewBox(view);
     const { x, y, w, h } = this.currentViewBox;
     this.refreshOverlays();
-    this.emitter.emit({
+    this.emit({
       type: "camera:change",
       instanceId: this.instanceId,
       viewId: view.id,
@@ -1160,12 +1194,19 @@ class Renderer implements ClickMapInstance {
     return shape;
   }
 
+  private reportAssetFailure(image: SVGImageElement, name: string) {
+    image.addEventListener("error", () => {
+      if (!this.destroyed) this.emit({ type: "error", code: "ASSET_LOAD_FAILED", message: `Image "${name}" could not be loaded.` });
+    }, { once: true });
+  }
+
   private makeAreaImageEl(area: Area): SVGImageElement | null {
     if (!area.image || area.geometry.type !== "rect") return null;
     const asset = this.def.assets.find((candidate) => candidate.id === area.image!.assetId);
     if (!asset) return null;
     const image = svgEl<SVGImageElement>("image");
     if (area.image.visible === false) return null;
+    this.reportAssetFailure(image, asset.name);
     image.setAttribute("href", assetDisplaySource(asset.src, this.assetBaseUrl));
     image.setAttribute("x", String(area.geometry.x));
     image.setAttribute("y", String(area.geometry.y));
@@ -1378,7 +1419,7 @@ class Renderer implements ClickMapInstance {
 
     this.hoveredId = area.id;
     this.applyStyle(el, area.style.hover);
-    this.emitter.emit({
+    this.emit({
       type: "area:hover",
       areaId: area.id,
       areaName: area.name,
@@ -1434,7 +1475,7 @@ class Renderer implements ClickMapInstance {
       return;
     }
 
-    this.emitter.emit({
+    this.emit({
       type: "area:click",
       areaId: area.id,
       areaName: area.name,
@@ -1459,7 +1500,7 @@ class Renderer implements ClickMapInstance {
       }
       return;
     }
-    this.emitter.emit({
+    this.emit({
       type: "area:click",
       areaId: hit.area.id,
       areaName: hit.area.name,
@@ -1527,7 +1568,7 @@ class Renderer implements ClickMapInstance {
     const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
     const layer = view?.layers.find((candidate) => candidate.id === targetLayerId);
     if (!view || !layer) {
-      this.emitter.emit({
+      this.emit({
         type: "error",
         code: "LAYER_NOT_FOUND",
         message: `Layer "${targetLayerId}" was not found in the current view.`,
@@ -1717,7 +1758,7 @@ class Renderer implements ClickMapInstance {
     this.openPopoverId = area.id;
     // After openPopoverId is set: placement results for a closed popover are dropped.
     this.trackPopover(area, action.position ?? "auto");
-    this.emitter.emit({ type: "popup:open", popupId: area.id });
+    this.emit({ type: "popup:open", popupId: area.id });
 
     // Aria live announcement
     this.ariaLiveEl.textContent = templatedBody === null ? (content.title ?? "Popup opened") : area.name;
@@ -1804,7 +1845,7 @@ class Renderer implements ClickMapInstance {
     this.popoverEl.innerHTML = "";
     if (this.popoverReturnFocus?.isConnected) this.popoverReturnFocus.focus();
     this.popoverReturnFocus = null;
-    this.emitter.emit({ type: "popup:close", popupId });
+    this.emit({ type: "popup:close", popupId });
   }
 
   private getActiveElement(): Element | null {
@@ -1980,14 +2021,14 @@ class Renderer implements ClickMapInstance {
   ) {
     if (viewId === this.currentViewId || this.navigationInProgress) return;
     if (!this.def.views.some((view) => view.id === viewId)) {
-      this.emitter.emit({ type: "error", code: "VIEW_NOT_FOUND", message: `View "${viewId}" not found` });
+      this.emit({ type: "error", code: "VIEW_NOT_FOUND", message: `View "${viewId}" not found` });
       return;
     }
     const active = this.getActiveElement();
     const preserveFocus = Boolean(active && (this.root.contains(active) || this.shadowRoot?.contains(active)));
     const prev = this.currentViewId;
     this.navigationInProgress = true;
-    this.emitter.emit({ type: "view:leave", instanceId: this.instanceId, viewId: prev, nextViewId: viewId });
+    this.emit({ type: "view:leave", instanceId: this.instanceId, viewId: prev, nextViewId: viewId });
     this.navigationInProgress = false;
     if (options.historyMode !== "browser") this.navigationStack.push(prev);
     this.currentViewId = viewId;
@@ -1995,8 +2036,8 @@ class Renderer implements ClickMapInstance {
       this.renderView(viewId);
       this.focusNavigationDestination(viewId, preserveFocus);
       this.navigationInProgress = true;
-      this.emitter.emit({ type: "view:enter", instanceId: this.instanceId, viewId });
-      this.emitter.emit({ type: "view:change", previousViewId: prev, currentViewId: viewId });
+      this.emit({ type: "view:enter", instanceId: this.instanceId, viewId });
+      this.emit({ type: "view:change", previousViewId: prev, currentViewId: viewId });
       this.navigationInProgress = false;
     }, options.transition);
     if (this.def.settings.enableHistory && options.historyMode === "push") {
@@ -2022,15 +2063,15 @@ class Renderer implements ClickMapInstance {
     const preserveFocus = Boolean(active && (this.root.contains(active) || this.shadowRoot?.contains(active)));
     const from = this.currentViewId;
     this.navigationInProgress = true;
-    this.emitter.emit({ type: "view:leave", instanceId: this.instanceId, viewId: from, nextViewId: prev });
+    this.emit({ type: "view:leave", instanceId: this.instanceId, viewId: from, nextViewId: prev });
     this.navigationInProgress = false;
     this.currentViewId = prev;
     this.fade(() => {
       this.renderView(prev);
       this.focusNavigationDestination(prev, preserveFocus);
       this.navigationInProgress = true;
-      this.emitter.emit({ type: "view:enter", instanceId: this.instanceId, viewId: prev });
-      this.emitter.emit({ type: "view:change", previousViewId: from, currentViewId: prev });
+      this.emit({ type: "view:enter", instanceId: this.instanceId, viewId: prev });
+      this.emit({ type: "view:change", previousViewId: from, currentViewId: prev });
       this.navigationInProgress = false;
     });
     if (this.def.settings.enableHistory) this.pushOwnedHistoryState(prev);
@@ -2043,14 +2084,14 @@ class Renderer implements ClickMapInstance {
     const to = this.def.settings.initialViewId;
     if (this.navigationInProgress) return;
     this.navigationInProgress = true;
-    if (from !== to) this.emitter.emit({ type: "view:leave", instanceId: this.instanceId, viewId: from, nextViewId: to });
+    if (from !== to) this.emit({ type: "view:leave", instanceId: this.instanceId, viewId: from, nextViewId: to });
     this.navigationStack = [];
     this.layerVisibility.clear();
     this.currentViewId = this.def.settings.initialViewId;
     this.renderView(this.currentViewId);
     if (from !== to) {
-      this.emitter.emit({ type: "view:enter", instanceId: this.instanceId, viewId: to });
-      this.emitter.emit({ type: "view:change", previousViewId: from, currentViewId: to });
+      this.emit({ type: "view:enter", instanceId: this.instanceId, viewId: to });
+      this.emit({ type: "view:change", previousViewId: from, currentViewId: to });
     }
     this.emitCameraChange("reset");
     this.navigationInProgress = false;
@@ -2073,8 +2114,9 @@ class Renderer implements ClickMapInstance {
     this.stopPopoverTracking?.();
     this.stopPopoverTracking = null;
     this.cancelTransition();
+    this.pendingEvents = [];
     if (this.roTimer !== null) clearTimeout(this.roTimer);
-    this.ro.disconnect();
+    this.ro?.disconnect();
     window.removeEventListener("keydown", this.onWindowKeyDown);
     window.removeEventListener("keyup", this.onWindowKeyUp);
     window.removeEventListener("pointermove", this.onWindowPointerMove);
@@ -2082,14 +2124,14 @@ class Renderer implements ClickMapInstance {
     window.removeEventListener("popstate", this.onPopState);
     document.removeEventListener("click", this.onDocumentClick);
     document.removeEventListener("keydown", this.onDocumentKeyDown);
-    this.svgEl.removeEventListener("wheel", this.onWheel);
+    this.svgEl?.removeEventListener("wheel", this.onWheel);
     this.emitter.clear();
     if (this.shadowRoot) {
       // Shadow roots cannot be detached; clear all renderer-owned contents.
       this.shadowRoot.replaceChildren();
     } else {
       this.viewStyleEl?.remove();
-      this.root.remove();
+      this.root?.remove();
     }
   }
 
@@ -2121,28 +2163,129 @@ type QueuedOp =
   | { kind: "destroy" }
   | { kind: "setChoroplethData"; data: Array<{ id: string; value: number }> };
 
+function resolveContainer(options: RendererOptions): HTMLElement {
+  const raw = options.container;
+  const container = typeof raw === "string" ? document.querySelector<HTMLElement>(raw) : raw;
+  if (!container) throw new Error(`ClickMapRenderer: container not found: ${String(raw)}`);
+  return container;
+}
+
+/**
+ * Accessible loading/error state shown in the host while no map is mounted
+ * (#169). Styled inline so it works before or without the renderer stylesheet.
+ */
+class HostStatus {
+  private el: HTMLDivElement;
+
+  constructor(container: HTMLElement) {
+    this.el = document.createElement("div");
+    this.el.style.cssText = "display:flex;align-items:center;justify-content:center;min-height:120px;padding:16px;box-sizing:border-box;font:14px/1.4 system-ui,sans-serif;text-align:center;";
+    container.appendChild(this.el);
+  }
+
+  loading() {
+    this.el.className = "clickmap-root clickmap-root--loading";
+    this.el.setAttribute("role", "status");
+    this.el.setAttribute("aria-busy", "true");
+    this.el.textContent = "Loading map…";
+  }
+
+  error(message: string) {
+    this.el.className = "clickmap-root clickmap-root--error";
+    this.el.setAttribute("role", "alert");
+    this.el.removeAttribute("aria-busy");
+    this.el.dataset.error = message;
+    this.el.textContent = `This map could not be displayed. ${message}`;
+  }
+
+  remove() {
+    this.el.remove();
+  }
+}
+
+function failureMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** The instance returned when a definition cannot be shown: visible, observable, inert. */
+class FailedRenderer implements ClickMapInstance {
+  private emitter = new Emitter();
+  private status: HostStatus;
+  private destroyed = false;
+  private message: string;
+
+  constructor(container: HTMLElement, code: string, message: string) {
+    this.message = message;
+    this.status = new HostStatus(container);
+    this.status.error(message);
+    // Delivered after create() returns, so an immediate on("error") receives it.
+    queueMicrotask(() => {
+      if (!this.destroyed) this.emitter.emit({ type: "error", code, message });
+    });
+  }
+
+  goToView() {}
+  goBack() {}
+  reset() {}
+  setChoroplethData() {}
+  getCurrentView() {
+    return "";
+  }
+  getDefinition(): ClickMapDefinition {
+    throw new Error(`ClickMapRenderer: no definition loaded (${this.message})`);
+  }
+  destroy() {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    this.status.remove();
+    this.emitter.clear();
+  }
+  on<T extends ClickMapEventType>(eventName: T, callback: (event: Extract<ClickMapEvent, { type: T }>) => void) {
+    this.emitter.on(eventName, callback);
+  }
+  off<T extends ClickMapEventType>(eventName: T, callback: (event: Extract<ClickMapEvent, { type: T }>) => void) {
+    this.emitter.off(eventName, callback);
+  }
+}
+
 class DeferredRenderer implements ClickMapInstance {
   private inner: Renderer | null = null;
   private queue: QueuedOp[] = [];
   private emitter = new Emitter();
   private destroyed = false;
   private abortController = new AbortController();
+  private status: HostStatus;
 
   constructor(options: RendererOptions) {
+    const container = resolveContainer(options);
+    this.status = new HostStatus(container);
+    this.status.loading();
     fetch(options.definitionUrl!, { signal: this.abortController.signal })
       .then((r) => {
         if (!r.ok)
           throw new Error(`HTTP ${r.status} loading definition`);
-        return Promise.resolve(r.json() as Promise<ClickMapDefinition>)
-          .then((def) => ({ def, responseUrl: r.url }));
+        return Promise.resolve(r.json() as Promise<unknown>)
+          .then((json) => ({ json, responseUrl: r.url }));
       })
-      .then(({ def, responseUrl }) => {
+      .then(({ json, responseUrl }) => {
         if (this.destroyed) return;
+        // Decode before any map DOM is mounted.
+        const decoded = decodeDefinition(json);
+        if (!decoded.ok) {
+          this.fail("INVALID_DEFINITION", decoded.message);
+          return;
+        }
         const fallbackUrl = new URL(options.definitionUrl!, document.baseURI).href;
-        this.inner = new Renderer(
-          { ...options, assetBaseUrl: options.assetBaseUrl ?? (responseUrl || fallbackUrl) },
-          def,
-        );
+        this.status.remove();
+        try {
+          this.inner = new Renderer(
+            { ...options, container, assetBaseUrl: options.assetBaseUrl ?? (responseUrl || fallbackUrl) },
+            decoded.value,
+          );
+        } catch (error) {
+          this.fail("LOAD_FAILED", failureMessage(error));
+          return;
+        }
         for (const op of this.queue) {
           if (op.kind === "on")
             this.inner.on(op.type as ClickMapEventType, op.cb as never);
@@ -2158,12 +2301,13 @@ class DeferredRenderer implements ClickMapInstance {
       })
       .catch((err: Error) => {
         if (this.destroyed) return;
-        this.emitter.emit({
-          type: "error",
-          code: "LOAD_FAILED",
-          message: err.message,
-        });
+        this.fail("LOAD_FAILED", err.message);
       });
+  }
+
+  private fail(code: string, message: string) {
+    this.status.error(message);
+    this.emitter.emit({ type: "error", code, message });
   }
 
   goToView(viewId: string) {
@@ -2189,6 +2333,7 @@ class DeferredRenderer implements ClickMapInstance {
     if (this.destroyed) return;
     this.destroyed = true;
     this.abortController.abort();
+    this.status.remove();
     this.inner?.destroy();
     this.queue = [];
   }
@@ -2217,7 +2362,17 @@ class DeferredRenderer implements ClickMapInstance {
 // ---------------------------------------------------------------------------
 
 export function create(options: RendererOptions): ClickMapInstance {
-  if (options.definition) return new Renderer(options, options.definition);
+  if (options.definition) {
+    // Decode before mounting: an invalid definition never builds partial DOM.
+    const container = resolveContainer(options);
+    const decoded = decodeDefinition(options.definition);
+    if (!decoded.ok) return new FailedRenderer(container, "INVALID_DEFINITION", decoded.message);
+    try {
+      return new Renderer({ ...options, container }, decoded.value);
+    } catch (error) {
+      return new FailedRenderer(container, "LOAD_FAILED", failureMessage(error));
+    }
+  }
   if (options.definitionUrl) return new DeferredRenderer(options);
   throw new Error(
     "ClickMapRenderer.create: provide either `definition` or `definitionUrl`"

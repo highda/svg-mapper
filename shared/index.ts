@@ -4,3 +4,4 @@ export * from "./view-css.js";
 export * from "./sizing.js";
 export * from "./scene-geometry.js";
 export * from "./sanitize.js";
+export * from "./schema.js";

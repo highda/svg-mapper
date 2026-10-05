@@ -25,7 +25,7 @@ async function mount(page: Page, { hostStyle, shadowDom = false, imageDelayMs }:
   ]);
   const definition = JSON.parse(fixture);
   definition.settings.sizingMode = "fill-container";
-  definition.settings.sceneSwitcher = { enabled: false };
+  definition.settings.sceneSwitcher = { enabled: false, position: "bottom-center" };
   definition.settings.areaLabels = { enabled: false };
   // Wheel zoom leaves the popover open (a button click counts as an outside click).
   definition.settings.zoomControls = { ...definition.settings.zoomControls, enabled: true, wheelMode: "always" };
