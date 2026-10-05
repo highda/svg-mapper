@@ -58,7 +58,18 @@ function resolvedOptions(options: ExportOptions, definition: ClickMapDefinition)
     mode,
     hostStyle: hostStyle(mode, merged.hostSize),
     canvas: initialView?.canvas ?? { width: 0, height: 0 },
+    hostStrings: hostStrings(definition),
   };
+}
+
+/**
+ * The visitor text shown before map.json has loaded (#216): the embed passes
+ * it to create(), since the renderer cannot read it from the definition yet.
+ */
+function hostStrings(definition: ClickMapDefinition): string {
+  const { loading, error } = definition.settings.strings ?? {};
+  const strings = { ...(loading !== undefined ? { loading } : {}), ...(error !== undefined ? { error } : {}) };
+  return Object.keys(strings).length ? `\n    strings: ${JSON.stringify(strings).replace(/</g, "\\u003c")},` : "";
 }
 
 type ResolvedOptions = ReturnType<typeof resolvedOptions>;
@@ -179,7 +190,7 @@ function buildEmbedSnippet(options: ResolvedOptions): string {
 <script>
   var map = ClickMapRenderer.create({
     container: ${selector},
-    definitionUrl: ${serializeJsString(`${basePath}/map.json`)},
+    definitionUrl: ${serializeJsString(`${basePath}/map.json`)},${options.hostStrings}
     // shadowDom: true, // Optional: isolate the map from host-page CSS.
     // css: ".clickmap-root { /* custom overrides */ }", // Shadow mode only.
   });
@@ -196,9 +207,10 @@ function buildIndexHtml(
   const safeJson = serializeJsonForScript(definition, 2);
 
   const projectName = definition.project.name;
+  const { lang, dir } = definition.settings;
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${escapeHtml(lang || "en")}"${dir ? ` dir="${dir}"` : ""}>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -246,7 +258,7 @@ ${hostDiv(options)}
 <script>
   var map = ClickMapRenderer.create({
     container: ${selector},
-    definitionUrl: ${serializeJsString(`${basePath}/map.json`)},
+    definitionUrl: ${serializeJsString(`${basePath}/map.json`)},${options.hostStrings}
     // shadowDom: true, // Optional: isolate the map from host-page CSS.
     // css: ".clickmap-root { /* custom overrides */ }", // Shadow mode only.
   });

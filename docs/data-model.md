@@ -1,6 +1,6 @@
 # Data model
 
-`map.json` (`ClickMapDefinition`) is the contract between the builder and the renderer, and what anyone must produce to use the renderer without the builder: by hand, from a script, or from a CMS ([guide](renderer-standalone.md)). The current `schemaVersion` is `"1.1.0"`.
+`map.json` (`ClickMapDefinition`) is the contract between the builder and the renderer, and what anyone must produce to use the renderer without the builder: by hand, from a script, or from a CMS ([guide](renderer-standalone.md)). The current `schemaVersion` is `"1.2.0"`.
 
 One structural schema, the Valibot schema in [`shared/schema.ts`](../shared/schema.ts), is the source of all three machine-readable forms of the contract:
 
@@ -15,7 +15,7 @@ The release renderer ZIP ships the JSON Schema as `clickmap-definition.schema.js
 `schemaVersion` is `MAJOR.MINOR.PATCH`:
 
 - A **major** change is breaking: an existing field changes meaning or type, or a field becomes required. A renderer or editor reads exactly one major version, currently `1`.
-- **Minor** and **patch** changes are additive: new optional fields or values that older readers may ignore. Any `1.x.y` is accepted. This release writes `1.1.0`; 1.1 added `settings.details` and the popup action's `presentation`, which 1.0 readers ignore (their popups stay popovers).
+- **Minor** and **patch** changes are additive: new optional fields or values that older readers may ignore. Any `1.x.y` is accepted. This release writes `1.2.0`. 1.1 added `settings.details` and the popup action's `presentation`, which 1.0 readers ignore (their popups stay popovers). 1.2 added `settings.lang`, `settings.dir`, and `settings.strings` ([Visitor text](#visitor-text)), which older readers ignore (they show their English defaults).
 
 A file whose `schemaVersion` is a well-formed version with another major is refused before anything is mounted:
 
@@ -77,7 +77,7 @@ When opening JSON, the editor decodes the complete structure before replacing th
 
 Required settings are `initialViewId`, `responsive`, `maintainAspectRatio`, `theme`, `enableHistory`, and `enableKeyboardNavigation`. New files also write `sizingMode`; the legacy booleans remain readable for schema 1.0 compatibility.
 
-Optional settings include `contentTemplate` (sanitized HTML with `{{name}}`, `{{id}}`, `{{viewName}}`, or `{{metadata.key}}`), `areaLabels`, `sceneSwitcher`, `zoomControls`, `directory`, `details`, and canvas-unit `padding`. Zoom controls can set their corner, fractional `step`, reset target (`initial` or fitted minimum), and `wheelMode` (`off`, a required modifier, or `always`). Wheel zoom defaults to off so an embedded map does not capture page scrolling.
+Optional settings include `contentTemplate` (sanitized HTML with `{{name}}`, `{{id}}`, `{{viewName}}`, or `{{metadata.key}}`), `areaLabels`, `sceneSwitcher`, `zoomControls`, `directory`, `details`, canvas-unit `padding`, and the visitor text settings `lang`, `dir`, and `strings` ([Visitor text](#visitor-text)). Zoom controls can set their corner, fractional `step`, reset target (`initial` or fitted minimum), and `wheelMode` (`off`, a required modifier, or `always`). Wheel zoom defaults to off so an embedded map does not capture page scrolling.
 
 `directory` opts the published map into a static, cross-view place finder. `metadataKeys` chooses fields searched alongside every area name. `categoryKey` and `categories: [{ value, label }]` expose an author-curated filter legend with visible text labels. Areas on hidden layers are excluded, using effective runtime visibility after `toggleLayer` actions. Disabled areas remain listed as unavailable but cannot be selected. A selected result changes views if needed, fits the area's bounds into the camera, and focuses its SVG control. All indexing and filtering happens in the browser and remains offline-capable.
 
@@ -114,6 +114,63 @@ Panel layout rules. Everything is measured on the renderer box, never the window
 - Visitor controls stay on the map, beside a docked panel and above a sheet. The panel is only built when the default or some area uses it, so other maps are unchanged.
 
 The panel follows the selection: it shows the selected area's content, swaps content when another area is selected, and returns to the default content (or hides) when the selection is cleared. Closing the panel clears the selection.
+
+### Visitor text
+
+A published map has exactly one language, and the author decides every string it shows or announces. There is no runtime translation or locale switching.
+
+| Field | Meaning |
+| --- | --- |
+| `lang` | The map's language as a BCP 47 tag, for example `"cs"` or `"pt-BR"`. Set as `lang` on the renderer root so screen readers pronounce the text correctly, and used to format numbers (`Intl.NumberFormat`, for example the choropleth legend). Without it the root inherits the page's language and numbers use English formatting. Export validation warns about an invalid tag. |
+| `dir` | `"ltr"` or `"rtl"`, set as `dir` on the renderer root. Omit it to follow the page. Right to left mirrors the renderer layout as well as its text: control corners and the details panel side swap left and right. |
+| `strings` | Partial overrides of the keys below. Any key that is absent uses its English default. Unknown keys are ignored (validation warns). |
+
+Every key has one of two kinds:
+
+- **Visible** text may be `""`, which hides it: a heading, placeholder or empty-result message is not shown, and a control is left without visible content. Control content (the open-directory button, Back, the zoom buttons, Close) may also be **SVG path data in a 24×24 box**, a value made only of `M`, numbers and path commands such as `"M10 4a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm9 15-4.3-4.3"`. It is drawn as an inline icon in the current text colour. A control whose content is hidden or an icon is named by its accessible-name key.
+- **Names and announcements** (accessible names and live-region messages) are required. A blank value is not used: the renderer falls back to the English default, and export validation warns (`BLANK_ACCESSIBLE_NAME`).
+
+Placeholders in braces are filled in by the renderer; an unknown placeholder is kept as written. A map with every visible key hidden, area labels off, and no scene switcher, directory filters, or legend shows no text at all and stays fully operable by keyboard and screen reader.
+
+| Key | Kind | Default | Used for |
+| --- | --- | --- | --- |
+| `directoryToggle` | Visible | `Find a place` | Compact directory's open button |
+| `directoryTitle` | Visible | `Find a place` | Directory heading |
+| `directoryLabel` | Name | `Place directory` | Directory region; the open button when its content is hidden or an icon |
+| `directoryCloseLabel` | Name | `Close place directory` | Compact directory's close button |
+| `searchPlaceholder` | Visible | `Search places` | Search field placeholder |
+| `searchLabel` | Name | `Search places` | Search field |
+| `filterLabel` | Name | `Filter by category` | Category filter group |
+| `placeCount` | Visible | `{count} places` | Result count (live), any count but one |
+| `placeCountOne` | Visible | `{count} place` | Result count (live) of one |
+| `noResults` | Visible | `No places match your search.` | Empty search result |
+| `result` | Name | `{name} — {view}` | A directory result |
+| `resultUnavailable` | Name | `{name} — {view} (unavailable)` | A disabled directory result |
+| `revealAnnounce` | Name | `{name}, {view}` | Announced after a result is revealed |
+| `back` | Visible | `← Back` | Back button content |
+| `backLabel` | Name | `Back` | Back button when its content is hidden or an icon |
+| `viewsLabel` | Name | `Views` | Scene switcher buttons or tabs |
+| `chooseView` | Name | `Choose a view` | Scene switcher dropdown |
+| `viewAnnounce` | Name | `{name} view.` | Announced after navigation |
+| `mapLabel` | Name | `Map, arrow keys pan` | The zoomed-in map while it can pan |
+| `zoomIn` | Visible | `+` | Zoom-in button content |
+| `zoomInLabel` | Name | `Zoom in` | Zoom-in button |
+| `zoomOut` | Visible | `−` | Zoom-out button content |
+| `zoomOutLabel` | Name | `Zoom out` | Zoom-out button |
+| `zoomReset` | Visible | `⊙` | Reset-zoom button content |
+| `zoomResetLabel` | Name | `Reset zoom` | Reset-zoom button |
+| `close` | Visible | `×` | Close button content (details and compact directory) |
+| `closeLabel` | Name | `Close` | Details close button |
+| `detailsLabel` | Name | `Details` | Untitled panel default content, unless `details.label` is set |
+| `layerShown` | Name | `{name} shown.` | Announced when a layer toggle shows a layer |
+| `layerHidden` | Name | `{name} hidden.` | Announced when a layer toggle hides a layer |
+| `layerError` | Name | `Layer could not be changed.` | Announced when a layer toggle fails |
+| `loading` | Visible | `Loading map…` | Loading state |
+| `error` | Name | `This map could not be displayed. {message}` | Error state |
+
+`loading` and `error` are shown before the definition is mounted, when `settings.strings` cannot be read yet, so they are passed to `create()` as its [`strings` option](renderer-api.md#options); the exported embed snippet does this for you. Author-supplied content (area, view, layer and category names, tooltip and popup text, `details.label` and default content) is already data and appears as written. Error event messages are for developers and stay in English.
+
+Validation also warns (`MISSING_ACCESSIBLE_NAME`) when an enabled area has neither a name nor `accessibility.ariaLabel`, and when the scene switcher is on and a view has no name.
 
 ### Container sizing
 

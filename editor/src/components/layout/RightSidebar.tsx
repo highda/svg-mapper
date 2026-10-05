@@ -26,6 +26,8 @@ import { colorToHex, isValidCssColor, parseCssColor, withHexColor, withOpacity }
 import { validateViewCss } from "../../lib/view-css";
 import { DetailsSettingsSection, PopupPresentationField } from "../details/DetailsInspector";
 import { InspectorSection } from "../inspector/InspectorSection";
+import { VisitorTextSection } from "../inspector/VisitorTextSection";
+import { visitorTextSummary } from "../../lib/visitor-text";
 import { useLayoutPrefs } from "../../store/layout-prefs";
 
 const ACTION_LABELS: Record<Action["type"], string> = {
@@ -621,6 +623,7 @@ function ViewInspector({ view }: { view: View }) {
           </Row>
         ))}
       </InspectorSection>
+      <InspectorSection id="project.visitorText" title="Visitor text" scope="Project" defaultOpen={false} summary={visitorTextSummary(project.settings)}><VisitorTextSection /></InspectorSection>
       <InspectorSection id="project.grid" title="Editor grid" scope="Project" summary={grid.enabled ? `Snap ${grid.size}px` : "Off"}>
         <CheckToggle
           checked={grid.enabled}
