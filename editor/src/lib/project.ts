@@ -457,6 +457,11 @@ export function createNewProject(name = "Untitled Map"): ProjectFile {
   };
 }
 
+/** Throws a descriptive error unless `value` is a structurally valid project file. */
+export function assertProjectFile(value: unknown): asserts value is ProjectFile {
+  validateProjectFile(value);
+}
+
 export function parseProjectFile(json: string): ProjectFile {
   let parsed: unknown;
   try {
