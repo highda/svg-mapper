@@ -3,7 +3,8 @@ import { argv } from "process";
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 
 const watch = argv.includes("--watch");
-const rendererCss = readFileSync("clickmap-renderer.css", "utf8");
+// The Shadow DOM stylesheet is inlined minified; dist keeps the readable file.
+const rendererCss = esbuild.transformSync(readFileSync("clickmap-renderer.css", "utf8"), { loader: "css", minify: true }).code;
 
 /** @type {import('esbuild').BuildOptions} */
 const opts = {

@@ -72,7 +72,7 @@ function escId(id: string): string {
 
 function renderTemplate(
   template: string,
-  vars: { name: string; id: string; metadata?: Record<string, unknown>; viewName?: string }
+  vars: { name: string; id: string; metadata?: Record<string, unknown>; viewName?: string | undefined }
 ): string {
   const escapeHtml = (value: unknown) =>
     String(value ?? "")
@@ -1984,7 +1984,8 @@ class Renderer implements ClickMapInstance {
       const img = document.createElement("img");
       img.src = content.imageUrl;
       img.alt = "";
-      img.style.cssText = `display:block;width:100%;max-height:${mode === "popover" ? 120 : 240}px;object-fit:cover;border-radius:2px;margin-bottom:6px;`;
+      img.style.cssText = "display:block;width:100%;max-height:240px;object-fit:cover;border-radius:2px;margin-bottom:6px;";
+      if (mode === "popover") img.style.maxHeight = "120px";
       bodyEl.appendChild(img);
     }
 
@@ -2065,10 +2066,11 @@ class Renderer implements ClickMapInstance {
     const show = Boolean(content?.title || content?.body) && !details?.hideWhenIdle && !this.panelDismissed;
     if (show) {
       const viewName = this.def.views.find((view) => view.id === this.currentViewId)?.name;
+      // fillDetails skips empty fields, so undefined values are fine here.
       this.fillDetails(panel, "panel", {
-        ...(content!.title ? { title: content!.title } : {}),
-        ...(content!.body ? { body: renderTemplate(content!.body, { name: "", id: "", ...(viewName !== undefined ? { viewName } : {}) }) } : {}),
-      }, null);
+        title: content!.title,
+        body: content!.body && renderTemplate(content!.body, { name: "", id: "", viewName }),
+      } as PopupAction["content"], null);
     } else {
       panel.replaceChildren();
     }
