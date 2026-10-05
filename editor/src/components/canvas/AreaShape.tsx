@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Area, CircleGeometry } from "@svg-mapper/shared";
-import { alphaMaskWorldPath, areaImagePlacement, assetDisplaySource, imagePreserveAspectRatio, imageRotationTransform, isAreaHidden } from "@svg-mapper/shared";
+import { alphaMaskWorldPath, areaImagePlacement, assetDisplaySource, geometryBounds, imagePreserveAspectRatio, imageRotationTransform, isAreaHidden } from "@svg-mapper/shared";
 import { geometryToSvgPath, getRectHandles, type RectHandle } from "../../lib/area-utils";
 import { useStore } from "../../store";
 import { useStylePreview } from "../../store/style-preview";
@@ -38,6 +38,9 @@ export function AreaShape({
   if (!d) return null;
 
   const isRect = area.geometry.type === "rect";
+  // A selected path resizes by its bounding box, with the rectangle's corner handles (#218).
+  const pathBox = selected && !geometryLocked && area.geometry.type === "path" ? geometryBounds(area.geometry) : null;
+  const handleBox = isRect ? (area.geometry as Parameters<typeof getRectHandles>[0]) : pathBox;
   const isCircle = area.geometry.type === "circle";
   const isDisabled = area.disabled === true;
   const alwaysHL = area.alwaysHighlight === true;
@@ -124,9 +127,24 @@ export function AreaShape({
         />
       )}
 
-      {/* Rect resize handles */}
-      {selected && isRect && !geometryLocked && (() => {
-        const handles = getRectHandles(area.geometry as Parameters<typeof getRectHandles>[0]);
+      {pathBox && (
+        <rect
+          data-testid="path-bounds"
+          x={pathBox.x}
+          y={pathBox.y}
+          width={pathBox.width}
+          height={pathBox.height}
+          fill="none"
+          stroke={SELECTED_STROKE}
+          strokeWidth={hw}
+          opacity={0.6}
+          style={{ pointerEvents: "none" }}
+        />
+      )}
+
+      {/* Rect (and path bounding-box) resize handles */}
+      {selected && handleBox && !geometryLocked && (() => {
+        const handles = getRectHandles(handleBox);
         return (Object.entries(handles) as [RectHandle, { x: number; y: number }][]).map(
           ([handle, pos]) => (
             <circle

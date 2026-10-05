@@ -1,6 +1,7 @@
 // Small DOM-independent helpers shared by the editor canvas and the renderer,
 // so both draw the same scene: asset display sources, fitted background
 // rectangles, marker geometry, area bounds and rounded rectangles.
+import { pathBounds } from "./path-geometry.js";
 import type { BackgroundFit, Geometry, MarkerAnchor } from "./types.js";
 
 export interface Rect {
@@ -82,10 +83,11 @@ export function rectPathData(x: number, y: number, width: number, height: number
 }
 
 /**
- * Axis-aligned bounds in canvas units. Free-form paths return null: their
- * bounds need the rendered element (SVG getBBox()).
+ * Axis-aligned bounds of the analytic shapes (rect, circle, polygon, marker)
+ * in canvas units; null for paths. The renderer uses this and measures
+ * rendered paths with getBBox(), so it never bundles the path parser.
  */
-export function geometryBounds(geo: Geometry): Rect | null {
+export function shapeBounds(geo: Geometry): Rect | null {
   switch (geo.type) {
     case "rect":
       return { x: geo.x, y: geo.y, width: geo.width, height: geo.height };
@@ -104,4 +106,13 @@ export function geometryBounds(geo: Geometry): Rect | null {
     default:
       return null;
   }
+}
+
+/**
+ * Axis-aligned bounds of any geometry in canvas units. Paths get their exact
+ * bounds (real cubic extrema, see path-geometry.ts); empty or malformed path
+ * data returns null.
+ */
+export function geometryBounds(geo: Geometry): Rect | null {
+  return geo.type === "path" ? pathBounds(geo.d) : shapeBounds(geo);
 }

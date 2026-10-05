@@ -5,6 +5,7 @@
 import type { ClickMapDefinition, Geometry, View, VisitorStringKey } from "./types.js";
 import { validateViewCss } from "./view-css.js";
 import { DEFAULT_VISITOR_STRINGS, VISIBLE_STRING_KEYS } from "./strings.js";
+import { pathDataError } from "./path-geometry.js";
 
 export type Severity = "error" | "warning";
 
@@ -93,7 +94,10 @@ function geometryError(geometry: Geometry): string | null {
     case "path":
       if (typeof geometry.d !== "string" || geometry.d.trim() === "")
         return "path has an empty `d`";
-      return null;
+      {
+        const error = pathDataError(geometry.d);
+        return error ? `path \`d\` is malformed: ${error}` : null;
+      }
     case "marker":
       if (!isFiniteNumber(geometry.x) || !isFiniteNumber(geometry.y))
         return "marker has non-numeric position";

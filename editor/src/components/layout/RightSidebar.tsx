@@ -6,10 +6,12 @@ import type {
   AreaTrigger,
   BackgroundFit,
   CircleGeometry,
+  Geometry,
   MarkerGeometry,
   MarkerAnchor,
   PopupAction,
   RectGeometry,
+  PathGeometry,
   PolygonGeometry,
   SceneSwitcherPosition,
   ZoomControlsPosition,
@@ -18,8 +20,12 @@ import type {
   View,
 } from "@svg-mapper/shared";
 import { createContext, useContext, useEffect, useId, useState, type ComponentProps } from "react";
+import { geometryBounds } from "@svg-mapper/shared";
 import { geometryLockReason, useStore } from "../../store";
+import { resizePathToBounds } from "../../lib/area-utils";
 import { useStylePreview, type StylePreviewState } from "../../store/style-preview";
+import { activeVertexIndex, useVertexSelection } from "../../store/vertex-selection";
+import { canRemoveVertex, edgeMidpoints, editableVertices, insertVertex, minVertexCount, moveVertex, removeVertex, snapPoint } from "../../lib/vertex-edit";
 import { validateActionUrl } from "../../lib/url-validate";
 import { createAlphaHitMask, MAX_ALPHA_MASK_DIMENSION } from "../../lib/alpha-mask";
 import { colorToHex, isValidCssColor, parseCssColor, withHexColor, withOpacity } from "../../lib/css-color";
@@ -117,12 +123,15 @@ function NumberField({
   min,
   max,
   step,
+  ariaLabel,
 }: {
   defaultValue: number;
   onCommit: (v: number) => void;
   min?: number;
   max?: number;
   step?: number;
+  /** Accessible name when the field is not inside a labelled Row. */
+  ariaLabel?: string;
 }) {
   function handleBlur(e: React.FocusEvent<HTMLInputElement>) {
     const n = parseFloat(e.target.value);
@@ -142,6 +151,7 @@ function NumberField({
       min={min}
       max={max}
       step={step ?? 1}
+      aria-label={ariaLabel}
       onBlur={handleBlur}
       onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } }}
       className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 outline-none focus:border-blue-500"
@@ -834,6 +844,74 @@ function LayerInspector() {
 // Area inspector
 // ---------------------------------------------------------------------------
 
+/**
+ * Keyboard-accessible point list for a polygon (#176): exact coordinates, plus
+ * add/remove controls. Each commit is one undo entry through the same store
+ * action as the canvas handles, so locks and history behave identically.
+ */
+function PolygonPointsEditor({ areaId, geometry }: { areaId: string; geometry: PolygonGeometry & { type: "polygon" } }) {
+  const updateAreaGeometry = useStore((state) => state.updateAreaGeometry);
+  const grid = useStore((state) => state.project.editor?.grid);
+  const vertexSelection = useVertexSelection();
+  const vertices = editableVertices(geometry) ?? [];
+  const active = activeVertexIndex(vertexSelection, areaId, vertices.length);
+  const removable = canRemoveVertex(geometry);
+
+  function commit(next: Geometry | null, select?: number) {
+    if (!next) return;
+    updateAreaGeometry(areaId, next);
+    if (select !== undefined) vertexSelection.select(areaId, select);
+  }
+
+  return (
+    <div className="space-y-1">
+      <p className="text-xs text-neutral-400">
+        {vertices.length} points. Drag a point on the canvas, or drag an edge midpoint to add one. Arrow keys nudge the picked point; Delete removes it.
+      </p>
+      <ol aria-label="Polygon points" className="space-y-1">
+        {vertices.map((point, index) => (
+          <li
+            key={index}
+            data-testid="polygon-point-row"
+            data-active={active === index ? "true" : undefined}
+            onFocusCapture={() => vertexSelection.select(areaId, index)}
+            className={`flex items-center gap-1 rounded px-0.5 ${active === index ? "bg-blue-950/60 ring-1 ring-blue-500" : ""}`}
+          >
+            <span className="w-5 shrink-0 text-right text-xs text-neutral-400" aria-hidden="true">{index + 1}</span>
+            <NumberField ariaLabel={`Point ${index + 1} X`} defaultValue={point.x} onCommit={(x) => commit(moveVertex(geometry, index, { x, y: point.y }))} />
+            <NumberField ariaLabel={`Point ${index + 1} Y`} defaultValue={point.y} onCommit={(y) => commit(moveVertex(geometry, index, { x: point.x, y }))} />
+            <button
+              type="button"
+              aria-label={`Add a point after point ${index + 1}`}
+              title="Add a point on the next edge"
+              onClick={() => {
+                const midpoint = edgeMidpoints(geometry)[index];
+                if (midpoint) commit(insertVertex(geometry, index, snapPoint(midpoint, grid)), index + 1);
+              }}
+              className="shrink-0 rounded bg-neutral-700 px-1.5 py-0.5 text-xs text-white hover:bg-neutral-600"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              aria-label={`Remove point ${index + 1}`}
+              title={removable ? "Remove this point" : `A polygon keeps at least ${minVertexCount(geometry)} points`}
+              disabled={!removable}
+              onClick={() => commit(removeVertex(geometry, index), Math.max(0, index - 1))}
+              className="shrink-0 rounded bg-neutral-700 px-1.5 py-0.5 text-xs text-white hover:bg-neutral-600 disabled:opacity-40"
+            >
+              −
+            </button>
+          </li>
+        ))}
+      </ol>
+      {!removable && (
+        <p className="text-xs text-neutral-500">A polygon keeps at least {minVertexCount(geometry)} points.</p>
+      )}
+    </div>
+  );
+}
+
 function GeometryEditor({
   areaId,
   geometry,
@@ -876,10 +954,30 @@ function GeometryEditor({
   }
 
   if (geometry.type === "polygon") {
-    const g = geometry as unknown as PolygonGeometry & { type: "polygon" };
+    return <PolygonPointsEditor areaId={areaId} geometry={geometry as unknown as PolygonGeometry & { type: "polygon" }} />;
+  }
+
+  if (geometry.type === "path") {
+    // A path is positioned and sized by its exact bounds (#218).
+    const g = geometry as unknown as PathGeometry & { type: "path" };
+    const bounds = geometryBounds(g);
+    if (!bounds) {
+      return <div className="text-xs text-neutral-400">Path data is empty or malformed.</div>;
+    }
+    const box = bounds;
+    const round = (value: number) => Math.round(value * 1000) / 1000;
+    type BoxKey = "x" | "y" | "width" | "height";
+    function setBounds(key: BoxKey, value: number) {
+      // Leaving a field unchanged is not an edit (it would rewrite `d` canonically).
+      if (value === round(box[key])) return;
+      updateAreaGeometry(areaId, resizePathToBounds(g, { ...box, [key]: value }) as typeof g);
+    }
     return (
-      <div className="text-xs text-neutral-400">
-        {g.points.length} vertices — vertex editing not available yet
+      <div className="space-y-1">
+        <Row label="X"><NumberField defaultValue={round(box.x)} onCommit={(v) => setBounds("x", v)} /></Row>
+        <Row label="Y"><NumberField defaultValue={round(box.y)} onCommit={(v) => setBounds("y", v)} /></Row>
+        <Row label="W"><NumberField defaultValue={round(box.width)} min={1} onCommit={(v) => setBounds("width", v)} /></Row>
+        <Row label="H"><NumberField defaultValue={round(box.height)} min={1} onCommit={(v) => setBounds("height", v)} /></Row>
       </div>
     );
   }

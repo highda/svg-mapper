@@ -1,5 +1,5 @@
 import type { ClickMapDefinition, ProjectFile, View, Settings } from "@svg-mapper/shared";
-import { CURRENT_SCHEMA_VERSION, SUPPORTED_SCHEMA_MAJOR, decodeProjectFile } from "@svg-mapper/shared";
+import { CURRENT_SCHEMA_VERSION, SUPPORTED_SCHEMA_MAJOR, decodeProjectFile, findMalformedPathData } from "@svg-mapper/shared";
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -75,7 +75,12 @@ export function createNewProject(name = "Untitled Map"): ProjectFile {
  */
 export function assertProjectFile(value: unknown): asserts value is ProjectFile {
   const result = decodeProjectFile(value);
-  if (result.ok) return;
+  if (result.ok) {
+    // Path data is a structural part of the geometry the editor transforms (#218).
+    const malformed = findMalformedPathData(result.value);
+    if (malformed) throw new Error(malformed.message);
+    return;
+  }
   if (result.code === "UNSUPPORTED_SCHEMA_VERSION") {
     const version = (value as { schemaVersion: string }).schemaVersion;
     const newer = Number(version.split(".")[0]) > SUPPORTED_SCHEMA_MAJOR;

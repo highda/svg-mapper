@@ -7,3 +7,4 @@ export * from "./sanitize.js";
 export * from "./schema.js";
 export * from "./area-image.js";
 export * from "./strings.js";
+export * from "./path-geometry.js";
