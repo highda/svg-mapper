@@ -1369,9 +1369,13 @@ describe("renderer interaction model", () => {
     trigger.focus();
     trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     vi.runAllTimers();
-    expect(root.activeElement).toBe(root.querySelector(".clickmap-popover button"));
+    const close = root.querySelector<HTMLButtonElement>(".clickmap-popover button")!;
+    expect(root.activeElement).toBe(close);
 
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    // Escape outside the map (the host page) leaves this map's popup alone.
+    document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(root.querySelector(".clickmap-popover--visible")).not.toBeNull();
+    close.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, composed: true }));
     expect(root.activeElement).toBe(trigger);
     vi.useRealTimers();
   });
@@ -1486,11 +1490,13 @@ describe("renderer interaction model", () => {
 
     areaElement(area.id).dispatchEvent(new MouseEvent("click", { bubbles: true }));
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(popover).toHaveClass("clickmap-popover--visible");
+    areaElement(area.id).dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     expect(popover).not.toHaveClass("clickmap-popover--visible");
     instance.destroy();
   });
 
-  it("replaces the open popover, sanitises its body, and traps focus", () => {
+  it("replaces the open popover, sanitises its body, and names a non-modal dialog", () => {
     const first = createRectArea(0, 0, 10, 10);
     first.action = { type: "popup", content: { title: "First" } };
     const second = createRectArea(20, 0, 10, 10);
@@ -1513,12 +1519,43 @@ describe("renderer interaction model", () => {
     expect(popover).toHaveTextContent("Second");
     expect(popover.querySelector("b")).not.toHaveAttribute("onmouseover");
 
+    expect(popover).toHaveAttribute("role", "dialog");
+    expect(popover).not.toHaveAttribute("aria-modal");
+    expect(popover).toHaveAccessibleName("Second");
+    expect(popover).toHaveAccessibleDescription("Body");
+
+    // Non-modal: Tab is never intercepted, so focus can leave for the host page.
     const close = popover.querySelector<HTMLButtonElement>("button")!;
     close.focus();
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
-    expect(document.activeElement).toBe(popover.querySelector("a"));
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true }));
+    const tab = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+    close.dispatchEvent(tab);
+    expect(tab.defaultPrevented).toBe(false);
     expect(document.activeElement).toBe(close);
+  });
+
+  it("labels a templated popup by its area and returns focus only when it is inside", () => {
+    const area = createRectArea(0, 0, 10, 10);
+    area.name = "Library";
+    area.action = { type: "popup", content: { title: "Ignored" } };
+    const project = createNewProject();
+    project.settings.contentTemplate = "<p>{{name}} details</p>";
+    project.views[0].layers = [{ id: "layer", name: "Layer", visible: true, locked: false, opacity: 1, areas: [area] }];
+    document.body.insertAdjacentHTML("beforeend", '<input id="host-field">');
+    create({ container: "#map", definition: toDefinition(project) });
+
+    const trigger = areaElement(area.id);
+    trigger.focus();
+    trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    const popover = document.querySelector<HTMLElement>(".clickmap-popover")!;
+    expect(popover).toHaveAccessibleName("Library");
+    expect(popover).toHaveAccessibleDescription("Library details");
+
+    // Clicking a host control closes the popup without stealing its focus.
+    const field = document.querySelector<HTMLInputElement>("#host-field")!;
+    field.focus();
+    field.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(popover).not.toHaveClass("clickmap-popover--visible");
+    expect(document.activeElement).toBe(field);
   });
 
   it("removes unsafe rich-content URLs after entity decoding and browser normalization", () => {
@@ -1615,6 +1652,115 @@ describe("renderer interaction model", () => {
     const active = document.querySelector<HTMLButtonElement>('[data-view-id="view_upper"]')!;
     expect(active).toHaveClass("clickmap-scene-btn--active");
     expect(active).toHaveAttribute("aria-selected", "true");
+    vi.useRealTimers();
+  });
+});
+
+describe("renderer keyboard scoping (#175)", () => {
+  function switcherProject(style: "tabs" | "buttons" | "dropdown") {
+    const project = createNewProject();
+    project.views[0].name = "Ground";
+    project.views.push({ ...project.views[0], id: "view_upper", name: "Upper", slug: "upper", layers: [] });
+    project.settings.sceneSwitcher = { enabled: true, position: "top-right", style };
+    project.settings.directory = { enabled: true };
+    return toDefinition(project);
+  }
+
+  const space = () => new KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true, composed: true, cancelable: true });
+
+  for (const shadowDom of [false, true]) {
+    const mode = shadowDom ? "Shadow DOM" : "light DOM";
+
+    it(`lets Space reach text fields and controls and moves scene focus with arrows in ${mode}`, () => {
+      const host = document.querySelector<HTMLElement>("#map")!;
+      create({ container: host, definition: switcherProject("tabs"), shadowDom });
+      const scope: ParentNode = host.shadowRoot ?? document;
+
+      const search = scope.querySelector<HTMLInputElement>(".clickmap-directory-search")!;
+      search.focus();
+      const typed = space();
+      search.dispatchEvent(typed);
+      expect(typed.defaultPrevented).toBe(false);
+
+      const tabs = Array.from(scope.querySelectorAll<HTMLButtonElement>(".clickmap-scene-btn"));
+      expect(tabs[0].parentElement).toHaveAttribute("role", "tablist");
+      expect(tabs[0].parentElement).toHaveAccessibleName("Views");
+      tabs[0].focus();
+      const pressed = space();
+      tabs[0].dispatchEvent(pressed);
+      expect(pressed.defaultPrevented).toBe(false);
+      tabs[0].dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, composed: true }));
+      expect((host.shadowRoot ?? document).activeElement).toBe(tabs[1]);
+      tabs[1].dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true, composed: true }));
+      expect((host.shadowRoot ?? document).activeElement).toBe(tabs[0]);
+    });
+
+    it(`names the dropdown scene switcher in ${mode}`, () => {
+      const host = document.querySelector<HTMLElement>("#map")!;
+      create({ container: host, definition: switcherProject("dropdown"), shadowDom });
+      const select = (host.shadowRoot ?? document).querySelector("select.clickmap-scene-dropdown")!;
+      expect(select).toHaveAccessibleName("Choose a view");
+    });
+  }
+
+  it("claims Space for panning only inside the map, never from host controls", () => {
+    document.body.insertAdjacentHTML("beforeend", '<textarea id="notes"></textarea><div id="editable" contenteditable="true"></div>');
+    const area = createRectArea(0, 0, 10, 10);
+    renderAreas(area);
+    for (const id of ["notes", "editable"]) {
+      const event = space();
+      document.getElementById(id)!.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+    }
+    const onArea = space();
+    areaElement(area.id).dispatchEvent(onArea);
+    expect(onArea.defaultPrevented).toBe(true);
+  });
+
+  it("keeps Escape and focus inside the map that owns them when two maps show details", () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '<div id="a"></div><input id="host-field"><div id="b"></div>';
+    const make = (container: string, shadowDom: boolean) => {
+      const area = createRectArea(0, 0, 10, 10);
+      area.action = { type: "popup", content: { title: `Details ${container}` } };
+      const project = createNewProject();
+      project.views[0].layers = [{ id: "layer", name: "Layer", visible: true, locked: false, opacity: 1, areas: [area] }];
+      create({ container: `#${container}`, definition: toDefinition(project), shadowDom });
+      const host = document.getElementById(container)!;
+      const scope: ParentNode = host.shadowRoot ?? host;
+      return {
+        trigger: scope.querySelector<SVGElement>(`[data-area-id="${area.id}"]`)!,
+        popover: scope.querySelector<HTMLElement>(".clickmap-popover")!,
+      };
+    };
+    const a = make("a", false);
+    const b = make("b", true);
+    for (const map of [a, b]) {
+      map.trigger.focus();
+      map.trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, composed: true }));
+    }
+    vi.runAllTimers();
+    expect(a.popover).toHaveClass("clickmap-popover--visible");
+    expect(b.popover).toHaveClass("clickmap-popover--visible");
+    expect(document.getElementById("b")!.shadowRoot!.activeElement).toBe(b.popover.querySelector("button"));
+
+    // Tab and Escape on a host control belong to the host page.
+    const field = document.querySelector<HTMLInputElement>("#host-field")!;
+    const tab = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+    field.dispatchEvent(tab);
+    field.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(tab.defaultPrevented).toBe(false);
+    expect(a.popover).toHaveClass("clickmap-popover--visible");
+    expect(b.popover).toHaveClass("clickmap-popover--visible");
+
+    // Escape in map B closes only B and returns focus to B's trigger.
+    b.popover.querySelector("button")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, composed: true }));
+    expect(b.popover).not.toHaveClass("clickmap-popover--visible");
+    expect(document.getElementById("b")!.shadowRoot!.activeElement).toBe(b.trigger);
+    expect(a.popover).toHaveClass("clickmap-popover--visible");
+    a.popover.querySelector("button")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(a.popover).not.toHaveClass("clickmap-popover--visible");
+    expect(document.activeElement).toBe(a.trigger);
     vi.useRealTimers();
   });
 });

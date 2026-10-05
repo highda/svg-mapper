@@ -110,7 +110,7 @@ generation; JPEG/SVG retain a clearly described rectangular hit area.
 
 ## Access and device matrix
 
-1. Keyboard only: reach every interactive area and chrome control, see focus, hear tooltip/details content and view destinations, activate with Enter/Space, close popovers with Escape and confirm focus returns to the trigger, and navigate back. Repeat with hidden and disabled areas and a hover-only tooltip; then verify the same focus tracking in Shadow DOM.
+1. Keyboard only: reach every interactive area and chrome control, see focus, hear tooltip/details content and view destinations, activate with Enter/Space, close popovers with Escape and confirm focus returns to the trigger, confirm Tab moves on out of an open popover (popovers are non-modal), and navigate back. Type a space in the directory search and in a host-page field while the pointer is over the map. With two maps on one page, open details in both and confirm Escape only closes the one holding focus. Repeat with hidden and disabled areas and a hover-only tooltip; then verify the same focus tracking in Shadow DOM.
 2. Exported map, touch emulation and then a physical touch device, in a 390×844 viewport with narrow and full-width hosts: confirm map controls have a usable touch target, no visitor task depends on hover, pinch/pan does not trap host-page scrolling, and horizontal overflow does not hide controls. This applies to the published renderer, not editor authoring.
 3. Enable `prefers-reduced-motion: reduce`: confirm navigation and overlays remain understandable without required animation.
 4. Repeat the gallery path with Shadow DOM enabled and an opinionated host stylesheet.

@@ -246,41 +246,6 @@ class Renderer implements ClickMapInstance {
     this.closePopover();
   };
 
-  private onDocumentKeyDown = (e: KeyboardEvent) => {
-    if (this.openPopoverId === null) return;
-    if (e.key === "Escape") {
-      e.preventDefault();
-      this.closePopover();
-      return;
-    }
-    if (e.key !== "Tab") return;
-
-    const focusable = Array.from(
-      this.popoverEl.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      )
-    ).filter((el) => !el.hidden);
-    if (focusable.length === 0) {
-      e.preventDefault();
-      this.popoverEl.focus();
-      return;
-    }
-
-    const first = focusable[0]!;
-    const last = focusable[focusable.length - 1]!;
-    const active = this.getActiveElement();
-    if (e.shiftKey && active === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && active === last) {
-      e.preventDefault();
-      first.focus();
-    } else if (!active || !this.popoverEl.contains(active)) {
-      e.preventDefault();
-      first.focus();
-    }
-  };
-
   // Events raised while the instance is being built are held until create()
   // has returned, so an immediate on("error") still receives them (#169).
   private constructing = true;
@@ -398,8 +363,9 @@ class Renderer implements ClickMapInstance {
 
     this.popoverEl = document.createElement("div");
     this.popoverEl.className = "clickmap-popover";
+    // Non-modal: the popup is anchored details for one area. It never traps
+    // Tab or claims keys outside its own map, so the host page stays usable.
     this.popoverEl.setAttribute("role", "dialog");
-    this.popoverEl.setAttribute("aria-modal", "true");
     this.popoverEl.setAttribute("aria-hidden", "true");
     this.popoverEl.tabIndex = -1;
 
@@ -467,7 +433,6 @@ class Renderer implements ClickMapInstance {
 
     // Close popover on outside click
     document.addEventListener("click", this.onDocumentClick);
-    document.addEventListener("keydown", this.onDocumentKeyDown);
   }
 
   private renderDirectory() {
@@ -896,6 +861,11 @@ class Renderer implements ClickMapInstance {
     const position = ss.position ?? "bottom-center";
     const el = document.createElement("div");
     el.className = `clickmap-scene-switcher clickmap-scene-switcher--${position} clickmap-scene-switcher--${style}`;
+    // Buttons and tabs share one group name; the dropdown is named by its own label.
+    if (style !== "dropdown") {
+      el.setAttribute("role", style === "tabs" ? "tablist" : "group");
+      el.setAttribute("aria-label", "Views");
+    }
 
     const views = this.def.views;
     views.forEach((view) => {
@@ -909,7 +879,6 @@ class Renderer implements ClickMapInstance {
       const active = view.id === this.currentViewId;
       if (active) btn.classList.add("clickmap-scene-btn--active");
       if (style === "tabs") {
-        el.setAttribute("role", "tablist");
         btn.setAttribute("role", "tab");
         btn.setAttribute("aria-selected", String(active));
         btn.tabIndex = active ? 0 : -1;
@@ -937,7 +906,9 @@ class Renderer implements ClickMapInstance {
     el.addEventListener("keydown", (e) => {
       if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return;
       const btns = Array.from(el.querySelectorAll<HTMLButtonElement>(".clickmap-scene-btn"));
-      const idx = btns.findIndex((b) => b === document.activeElement);
+      // The event target is the focused button in light and Shadow DOM alike;
+      // document.activeElement would be the shadow host.
+      const idx = btns.indexOf(e.target as HTMLButtonElement);
       if (idx === -1) return;
       const next = (e.key === "ArrowRight" || e.key === "ArrowDown")
         ? btns[(idx + 1) % btns.length]
@@ -1102,12 +1073,21 @@ class Renderer implements ClickMapInstance {
   // -------------------------------------------------------------------------
 
   private onWindowKeyDown = (e: KeyboardEvent) => {
-    if (e.code === "Space" && !e.repeat) {
-      // Only activate when the renderer container is focused or hovered
-      if (this.root.contains(document.activeElement) || this.root.matches(":hover")) {
-        this.spaceHeld = true;
-        e.preventDefault();
-      }
+    if (e.code !== "Space" || e.repeat) return;
+    // The composed path reaches into open shadow roots, so the real target is
+    // known in both DOM modes. Space keeps its native meaning in text fields,
+    // buttons, links and other controls, inside the map or on the host page.
+    const path = e.composedPath();
+    const target = path[0];
+    if (target instanceof HTMLElement && (target.isContentEditable ||
+      /^(INPUT|TEXTAREA|SELECT|BUTTON|A|SUMMARY|IFRAME|AUDIO|VIDEO)$/.test(target.tagName) ||
+      target.closest('[contenteditable]:not([contenteditable="false"])'))) return;
+    // Claim Space only when focus is inside this map, or nothing in particular
+    // is focused and the pointer is over it. Another map or a host control keeps it.
+    const pageFocus = target === document.body || target === document.documentElement || target === window || target === document;
+    if (path.includes(this.root) || (pageFocus && this.root.matches(":hover"))) {
+      this.spaceHeld = true;
+      e.preventDefault();
     }
   };
 
@@ -1654,15 +1634,21 @@ class Renderer implements ClickMapInstance {
   }
 
   /**
-   * Escape inside the map clears the selection. An open popup handles Escape
-   * itself (closing it also clears its area's selection), and text fields keep
-   * their native Escape behaviour.
+   * Escape inside the map closes its open popup (which also clears that area's
+   * selection) and otherwise clears the selection. The listener sits on this
+   * map's root, so Escape pressed elsewhere on the host page or in another map
+   * never reaches it. Text fields keep their native Escape behaviour.
    */
   private onRootKeyDown(e: KeyboardEvent) {
-    if (e.key !== "Escape" || this.selectedId === null || this.openPopoverId !== null) return;
+    if (e.key !== "Escape" || e.defaultPrevented) return;
     const target = e.composedPath()[0];
     if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement) return;
-    this.setSelection(null);
+    if (this.openPopoverId !== null) {
+      e.preventDefault();
+      this.closePopover(true);
+    } else if (this.selectedId !== null) {
+      this.setSelection(null);
+    }
   }
 
   private onFocusIn(e: FocusEvent) {
@@ -1926,15 +1912,26 @@ class Renderer implements ClickMapInstance {
       }
     }
 
+    // Name and describe the dialog from its visible content; a templated popup
+    // shows no title, so the area's accessible name labels it instead.
+    for (const attr of ["aria-label", "aria-labelledby", "aria-describedby"]) this.popoverEl.removeAttribute(attr);
     if (content.title && templatedBody === null) {
       const h = document.createElement("strong");
+      h.id = `${this.instanceId}-popup-title`;
+      this.popoverEl.setAttribute("aria-labelledby", h.id);
       h.style.cssText = "display:block;margin-bottom:4px;";
       h.textContent = content.title;
       bodyEl.appendChild(h);
     }
 
+    if (!this.popoverEl.hasAttribute("aria-labelledby")) {
+      this.popoverEl.setAttribute("aria-label", area.accessibility?.ariaLabel?.trim() || area.name);
+    }
+
     if (templatedBody !== null || content.body) {
       const p = document.createElement("div");
+      p.id = `${this.instanceId}-popup-body`;
+      this.popoverEl.setAttribute("aria-describedby", p.id);
       p.append(sanitizeRichHtml(templatedBody ?? content.body ?? "", p.ownerDocument));
       p.style.fontSize = "12px";
       bodyEl.appendChild(p);
@@ -1953,7 +1950,7 @@ class Renderer implements ClickMapInstance {
     closeBtn.textContent = "×";
     closeBtn.setAttribute("aria-label", "Close");
     closeBtn.className = "clickmap-popover-close";
-    closeBtn.addEventListener("click", () => this.closePopover());
+    closeBtn.addEventListener("click", () => this.closePopover(true));
     this.popoverEl.appendChild(closeBtn);
 
     this.popoverEl.setAttribute("aria-hidden", "false");
@@ -1967,8 +1964,8 @@ class Renderer implements ClickMapInstance {
     this.ariaLiveEl.textContent = templatedBody === null ? (content.title ?? "Popup opened") : area.name;
     setTimeout(() => { this.ariaLiveEl.textContent = ""; }, 1000);
 
-    // Focus trap
-    setTimeout(() => closeBtn.focus(), 0);
+    // Move focus into the popup so its content is read and Escape reaches it.
+    setTimeout(() => { if (this.openPopoverId === area.id) closeBtn.focus(); }, 0);
   }
 
   /**
@@ -2037,7 +2034,13 @@ class Renderer implements ClickMapInstance {
     }
   }
 
-  private closePopover() {
+  /**
+   * Close the open popup. With `restoreFocus`, focus returns to the trigger, or
+   * to the area's re-rendered element when the original node was replaced.
+   * By default focus is only returned when it would otherwise be lost inside
+   * the closing popup, so a host control the visitor moved to keeps focus.
+   */
+  private closePopover(restoreFocus = this.popoverEl.contains(this.getActiveElement())) {
     if (this.openPopoverId === null) return;
     const popupId = this.openPopoverId;
     this.openPopoverId = null;
@@ -2046,15 +2049,17 @@ class Renderer implements ClickMapInstance {
     this.popoverEl.setAttribute("aria-hidden", "true");
     this.popoverEl.classList.remove("clickmap-popover--visible");
     this.popoverEl.innerHTML = "";
-    if (this.popoverReturnFocus?.isConnected) this.popoverReturnFocus.focus();
+    const trigger = this.popoverReturnFocus?.isConnected ? this.popoverReturnFocus : this.findAreaEl(popupId);
+    if (restoreFocus) trigger?.focus();
     this.popoverReturnFocus = null;
     this.emit({ type: "popup:close", popupId });
     // Closing an area's details ends its selection.
     if (this.selectedId === popupId) this.setSelection(null);
   }
 
+  /** Focused element in the tree that owns this map (its shadow root or the document). */
   private getActiveElement(): Element | null {
-    return this.shadowRoot?.activeElement ?? document.activeElement;
+    return (this.root.getRootNode() as Document | ShadowRoot).activeElement;
   }
 
   // -------------------------------------------------------------------------
@@ -2347,7 +2352,6 @@ class Renderer implements ClickMapInstance {
     window.removeEventListener("pointerup", this.onWindowPointerUp);
     window.removeEventListener("popstate", this.onPopState);
     document.removeEventListener("click", this.onDocumentClick);
-    document.removeEventListener("keydown", this.onDocumentKeyDown);
     this.svgEl?.removeEventListener("wheel", this.onWheel);
     this.emitter.clear();
     if (this.shadowRoot) {
