@@ -50,7 +50,7 @@ The mask follows the image's fit, crop and rotation, so the overlay and the publ
 
 **Tree** gives a hierarchical project overview. **Flow** shows `goToView` connections and calls out orphan views. Use both to catch organization and navigation mistakes.
 
-**Preview** runs the exported renderer in a sandboxed iframe. Exercise the golden path: hover and keyboard-focus areas, select an area and confirm it keeps its Active style while you hover others (the toolbar shows what is selected) and clears with Escape or a view change, confirm tooltip details are exposed on focus, follow every view link and hear the destination, go back, open and close popups while checking trigger focus restoration, test URLs, and zoom and pan.
+**Preview** runs the exported renderer in a sandboxed iframe. Exercise the golden path: hover and keyboard-focus areas, select an area and confirm it keeps its Active style while you hover others (the toolbar shows what is selected) and clears with Escape or a view change, confirm tooltip details are exposed on focus, follow every view link and hear the destination, go back, open and close popups while checking trigger focus restoration, test URLs, and zoom and pan. Visitors pan a zoomed-in map by dragging it (or holding Space and dragging), or by focusing the map and using the arrow keys, when the view's **pan** flag is on; a short click still activates the area under the pointer, and the map cannot be dragged past the edges of its canvas.
 
 Preview separates the host page from the map host inside it:
 
