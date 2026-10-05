@@ -6,6 +6,7 @@
   "scripts": {
     "build": "node build.mjs",
     "build:watch": "node build.mjs --watch",
+    "build:types": "node build-types.mjs",
     "check:size": "node check-size.mjs",
     "typecheck": "tsc --noEmit"
   },

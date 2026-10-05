@@ -1,0 +1,1034 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "svg-mapper map definition (map.json)",
+  "description": "ClickMapDefinition, the contract between the svg-mapper builder and renderer. This release writes schemaVersion 1.0.0 and reads any 1.x.y. A major version change is breaking; minor and patch changes are additive. See docs/data-model.md.",
+  "$comment": "Generated from shared/schema.ts by shared/scripts/json-schema.mjs; do not edit by hand. Structural only: rules across objects (settings.initialViewId, goToView and toggleLayer targets and asset ids must exist; ids and view slugs must be unique; minZoom <= initialZoom <= maxZoom) are semantic checks made by validateProject, not by this schema. The runtime decoder additionally requires image.hitMask.data to hold exactly ceil(width * height / 8) base64-encoded bytes and data: URIs in assets[].src to be well formed. Objects accept extra properties.",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^1\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "project": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "settings": {
+      "$ref": "#/$defs/Settings"
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Asset"
+      }
+    },
+    "views": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/View"
+      }
+    },
+    "popups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "allowHtml": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      }
+    },
+    "sharedStyles": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "style": {
+            "$ref": "#/$defs/AreaStyle"
+          }
+        },
+        "required": [
+          "name",
+          "style"
+        ]
+      }
+    },
+    "customEvents": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "project",
+    "settings",
+    "assets",
+    "views",
+    "popups",
+    "sharedStyles",
+    "customEvents"
+  ],
+  "$defs": {
+    "Settings": {
+      "type": "object",
+      "properties": {
+        "initialViewId": {
+          "type": "string"
+        },
+        "responsive": {
+          "type": "boolean"
+        },
+        "maintainAspectRatio": {
+          "type": "boolean"
+        },
+        "theme": {
+          "type": "string"
+        },
+        "enableHistory": {
+          "type": "boolean"
+        },
+        "enableKeyboardNavigation": {
+          "type": "boolean"
+        },
+        "sizingMode": {
+          "enum": [
+            "fixed",
+            "fluid-width",
+            "fill-container"
+          ],
+          "type": "string"
+        },
+        "contentTemplate": {
+          "type": "string"
+        },
+        "areaLabels": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "fontSize": {
+              "type": "number",
+              "minimum": 0
+            },
+            "color": {
+              "type": "string"
+            },
+            "fontWeight": {
+              "type": "string"
+            },
+            "hideWhenSmaller": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "enabled"
+          ]
+        },
+        "sceneSwitcher": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "position": {
+              "enum": [
+                "top-left",
+                "top-right",
+                "bottom-left",
+                "bottom-right",
+                "top-center",
+                "bottom-center"
+              ],
+              "type": "string"
+            },
+            "style": {
+              "enum": [
+                "tabs",
+                "buttons",
+                "dropdown"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "enabled",
+            "position"
+          ]
+        },
+        "zoomControls": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "position": {
+              "enum": [
+                "top-left",
+                "top-right",
+                "bottom-left",
+                "bottom-right"
+              ],
+              "type": "string"
+            },
+            "step": {
+              "type": "number",
+              "minimum": 0
+            },
+            "resetBehavior": {
+              "enum": [
+                "initial",
+                "fit"
+              ],
+              "type": "string"
+            },
+            "wheelMode": {
+              "enum": [
+                "off",
+                "ctrl",
+                "meta",
+                "alt",
+                "shift",
+                "always"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "enabled"
+          ]
+        },
+        "directory": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "metadataKeys": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "categoryKey": {
+              "type": "string"
+            },
+            "categories": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "value",
+                  "label"
+                ]
+              }
+            }
+          },
+          "required": [
+            "enabled"
+          ]
+        },
+        "padding": {
+          "type": "object",
+          "properties": {
+            "top": {
+              "type": "number",
+              "minimum": 0
+            },
+            "right": {
+              "type": "number",
+              "minimum": 0
+            },
+            "bottom": {
+              "type": "number",
+              "minimum": 0
+            },
+            "left": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "top",
+            "right",
+            "bottom",
+            "left"
+          ]
+        }
+      },
+      "required": [
+        "initialViewId",
+        "responsive",
+        "maintainAspectRatio",
+        "theme",
+        "enableHistory",
+        "enableKeyboardNavigation"
+      ]
+    },
+    "Asset": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "image/png",
+            "image/jpeg",
+            "image/webp",
+            "image/svg+xml"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "src": {
+          "type": "string"
+        },
+        "width": {
+          "type": "number",
+          "minimum": 1
+        },
+        "height": {
+          "type": "number",
+          "minimum": 1
+        },
+        "inline": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "name",
+        "src",
+        "width",
+        "height",
+        "inline"
+      ]
+    },
+    "View": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        },
+        "canvas": {
+          "type": "object",
+          "properties": {
+            "width": {
+              "type": "number",
+              "minimum": 1
+            },
+            "height": {
+              "type": "number",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "width",
+            "height"
+          ]
+        },
+        "background": {
+          "type": "object",
+          "properties": {
+            "assetId": {
+              "type": "string"
+            },
+            "fit": {
+              "enum": [
+                "contain",
+                "cover",
+                "fill",
+                "none"
+              ],
+              "type": "string"
+            },
+            "position": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "y": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ]
+            }
+          },
+          "required": [
+            "assetId",
+            "fit"
+          ]
+        },
+        "viewport": {
+          "type": "object",
+          "properties": {
+            "minZoom": {
+              "type": "number",
+              "minimum": 0
+            },
+            "maxZoom": {
+              "type": "number",
+              "minimum": 0
+            },
+            "initialZoom": {
+              "type": "number",
+              "minimum": 0
+            },
+            "panEnabled": {
+              "type": "boolean"
+            },
+            "zoomEnabled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "minZoom",
+            "maxZoom",
+            "initialZoom",
+            "panEnabled",
+            "zoomEnabled"
+          ]
+        },
+        "ui": {
+          "type": "object",
+          "properties": {
+            "showBackButton": {
+              "type": "boolean"
+            },
+            "showBreadcrumbs": {
+              "type": "boolean"
+            },
+            "showTitle": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "showBackButton",
+            "showBreadcrumbs",
+            "showTitle"
+          ]
+        },
+        "customCss": {
+          "type": "string"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Layer"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "slug",
+        "canvas",
+        "viewport",
+        "ui",
+        "layers"
+      ]
+    },
+    "Layer": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "areas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Area"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "visible",
+        "locked",
+        "opacity",
+        "areas"
+      ]
+    },
+    "Area": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "geometry": {
+          "$ref": "#/$defs/Geometry"
+        },
+        "style": {
+          "$ref": "#/$defs/AreaStyle"
+        },
+        "sharedStyleId": {
+          "type": "string"
+        },
+        "action": {
+          "$ref": "#/$defs/Action"
+        },
+        "tooltip": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "title": {
+              "type": "string"
+            },
+            "body": {
+              "type": "string"
+            },
+            "imageUrl": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "enabled"
+          ]
+        },
+        "accessibility": {
+          "type": "object",
+          "properties": {
+            "ariaLabel": {
+              "type": "string"
+            },
+            "tabIndex": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "ariaLabel",
+            "tabIndex"
+          ]
+        },
+        "metadata": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        },
+        "trigger": {
+          "enum": [
+            "click",
+            "hover",
+            "both"
+          ],
+          "type": "string"
+        },
+        "alwaysHighlight": {
+          "type": "boolean"
+        },
+        "disabled": {
+          "type": "boolean"
+        },
+        "label": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "visible": {
+              "type": "boolean"
+            }
+          },
+          "required": []
+        },
+        "image": {
+          "type": "object",
+          "properties": {
+            "assetId": {
+              "type": "string"
+            },
+            "fit": {
+              "enum": [
+                "fill",
+                "contain",
+                "cover"
+              ],
+              "type": "string"
+            },
+            "opacity": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "rotation": {
+              "type": "number"
+            },
+            "decorative": {
+              "type": "boolean"
+            },
+            "locked": {
+              "type": "boolean"
+            },
+            "visible": {
+              "type": "boolean"
+            },
+            "hitMask": {
+              "$ref": "#/$defs/AlphaHitMask"
+            }
+          },
+          "required": [
+            "assetId"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "geometry",
+        "style",
+        "action"
+      ]
+    },
+    "Geometry": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "rect"
+            },
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "width": {
+              "type": "number",
+              "minimum": 0
+            },
+            "height": {
+              "type": "number",
+              "minimum": 0
+            },
+            "rx": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "type",
+            "x",
+            "y",
+            "width",
+            "height"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "circle"
+            },
+            "cx": {
+              "type": "number"
+            },
+            "cy": {
+              "type": "number"
+            },
+            "r": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "type",
+            "cx",
+            "cy",
+            "r"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "polygon"
+            },
+            "points": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "minItems": 2
+              }
+            }
+          },
+          "required": [
+            "type",
+            "points"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "path"
+            },
+            "d": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "d"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "marker"
+            },
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "anchor": {
+              "enum": [
+                "bottom-center",
+                "center",
+                "top-left",
+                "top-center",
+                "top-right",
+                "bottom-left",
+                "bottom-right",
+                "middle-left",
+                "middle-right"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "x",
+            "y",
+            "anchor"
+          ]
+        }
+      ]
+    },
+    "Action": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "none"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "url"
+            },
+            "href": {
+              "type": "string"
+            },
+            "target": {
+              "enum": [
+                "_blank",
+                "_self"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "href",
+            "target"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "goToView"
+            },
+            "targetViewId": {
+              "type": "string"
+            },
+            "transition": {
+              "enum": [
+                "fade",
+                "none"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "targetViewId"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "popup"
+            },
+            "content": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string"
+                },
+                "body": {
+                  "type": "string"
+                },
+                "imageUrl": {
+                  "type": "string"
+                },
+                "linkHref": {
+                  "type": "string"
+                },
+                "linkLabel": {
+                  "type": "string"
+                }
+              },
+              "required": []
+            },
+            "position": {
+              "enum": [
+                "auto",
+                "top",
+                "bottom",
+                "left",
+                "right"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "content"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "toggleLayer"
+            },
+            "targetLayerId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "targetLayerId"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "customEvent"
+            },
+            "eventName": {
+              "type": "string"
+            },
+            "payload": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            }
+          },
+          "required": [
+            "type",
+            "eventName"
+          ]
+        }
+      ]
+    },
+    "AlphaHitMask": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "const": "alpha"
+        },
+        "assetId": {
+          "type": "string"
+        },
+        "threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 128
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 128
+        },
+        "data": {
+          "type": "string"
+        },
+        "debug": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "mode",
+        "assetId",
+        "threshold",
+        "width",
+        "height",
+        "data"
+      ]
+    },
+    "AreaStyle": {
+      "type": "object",
+      "properties": {
+        "default": {
+          "$ref": "#/$defs/AreaStyleState"
+        },
+        "hover": {
+          "$ref": "#/$defs/AreaStyleState"
+        },
+        "active": {
+          "$ref": "#/$defs/AreaStyleState"
+        },
+        "disabled": {
+          "$ref": "#/$defs/AreaStyleState"
+        }
+      },
+      "required": [
+        "default",
+        "hover",
+        "active"
+      ]
+    },
+    "AreaStyleState": {
+      "type": "object",
+      "properties": {
+        "fill": {
+          "type": "string"
+        },
+        "stroke": {
+          "type": "string"
+        },
+        "strokeWidth": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "fill",
+        "stroke",
+        "strokeWidth"
+      ]
+    }
+  }
+}

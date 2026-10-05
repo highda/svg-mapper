@@ -7,9 +7,12 @@
     ".": "./index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "schema:generate": "node scripts/json-schema.mjs",
+    "schema:check": "node scripts/json-schema.mjs --check"
   },
   "devDependencies": {
+    "@valibot/to-json-schema": "^1.8.0",
     "typescript": "^5.4.0"
   },
   "dependencies": {

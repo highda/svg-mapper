@@ -40,7 +40,7 @@ const host = () => document.querySelector("#map")!;
 describe("shared structural decoder", () => {
   it("reports the exact path of a structural error", () => {
     const result = decodeDefinition(definition((def) => { (def.views[0]!.canvas as { width: unknown }).width = "wide"; }));
-    expect(result).toMatchObject({ ok: false, path: "$.views[0].canvas.width" });
+    expect(result).toMatchObject({ ok: false, code: "INVALID_DEFINITION", path: "$.views[0].canvas.width" });
     expect(!result.ok && result.message).toMatch(/^Invalid map\.json at \$\.views\[0\]\.canvas\.width: expected/);
   });
 
@@ -88,6 +88,25 @@ describe("renderer initialization failures", () => {
     expect(added).not.toHaveBeenCalled();
     instance.destroy();
     expect(host().children).toHaveLength(0);
+  });
+
+  it("refuses an unsupported major schemaVersion with a stable code and reads newer minors", async () => {
+    const future = create({ container: "#map", definition: { ...definition(), schemaVersion: "2.0.0" } as unknown as ClickMapDefinition });
+    const errors: Array<{ code: string; message: string }> = [];
+    future.on("error", (event) => errors.push(event));
+    await flush();
+    expect(errors).toEqual([{ type: "error", code: "UNSUPPORTED_SCHEMA_VERSION", message: expect.stringContaining("version 2.0.0 is newer than the supported major version 1") }]);
+    expect(host().querySelector(".clickmap-root--error[role='alert']")?.textContent).toContain("$.schemaVersion");
+    expect(host().querySelector("svg")).toBeNull();
+    future.destroy();
+
+    const minor = create({ container: "#map", definition: { ...definition(), schemaVersion: "1.7.2" } });
+    let ready = 0;
+    minor.on("ready", () => { ready += 1; });
+    await flush();
+    await flush();
+    expect(ready).toBe(1);
+    expect(host().querySelector("svg")).not.toBeNull();
   });
 
   it("unwinds partial DOM and listeners when construction fails", async () => {
@@ -154,6 +173,16 @@ describe("fetched definitions", () => {
     expect(errors).toEqual([{ type: "error", code: "INVALID_DEFINITION", message: expect.stringContaining("$.views[0].layers[0].areas[0].geometry.r") }]);
     expect(host().querySelector(".clickmap-root--loading")).toBeNull();
     expect(host().querySelector(".clickmap-root--error[role='alert']")).not.toBeNull();
+    expect(host().querySelector("svg")).toBeNull();
+  });
+
+  it("reports an unsupported major schemaVersion in a fetched file", async () => {
+    respond({ ...definition(), schemaVersion: "3.1.0" })();
+    const instance = create({ container: "#map", definitionUrl: "map.json" });
+    const codes: string[] = [];
+    instance.on("error", (event) => codes.push(event.code));
+    await flush();
+    expect(codes).toEqual(["UNSUPPORTED_SCHEMA_VERSION"]);
     expect(host().querySelector("svg")).toBeNull();
   });
 

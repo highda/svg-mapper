@@ -2,7 +2,11 @@
 // Static check of the renderer / shared / editor dependency boundary
 // (ASSIGNMENT §2.6, docs/renderer-api.md "Architecture boundary"):
 //
-//   shared/          imports only shared/ and the "shared" allowlist
+//   shared/          imports only shared/ and the "shared" allowlist; build-time
+//                    tooling in shared/scripts/ (run by Node, never bundled,
+//                    like renderer/build.mjs) is outside the layer and may use
+//                    Node built-ins and devDependencies, but no runtime file
+//                    may import it or bundle it
 //   renderer/src/    imports only renderer/src/, shared/ and the "renderer" allowlist
 //   editor/src/      (production, excluding src/test/) reaches renderer/ only
 //                    through renderer/dist/<file>?raw
@@ -45,8 +49,11 @@ export function isAllowed(pkg, allowlist) {
 const isRelative = (spec) => spec.startsWith('./') || spec.startsWith('../') || spec === '.' || spec === '..';
 const within = (file, dir) => file === dir || file.startsWith(`${dir}/`);
 const inNodeModules = (file) => file.split('/').includes('node_modules');
+// Build-time Node tooling of the shared package (e.g. the JSON Schema generator).
+export const SHARED_TOOLING_DIR = 'shared/scripts';
 
 function layerOf(file) {
+  if (within(file, SHARED_TOOLING_DIR)) return null;
   if (within(file, 'shared') && !inNodeModules(file)) return 'shared';
   if (within(file, 'renderer/src')) return 'renderer';
   if (within(file, 'editor/src') && !within(file, 'editor/src/test')) return 'editor';
@@ -102,6 +109,9 @@ export function checkImport(file, specifier, allowlist) {
 
   if (target) {
     const allowedDirs = layer === 'shared' ? ['shared'] : ['renderer/src', 'shared'];
+    if (within(target, SHARED_TOOLING_DIR)) {
+      return `${SHARED_TOOLING_DIR}/ is build-time tooling and must not be imported by runtime code (resolves to ${target})`;
+    }
     if (allowedDirs.some((dir) => within(target, dir)) && !inNodeModules(target)) return null;
     return `${layer === 'shared' ? 'shared/' : 'renderer/src/'} may import only ${allowedDirs.map((d) => `${d}/`).join(' and ')} (resolves to ${target})`;
   }
@@ -137,7 +147,7 @@ export function checkBundleInputs(inputs, allowlist) {
       if (!isAllowed(pkg, allowed)) {
         violations.push(`${METAFILE_PATH}: bundle input ${file} — package "${pkg}" is not on the shared or renderer allowlist (${ALLOWLIST_PATH})`);
       }
-    } else if (!within(file, 'renderer/src') && !within(file, 'shared')) {
+    } else if (!within(file, 'renderer/src') && (!within(file, 'shared') || within(file, SHARED_TOOLING_DIR))) {
       violations.push(`${METAFILE_PATH}: bundle input ${file} — the renderer bundle may contain only renderer/src/, shared/ and allowlisted packages`);
     }
   }

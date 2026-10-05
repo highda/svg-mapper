@@ -123,7 +123,8 @@ The same JSON shape is the editor's persistence format **and** the renderer's in
 
 This brief no longer duplicates the schema, because copies drift out of date. The canonical sources are:
 
-- [`shared/types.ts`](shared/types.ts): the TypeScript declarations (`ProjectFile`, `ClickMapDefinition`, views, layers, areas, geometry and action variants).
+- [`shared/schema.ts`](shared/schema.ts): the single structural schema. The runtime decoder, the published JSON Schema [`shared/schema/clickmap-definition.schema.json`](shared/schema/clickmap-definition.schema.json), and the drift checks against the types are all derived from it.
+- [`shared/types.ts`](shared/types.ts): the documented TypeScript declarations (`ProjectFile`, `ClickMapDefinition`, views, layers, areas, geometry and action variants), kept in lockstep with the schema at compile time.
 - [`docs/data-model.md`](docs/data-model.md): field-by-field reference, sizing modes, and decoding rules.
 - [`docs/export-format.md`](docs/export-format.md) and [`docs/renderer-api.md`](docs/renderer-api.md): package layout and runtime API.
 

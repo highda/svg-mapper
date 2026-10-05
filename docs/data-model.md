@@ -1,19 +1,70 @@
 # Data model
 
-The canonical TypeScript declarations are in [`shared/types.ts`](../shared/types.ts). The current `schemaVersion` is `"1.0.0"`.
+`map.json` (`ClickMapDefinition`) is the contract between the builder and the renderer, and what anyone must produce to use the renderer without the builder: by hand, from a script, or from a CMS. The current `schemaVersion` is `"1.0.0"`.
+
+One structural schema, the Valibot schema in [`shared/schema.ts`](../shared/schema.ts), is the source of all three machine-readable forms of the contract:
+
+- the runtime decoder that the renderer and editor run on every file they load;
+- the published JSON Schema (draft-07), [`shared/schema/clickmap-definition.schema.json`](../shared/schema/clickmap-definition.schema.json), generated with `npm run schema:generate --prefix shared` and never edited by hand. CI (`npm run schema:check --prefix shared`) fails when the committed file differs from a fresh generation;
+- the documented TypeScript declarations in [`shared/types.ts`](../shared/types.ts). Compile-time checks in `shared/schema.ts` fail typecheck when a field is added, removed, retyped, or made optional in only one of the two, and name the drifting JSON path.
+
+The release renderer ZIP ships the JSON Schema as `clickmap-definition.schema.json` and the types as `clickmap-renderer.d.ts` (the definition types plus the public renderer API). The JSON Schema is structural. Its objects accept extra properties, as the decoder does. The decoder additionally requires `image.hitMask.data` to hold exactly ceil(width × height / 8) base64 bytes and `data:` URIs in `assets[].src` to be well formed, which JSON Schema cannot express. Cross-object rules are deliberately not part of either: a missing `settings.initialViewId` view, `goToView` or `toggleLayer` target, or asset ID, duplicate IDs or view slugs, and zoom ranges where `minZoom ≤ initialZoom ≤ maxZoom` does not hold are semantic diagnostics from `validateProject` (the Export screen), so a file with a broken link still opens for repair.
+
+## Versioning
+
+`schemaVersion` is `MAJOR.MINOR.PATCH`:
+
+- A **major** change is breaking: an existing field changes meaning or type, or a field becomes required. A renderer or editor reads exactly one major version, currently `1`.
+- **Minor** and **patch** changes are additive: new optional fields or values that older readers may ignore. Any `1.x.y` is accepted. This release writes `1.0.0`.
+
+A file whose `schemaVersion` is a well-formed version with another major is refused before anything is mounted:
+
+| Reader | Behavior |
+| --- | --- |
+| Renderer | `create()` emits `error` with code `UNSUPPORTED_SCHEMA_VERSION` and shows it in the container's `.clickmap-root--error` element. The message has the form ``Unsupported map.json at $.schemaVersion: version 2.0.0 is newer than the supported major version 1 (1.x.y).`` |
+| Editor | Opening the file (or restoring such a draft) is refused and the current document is kept: ``This map uses schemaVersion 2.0.0, which is newer than this editor supports (1.x). Open it with a newer version of svg-mapper.`` An older major reports that it is an older format this editor cannot open. |
+
+A missing or malformed `schemaVersion` (for example `"1.0"`) is an ordinary structural error (`INVALID_DEFINITION`, path `$.schemaVersion`). The format is not yet released, so there is no migration between majors; a future breaking change will define its own upgrade path.
+
+## Data versus `create()` options
+
+`map.json` holds everything that describes the map: views, layers, areas, actions, styles, assets, and presentation settings. Behavior that depends on the host page is not data. It is passed to [`ClickMapRenderer.create()`](renderer-api.md#options) by the integrator and never stored in `map.json`:
+
+| `create()` option | Why it is not data |
+| --- | --- |
+| `container` | The host element belongs to the embedding page. |
+| `definition` / `definitionUrl` | They supply the data itself. |
+| `assetBaseUrl` | Deployment location of relative asset files. |
+| `choropleth` | Live values from the host's own data source, also updatable with `setChoroplethData()`. |
+| `deepLink` | Ownership of the host page's URL hash. |
+| `shadowDom`, `css` | Isolation from, and styling by, the host page. |
+| Event listeners (`on`/`off`, the exported `hooks.js`) | Trusted host JavaScript; `map.json` never contains executable code. |
+
+Per-view appearance that travels with the map (`customCss`, area styles, `settings.zoomControls`, and so on) is data.
+
+## Builder-derived and editor-only fields
+
+Hand-authored and generated maps can omit what the builder derives:
+
+- **`editor`**: the editor's own top-level block (selection, zoom, pan, grid, guides, history). It is removed on export, ignored by the renderer, and optional when opening a file in the editor.
+- **`image.hitMask`**: computed by the editor from a PNG or WebP image's alpha channel. Without it, a foreground image's hit area is its rectangle.
+- **`sharedStyleId`**: the editor's link to a shared style. The renderer paints `style`, which must always be complete.
+- **`settings.sizingMode`**: written by new files and by export. When omitted, the renderer derives it from `responsive` and `maintainAspectRatio` (see [Container sizing](#container-sizing)).
+- **`accessibility`**: when omitted, the renderer uses the area name as the accessible label and a default tab order.
+- **`project.createdAt` / `updatedAt`**: required strings, but only the editor interprets them. Any string is accepted.
 
 There are two related JSON shapes:
 
 - `ProjectFile` is downloaded by the editor's **Save** action. It includes optional editor-only selection, pan, zoom, grid, guide, and history state.
 - `ClickMapDefinition` is exported as `map.json`. Export removes the top-level `editor` property; this is the renderer's input.
 
-When opening JSON, the editor decodes the complete `1.0.0` structure before replacing the current document. Errors identify the failing JSON path; wrong or missing nested fields, unsupported discriminators, invalid numeric bounds, and malformed embedded data URIs are rejected. Cross-reference problems such as a missing action target remain loadable and are reported by the Export screen, where authors can repair them.
+When opening JSON, the editor decodes the complete structure before replacing the current document. Errors identify the failing JSON path; wrong or missing nested fields, unsupported discriminators, invalid numeric bounds, and malformed embedded data URIs are rejected. Cross-reference problems such as a missing action target remain loadable and are reported by the Export screen, where authors can repair them.
 
 ## Top-level definition
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| `schemaVersion` | `"1.0.0"` | Schema compatibility marker |
+| `schemaVersion` | `"1.x.y"` | Schema compatibility marker; see [Versioning](#versioning) |
 | `project` | `ProjectMeta` | Stable ID, display name, and ISO timestamps |
 | `settings` | `Settings` | Initial view, navigation, labels, controls, and layout |
 | `assets` | `Asset[]` | Reusable background and foreground images or SVG markup |
@@ -58,7 +109,7 @@ A `Layer` has `id`, `name`, `visible`, `locked`, `opacity`, and ordered `areas`.
 
 Every `Area` has an `id`, `name`, `geometry`, three-state `style`, and `action`. Optional fields configure tooltips, accessibility, arbitrary JSON `metadata`, pointer `trigger` (`click`, `hover`, or `both`), permanent highlight, disabled state, and label overrides.
 
-An optional `image` references an asset by `assetId`. `fit` is `fill`, `contain`, or `cover`; `opacity` is 0–1; `rotation` is in degrees around the rectangle center; and `visible`, `locked`, and `decorative` control editor/runtime presentation and semantics. Image elements use rectangle geometry for position and size, can use any existing action, and share normal layer paint order. PNG and WebP images may additionally contain a bounded deterministic `hitMask`: integer `width` and `height` from 1 to 128 and base64 `data` of exactly ceil(width × height / 8) bytes; other formats retain the rectangular hit area. The structural schema for map.json and project files lives in `shared/schema.ts` (Valibot) and is used by both the editor and the renderer; geometry numbers must be finite.
+An optional `image` references an asset by `assetId`. `fit` is `fill`, `contain`, or `cover`; `opacity` is 0–1; `rotation` is in degrees around the rectangle center; and `visible`, `locked`, and `decorative` control editor/runtime presentation and semantics. Image elements use rectangle geometry for position and size, can use any existing action, and share normal layer paint order. PNG and WebP images may additionally contain a bounded deterministic `hitMask`: integer `width` and `height` from 1 to 128 and base64 `data` of exactly ceil(width × height / 8) bytes; other formats retain the rectangular hit area. Geometry numbers must be finite.
 
 | Geometry `type` | Coordinates |
 | --- | --- |
