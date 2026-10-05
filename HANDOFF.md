@@ -4,8 +4,20 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        #169 — refactor(validation): share a declarative decoder and surface renderer load failures
+Branch:       claude/kind-albattani-vjpp90
+Started:      2026-10-05
+Last commit:  (claim)
+
+### What's done
+- Claimed #169 (selected by scripts/select-task.mjs).
+
+### What's next
+- Measure Valibot schema size vs renderer budget; shared structural decoder; decode before mounting; deferred init errors; loading/error host state; mask/geometry bounds.
+
+### Notes / gotchas
+- Session harness mandates branch `claude/kind-albattani-vjpp90` instead of `feat/169-*`.
+- Renderer is at 37.0 KB of 40 KB.
 
 ---
 
