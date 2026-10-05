@@ -1,8 +1,7 @@
 import { useState } from "react";
 import type { Area, CircleGeometry } from "@svg-mapper/shared";
-import { assetDisplaySource } from "@svg-mapper/shared";
+import { alphaMaskWorldPath, areaImagePlacement, assetDisplaySource, imagePreserveAspectRatio, imageRotationTransform, isAreaHidden } from "@svg-mapper/shared";
 import { geometryToSvgPath, getRectHandles, type RectHandle } from "../../lib/area-utils";
-import { alphaMaskToSvgPath } from "../../lib/alpha-mask";
 import { useStore } from "../../store";
 import { useStylePreview } from "../../store/style-preview";
 
@@ -62,14 +61,16 @@ export function AreaShape({
   const hw = 1 / zoom; // handle stroke width
   const imageAsset = area.image ? assets.find((asset) => asset.id === area.image?.assetId) : undefined;
   const rect = area.geometry.type === "rect" ? area.geometry : null;
-  const imageFit = area.image?.fit ?? "fill";
-  const imageAspect = imageFit === "contain" ? "xMidYMid meet" : imageFit === "cover" ? "xMidYMid slice" : "none";
-  const imageRotation = area.image?.rotation ?? 0;
+  // The same placement the renderer hit-tests against (fit, crop, rotation).
+  const placement = area.image && rect ? areaImagePlacement(rect, area.image, imageAsset) : null;
+  // A hidden image element is absent from the published map; the editor keeps
+  // it faint so it can still be selected and shown again.
+  const hidden = isAreaHidden(area);
 
   return (
-    <g style={{ opacity: isDisabled ? 0.6 : 1 }}>
-      {imageAsset && rect && area.image?.visible !== false && (
-        <image href={assetDisplaySource(imageAsset.src)} x={rect.x} y={rect.y} width={rect.width} height={rect.height} opacity={area.image?.opacity ?? 1} transform={imageRotation ? `rotate(${imageRotation} ${rect.x + rect.width / 2} ${rect.y + rect.height / 2})` : undefined} preserveAspectRatio={imageAspect} style={{ pointerEvents: "none" }} />
+    <g style={{ opacity: hidden ? 0.3 : isDisabled ? 0.6 : 1 }} data-hidden={hidden ? "true" : undefined}>
+      {imageAsset && rect && placement && (
+        <image href={assetDisplaySource(imageAsset.src)} x={rect.x} y={rect.y} width={rect.width} height={rect.height} opacity={area.image?.opacity ?? 1} transform={imageRotationTransform(placement)} preserveAspectRatio={imagePreserveAspectRatio(area.image?.fit)} style={{ pointerEvents: "none" }} />
       )}
       {/* Main area shape */}
       <path
@@ -89,9 +90,10 @@ export function AreaShape({
         onPointerLeave={handlePointerLeave}
       />
 
-      {area.image?.hitMask?.debug && rect && (
+      {area.image?.hitMask?.debug && placement && (
         <path
-          d={alphaMaskToSvgPath(area.image.hitMask, rect.x, rect.y, rect.width, rect.height)}
+          data-testid="alpha-mask-overlay"
+          d={alphaMaskWorldPath(placement, area.image.hitMask)}
           fill="rgba(236,72,153,0.38)"
           stroke="none"
           style={{ pointerEvents: "none" }}

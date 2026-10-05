@@ -44,7 +44,7 @@ Dialogs (shortcut help, Samples, the Save/Discard/Cancel prompt before replacing
 
 Select a rectangular area and choose an imported PNG or WebP under **Image region**. The image becomes the area's visual; its rectangle remains the predictable default hit box. For transparent cutouts, set an alpha threshold and choose **Generate alpha mask**. The editor samples once into a deterministic, one-bit mask capped at 128×128 pixels, and the exported renderer uses that cached mask without reading pixels or making network requests. **Show mask overlay** previews the clickable pixels in pink.
 
-Transparent holes remain non-clickable, while keyboard focus retains the visible rectangular outline. Static PNG and WebP are supported. JPEG, SVG, animated images, decode failures, and cross-origin images whose pixels cannot be read deliberately fall back to the rectangle; the editor reports that fallback and export never retries preprocessing.
+The mask follows the image's fit, crop and rotation, so the overlay and the published hit area match the displayed opaque pixels. Transparent holes are not part of the image: hover and clicks there reach whatever region lies beneath, while keyboard focus retains the visible rectangular outline. Turning an image's **Visible** toggle off hides the whole element in the published map — it can no longer be hovered, clicked or focused — and the editor shows it faintly so you can turn it back on. Static PNG and WebP are supported. JPEG, SVG, animated images, decode failures, and cross-origin images whose pixels cannot be read deliberately fall back to the rectangle; the editor reports that fallback and export never retries preprocessing.
 
 ## 4. Check structure and interaction
 
