@@ -12,11 +12,14 @@ import type {
   AreaStyleState,
   DetailsPresentation,
   PopupAction,
+  VisitorStringKey,
+  VisitorStrings,
 } from "../../shared/types.js";
 import { scopeViewCss, validateViewCss } from "../../shared/view-css.js";
 import { validateActionUrl } from "../../shared/validation.js";
 import { sanitizeRichHtml } from "../../shared/sanitize.js";
 import { decodeDefinition, DETAILS_SIZE_PATTERN } from "../../shared/schema.js";
+import { DEFAULT_VISITOR_STRINGS, formatVisitorString, ICON_PATH_PATTERN } from "../../shared/strings.js";
 import { resolveSizingMode } from "../../shared/sizing.js";
 import { assetDisplaySource, fitImageRect, markerPathData, shapeBounds } from "../../shared/scene-geometry.js";
 import { alphaMaskHit, areaImagePlacement, imagePreserveAspectRatio, imageRotationTransform, isAreaHidden } from "../../shared/area-image.js";
@@ -70,6 +73,15 @@ function svgBBox(el: Element | null): { x: number; y: number; width: number; hei
 
 function escId(id: string): string {
   return CSS.escape(id);
+}
+
+/**
+ * Visitor text (#216): the author's `strings` over the English defaults.
+ * Visible text (`visible`) may be empty; names and announcements never are.
+ */
+function visitorText(strings: VisitorStrings | undefined, key: VisitorStringKey, vars?: Record<string, unknown>, visible?: boolean): string {
+  const value = strings?.[key];
+  return formatVisitorString(value === undefined || (!visible && !value.trim()) ? DEFAULT_VISITOR_STRINGS[key] : value, vars);
 }
 
 // ---------------------------------------------------------------------------
@@ -273,6 +285,23 @@ class Renderer implements ClickMapInstance {
   private constructing = true;
   private pendingEvents: ClickMapEvent[] = [];
 
+  private t(key: VisitorStringKey, vars?: Record<string, unknown>, visible?: boolean) {
+    return visitorText(this.def.settings.strings, key, vars, visible);
+  }
+
+  /**
+   * Fill a control with its visible content: text, nothing, or an icon when
+   * the value is SVG path data. It is named by `label` when the content is
+   * not a readable name (an icon, empty, or `always`, for glyphs).
+   */
+  private control(el: HTMLElement, content: VisitorStringKey, label: VisitorStringKey, always = true) {
+    const value = this.t(content, {}, true);
+    const icon = ICON_PATH_PATTERN.test(value);
+    if (icon) el.innerHTML = `<svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" aria-hidden="true"><path d="${value}"/></svg>`;
+    else el.textContent = value;
+    if (always || icon || !value.trim()) el.setAttribute("aria-label", this.t(label));
+  }
+
   private emit(event: ClickMapEvent) {
     if (this.constructing) {
       this.pendingEvents.push(event);
@@ -373,6 +402,9 @@ class Renderer implements ClickMapInstance {
     this.root = document.createElement("div");
     this.root.className = "clickmap-root";
     this.root.dataset.clickmapInstance = this.instanceId;
+    const { lang, dir } = this.def.settings;
+    if (lang) this.root.lang = lang;
+    if (dir) this.root.dir = dir;
 
     this.viewEl = document.createElement("div");
     this.viewEl.className = "clickmap-view";
@@ -496,23 +528,22 @@ class Renderer implements ClickMapInstance {
     const panel = document.createElement("section");
     panel.className = "clickmap-directory";
     panel.id = `${this.instanceId}-directory`;
-    panel.setAttribute("aria-label", "Place directory");
+    panel.setAttribute("aria-label", this.t("directoryLabel"));
     const heading = document.createElement("h2");
-    heading.textContent = "Find a place";
+    heading.textContent = this.t("directoryTitle", {}, true);
 
     // Compact embeds show only this button; the panel opens over the map.
     const toggle = document.createElement("button");
     toggle.type = "button";
     toggle.className = "clickmap-directory-toggle";
-    toggle.textContent = "Find a place";
+    this.control(toggle, "directoryToggle", "directoryLabel", false);
     toggle.setAttribute("aria-controls", panel.id);
     toggle.setAttribute("aria-expanded", "false");
     toggle.addEventListener("click", () => this.setDirectoryOpen(!panel.classList.contains("clickmap-directory--open")));
     const close = document.createElement("button");
     close.type = "button";
     close.className = "clickmap-directory-close";
-    close.setAttribute("aria-label", "Close place directory");
-    close.textContent = "×";
+    this.control(close, "close", "directoryCloseLabel");
     close.addEventListener("click", () => this.setDirectoryOpen(false, true));
     panel.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && this.compact && panel.classList.contains("clickmap-directory--open")) {
@@ -523,11 +554,11 @@ class Renderer implements ClickMapInstance {
     const input = document.createElement("input");
     input.type = "search";
     input.className = "clickmap-directory-search";
-    input.placeholder = "Search places";
-    input.setAttribute("aria-label", "Search places");
+    input.placeholder = this.t("searchPlaceholder", {}, true);
+    input.setAttribute("aria-label", this.t("searchLabel"));
     const filters = document.createElement("div");
     filters.className = "clickmap-directory-filters";
-    filters.setAttribute("aria-label", "Filter by category");
+    filters.setAttribute("aria-label", this.t("filterLabel"));
     const status = document.createElement("div");
     status.className = "clickmap-directory-status";
     status.setAttribute("role", "status");
@@ -541,12 +572,13 @@ class Renderer implements ClickMapInstance {
       // Hidden layers (authored or toggled at runtime) are intentionally undiscoverable.
       const matches = entries.filter((entry) => this.isLayerVisible(entry.view, entry.layer) &&
         (!query || entry.search.includes(query)) && (!category || entry.category === category));
-      status.textContent = `${matches.length} ${matches.length === 1 ? "place" : "places"}`;
+      status.textContent = this.t(matches.length === 1 ? "placeCountOne" : "placeCount", { count: matches.length }, true);
       list.replaceChildren();
       if (matches.length === 0) {
         const empty = document.createElement("li");
         empty.className = "clickmap-directory-empty";
-        empty.textContent = "No places match your search.";
+        empty.textContent = this.t("noResults", {}, true);
+        empty.hidden = !empty.textContent;
         list.appendChild(empty);
         return;
       }
@@ -557,7 +589,7 @@ class Renderer implements ClickMapInstance {
         button.type = "button";
         button.className = "clickmap-directory-result";
         button.disabled = entry.area.disabled === true;
-        button.textContent = `${entry.area.name} — ${entry.view.name}${entry.area.disabled ? " (unavailable)" : ""}`;
+        button.textContent = this.t(entry.area.disabled ? "resultUnavailable" : "result", { name: entry.area.name, view: entry.view.name });
         button.addEventListener("click", () => this.revealDirectoryEntry(entry.view, entry.area));
         item.appendChild(button);
         fragment.appendChild(item);
@@ -581,6 +613,7 @@ class Renderer implements ClickMapInstance {
     for (const item of config.categories ?? []) addFilter(item.value, item.label);
     input.addEventListener("input", update);
     panel.append(close, heading, input);
+    heading.hidden = !heading.textContent;
     if (filters.childElementCount) panel.appendChild(filters);
     panel.append(status, list);
     const slot = this.slots.get("top-left")!;
@@ -621,7 +654,7 @@ class Renderer implements ClickMapInstance {
       this.emitCameraChange("reveal");
       this.setSelection(area.id);
       el.focus();
-      this.ariaLiveEl.textContent = `${area.name}, ${view.name}`;
+      this.ariaLiveEl.textContent = this.t("revealAnnounce", { name: area.name, view: view.name });
     };
     // Only the latest choice may reveal: a newer one replaces any pending reveal.
     this.pendingReveal = null;
@@ -879,7 +912,7 @@ class Renderer implements ClickMapInstance {
 
     const btn = document.createElement("button");
     btn.className = "clickmap-back-btn";
-    btn.textContent = "← Back";
+    this.control(btn, "back", "backLabel", false);
     btn.addEventListener("click", () => this.goBack());
     this.slots.get("top-left")!.prepend(btn);
     this.backBtn = btn;
@@ -898,7 +931,7 @@ class Renderer implements ClickMapInstance {
 
     const nav = document.createElement("nav");
     nav.className = "clickmap-breadcrumbs";
-    nav.setAttribute("aria-label", "Breadcrumb");
+    nav.setAttribute("aria-label", this.t("breadcrumbLabel"));
     const list = document.createElement("ol");
     [...stack, view.id].forEach((viewId, depth) => {
       const item = document.createElement("li");
@@ -938,7 +971,7 @@ class Renderer implements ClickMapInstance {
     // Buttons and tabs share one group name; the dropdown is named by its own label.
     if (style !== "dropdown") {
       el.setAttribute("role", style === "tabs" ? "tablist" : "group");
-      el.setAttribute("aria-label", "Views");
+      el.setAttribute("aria-label", this.t("viewsLabel"));
     }
 
     const views = this.def.views;
@@ -964,7 +997,7 @@ class Renderer implements ClickMapInstance {
     if (style === "dropdown") {
       const sel = document.createElement("select");
       sel.className = "clickmap-scene-dropdown";
-      sel.setAttribute("aria-label", "Choose a view");
+      sel.setAttribute("aria-label", this.t("chooseView"));
       views.forEach((view) => {
         const opt = document.createElement("option");
         opt.value = view.id;
@@ -1016,20 +1049,19 @@ class Renderer implements ClickMapInstance {
     const el = document.createElement("div");
     el.className = `clickmap-zoom-controls clickmap-zoom-controls--${zc.position ?? "top-right"}`;
 
-    const makeBtn = (cls: string, label: string, onClick: () => void) => {
-      const btn = document.createElement("button");
-      btn.className = cls;
-      btn.setAttribute("aria-label", label);
-      btn.setAttribute("type", "button");
-      btn.textContent = label === "Zoom in" ? "+" : label === "Zoom out" ? "−" : "⊙";
-      btn.addEventListener("click", onClick);
-      return btn;
-    };
-
     const factor = 1 + this.getZoomStep();
-    el.appendChild(makeBtn("clickmap-zoom-in", "Zoom in", () => this.adjustZoom(factor)));
-    el.appendChild(makeBtn("clickmap-zoom-out", "Zoom out", () => this.adjustZoom(1 / factor)));
-    el.appendChild(makeBtn("clickmap-zoom-reset", "Reset zoom", () => this.resetZoom()));
+    for (const [key, onClick] of [
+      ["zoomIn", () => this.adjustZoom(factor)],
+      ["zoomOut", () => this.adjustZoom(1 / factor)],
+      ["zoomReset", () => this.resetZoom()],
+    ] as const) {
+      const btn = document.createElement("button");
+      btn.className = `clickmap-${key.replace("zoom", "zoom-").toLowerCase()}`;
+      btn.type = "button";
+      this.control(btn, key, `${key}Label`);
+      btn.addEventListener("click", onClick);
+      el.appendChild(btn);
+    }
 
     this.slots.get(zc.position ?? "top-right")!.appendChild(el);
     this.zoomControlsEl = el;
@@ -1156,7 +1188,7 @@ class Renderer implements ClickMapInstance {
       if (pannable) {
         this.svgEl.setAttribute("tabindex", "0");
         this.svgEl.setAttribute("role", "group");
-        this.svgEl.setAttribute("aria-label", "Map, arrow keys pan");
+        this.svgEl.setAttribute("aria-label", this.t("mapLabel"));
       } else {
         this.svgEl.removeAttribute("tabindex");
         this.svgEl.removeAttribute("aria-label");
@@ -1420,7 +1452,14 @@ class Renderer implements ClickMapInstance {
 
     const labels = document.createElement("div");
     labels.style.cssText = "display:flex;justify-content:space-between;width:100px;";
-    labels.innerHTML = `<span>${minV.toFixed(1)}</span><span>${maxV.toFixed(1)}</span>`;
+    const format = { minimumFractionDigits: 1, maximumFractionDigits: 1 };
+    let numbers: Intl.NumberFormat;
+    try {
+      numbers = new Intl.NumberFormat(this.def.settings.lang || "en", format);
+    } catch {
+      numbers = new Intl.NumberFormat("en", format);
+    }
+    for (const value of [minV, maxV]) labels.appendChild(document.createElement("span")).textContent = numbers.format(value);
 
     legend.appendChild(gradient);
     legend.appendChild(labels);
@@ -1841,7 +1880,7 @@ class Renderer implements ClickMapInstance {
         code: "LAYER_NOT_FOUND",
         message: `Layer "${targetLayerId}" was not found in the current view.`,
       });
-      this.ariaLiveEl.textContent = "Layer could not be changed.";
+      this.ariaLiveEl.textContent = this.t("layerError");
       return;
     }
     const overrides = this.layerVisibility.get(view.id) ?? new Map<string, boolean>();
@@ -1849,7 +1888,7 @@ class Renderer implements ClickMapInstance {
     overrides.set(layer.id, visible);
     this.layerVisibility.set(view.id, overrides);
     this.refreshScene(view);
-    this.ariaLiveEl.textContent = `${layer.name} ${visible ? "shown" : "hidden"}.`;
+    this.ariaLiveEl.textContent = this.t(visible ? "layerShown" : "layerHidden", { name: layer.name });
   }
 
   /**
@@ -2105,7 +2144,7 @@ class Renderer implements ClickMapInstance {
     } else {
       host.setAttribute("aria-label", area
         ? area.accessibility?.ariaLabel?.trim() || area.name
-        : this.def.settings.details?.label?.trim() || "Details");
+        : this.def.settings.details?.label?.trim() || this.t("detailsLabel"));
     }
 
     if (templated !== null || content.body) {
@@ -2127,8 +2166,7 @@ class Renderer implements ClickMapInstance {
 
     const closeBtn = document.createElement("button");
     closeBtn.type = "button";
-    closeBtn.textContent = "×";
-    closeBtn.setAttribute("aria-label", "Close");
+    this.control(closeBtn, "close", "closeLabel");
     closeBtn.className = `${cls}-close`;
     closeBtn.addEventListener("click", () => {
       if (area) {
@@ -2411,7 +2449,7 @@ class Renderer implements ClickMapInstance {
   private focusNavigationDestination(viewId: string, preserveFocus: boolean) {
     const view = this.def.views.find((candidate) => candidate.id === viewId);
     if (!view) return;
-    this.ariaLiveEl.textContent = `${view.name} view.`;
+    this.ariaLiveEl.textContent = this.t("viewAnnounce", { name: view.name });
     if (!preserveFocus) return;
 
     const sceneControl = this.sceneSwitcherEl?.querySelector<HTMLElement>(
@@ -2688,8 +2726,10 @@ function resolveContainer(options: RendererOptions): HTMLElement {
  */
 class HostStatus {
   private el: HTMLDivElement;
+  private strings: RendererOptions["strings"];
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, strings: RendererOptions["strings"]) {
+    this.strings = strings;
     this.el = document.createElement("div");
     this.el.style.cssText = "display:flex;align-items:center;justify-content:center;min-height:120px;padding:16px;box-sizing:border-box;font:14px/1.4 system-ui,sans-serif;text-align:center;";
     container.appendChild(this.el);
@@ -2699,7 +2739,7 @@ class HostStatus {
     this.el.className = "clickmap-root clickmap-root--loading";
     this.el.setAttribute("role", "status");
     this.el.setAttribute("aria-busy", "true");
-    this.el.textContent = "Loading map…";
+    this.el.textContent = visitorText(this.strings, "loading", {}, true);
   }
 
   error(message: string) {
@@ -2707,7 +2747,7 @@ class HostStatus {
     this.el.setAttribute("role", "alert");
     this.el.removeAttribute("aria-busy");
     this.el.dataset.error = message;
-    this.el.textContent = `This map could not be displayed. ${message}`;
+    this.el.textContent = visitorText(this.strings, "error", { message });
   }
 
   remove() {
@@ -2746,9 +2786,9 @@ class FailedRenderer implements ClickMapInstance {
   private destroyed = false;
   private message: string;
 
-  constructor(container: HTMLElement, code: string, message: string) {
+  constructor(container: HTMLElement, strings: RendererOptions["strings"], code: string, message: string) {
     this.message = message;
-    this.status = new HostStatus(container);
+    this.status = new HostStatus(container, strings);
     this.status.error(message);
     // Delivered after create() returns, so an immediate on("error") receives it.
     queueMicrotask(() => {
@@ -2792,7 +2832,7 @@ class DeferredRenderer implements ClickMapInstance {
 
   constructor(options: RendererOptions) {
     const container = resolveContainer(options);
-    this.status = new HostStatus(container);
+    this.status = new HostStatus(container, options.strings);
     this.status.loading();
     fetch(options.definitionUrl!, { signal: this.abortController.signal })
       .then((r) => {
@@ -2908,11 +2948,11 @@ export function create(options: RendererOptions): ClickMapInstance {
     // Decode before mounting: an invalid definition never builds partial DOM.
     const container = resolveContainer(options);
     const decoded = decodeDefinition(options.definition);
-    if (!decoded.ok) return new FailedRenderer(container, decoded.code, decoded.message);
+    if (!decoded.ok) return new FailedRenderer(container, options.strings, decoded.code, decoded.message);
     try {
       return new Renderer({ ...options, container }, decoded.value);
     } catch (error) {
-      return new FailedRenderer(container, "LOAD_FAILED", failureMessage(error));
+      return new FailedRenderer(container, options.strings, "LOAD_FAILED", failureMessage(error));
     }
   }
   if (options.definitionUrl) return new DeferredRenderer(options);

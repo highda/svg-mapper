@@ -2,8 +2,9 @@
 // Errors block export; warnings allow export with confirmation.
 // Lives in /shared so the editor and the test suite share one implementation.
 
-import type { ClickMapDefinition, Geometry, View } from "./types.js";
+import type { ClickMapDefinition, Geometry, View, VisitorStringKey } from "./types.js";
 import { validateViewCss } from "./view-css.js";
+import { DEFAULT_VISITOR_STRINGS, VISIBLE_STRING_KEYS } from "./strings.js";
 import { pathDataError } from "./path-geometry.js";
 
 export type Severity = "error" | "warning";
@@ -343,6 +344,11 @@ export function validateProject(project: ClickMapDefinition): ValidationResult[]
           }
         }
 
+        // A focusable area is a button named by its accessible label or its name.
+        if (!area.disabled && !area.name.trim() && !area.accessibility?.ariaLabel?.trim()) {
+          warn("MISSING_ACCESSIBLE_NAME", `An area in layer "${layer.name}" has no name, so screen readers cannot announce it.`, ref);
+        }
+
         // Warning: Area present but no action.
         if (area.action.type === "none") {
           warn("AREA_NO_ACTION", `Area "${area.name}" has no action.`, ref);
@@ -363,6 +369,29 @@ export function validateProject(project: ClickMapDefinition): ValidationResult[]
   }
 
   // ── Warnings ────────────────────────────────────────────────────────────────
+
+  // Visitor text and language (#216). Visible text may be blank (hidden), but
+  // accessible names and announcements are required: the renderer falls back
+  // to the English default, which a translated map should not announce.
+  const settings = project.settings;
+  for (const [key, value] of Object.entries(settings.strings ?? {})) {
+    if (!(key in DEFAULT_VISITOR_STRINGS)) {
+      warn("UNKNOWN_VISITOR_TEXT", `Visitor text "${key}" is not a known key and is ignored.`);
+    } else if (typeof value === "string" && !value.trim() && !VISIBLE_STRING_KEYS.includes(key as VisitorStringKey)) {
+      warn(
+        "BLANK_ACCESSIBLE_NAME",
+        `Visitor text "${key}" is an accessible name or announcement and cannot be blank; the default "${DEFAULT_VISITOR_STRINGS[key as VisitorStringKey]}" is used.`,
+      );
+    }
+  }
+  if (settings.lang !== undefined && !validLanguageTag(settings.lang)) {
+    warn("INVALID_LANG", `Map language "${settings.lang}" is not a valid BCP 47 language tag (for example "en" or "cs").`);
+  }
+  if (settings.sceneSwitcher?.enabled) {
+    for (const view of views) {
+      if (!view.name.trim()) warn("MISSING_ACCESSIBLE_NAME", "A view has no name, so its scene switcher button has no accessible name.", { viewId: view.id });
+    }
+  }
 
   // Unreachable Views.
   if (views.length > 0 && viewIds.has(project.settings.initialViewId)) {
@@ -404,6 +433,15 @@ export function validateProject(project: ClickMapDefinition): ValidationResult[]
   }
 
   return results;
+}
+
+function validLanguageTag(tag: string): boolean {
+  if (!tag.trim()) return false;
+  try {
+    return Intl.getCanonicalLocales(tag).length === 1;
+  } catch {
+    return false;
+  }
 }
 
 export function hasBlockingErrors(results: ValidationResult[]): boolean {

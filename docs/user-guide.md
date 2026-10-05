@@ -73,6 +73,8 @@ With a details panel, use the map host fields to compare layouts: a wide host (s
 
 To help visitors find places by text, select the view and enable **Place Directory** in the project inspector. Area names are always searched; add comma-separated metadata fields such as `amenity, address` for richer matching. A category field (for example `category`) plus `value = Visitor label` lines creates filter chips and a text legend. Preview uses the real published directory: verify search counts and empty states, keyboard through filters and results, and choose results in several views. Hidden layers never appear; disabled areas are visibly listed as unavailable.
 
+To publish the map in another language, or with no text at all, select the view and open **Visitor text** in the project inspector. Set the map's **Language** (for example `cs`) and, for right-to-left scripts, the **Direction**. Every string the published map shows or announces is listed with its English default in grey; leave a field blank to keep the default. Visible text such as the directory heading or the zoom button symbols can be hidden with **Hide**, or replaced by an icon by entering SVG path data (a 24×24 box). Screen reader names and announcements cannot be hidden, so a textless map stays usable with a screen reader. Preview shows your text immediately.
+
 ## 5. Validate and export
 
 Open **Export** (or Cmd/Ctrl+E). Resolve red errors; they disable ZIP download. Review amber warnings and either fix them or explicitly export anyway. Click referenced results to jump to the offending item.

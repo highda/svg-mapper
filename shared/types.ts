@@ -424,6 +424,89 @@ export interface DetailsSettings {
 }
 
 // ---------------------------------------------------------------------------
+// Visitor text (#216)
+// ---------------------------------------------------------------------------
+
+/**
+ * Every visitor-facing renderer string, all optional; defaults are English
+ * (`DEFAULT_VISITOR_STRINGS` in shared/strings.ts). Visible text may be ""
+ * to hide it; accessible names and announcements are never left empty.
+ * Placeholders in braces are filled by the renderer.
+ */
+export interface VisitorStrings {
+  /** Visible. Compact "open directory" button text (control content). */
+  directoryToggle?: string;
+  /** Visible. Directory heading. */
+  directoryTitle?: string;
+  /** Name. Directory region; also names the compact button when its text is hidden. */
+  directoryLabel?: string;
+  /** Name. The compact directory's close button. */
+  directoryCloseLabel?: string;
+  /** Visible. Search field placeholder. */
+  searchPlaceholder?: string;
+  /** Name. Search field. */
+  searchLabel?: string;
+  /** Name. Category filter group. */
+  filterLabel?: string;
+  /** Visible. Result count, `{count}` other than one. */
+  placeCount?: string;
+  /** Visible. Result count, `{count}` of one. */
+  placeCountOne?: string;
+  /** Visible. Empty search result. */
+  noResults?: string;
+  /** Name. A directory result: `{name}`, `{view}`. */
+  result?: string;
+  /** Name. A disabled directory result: `{name}`, `{view}`. */
+  resultUnavailable?: string;
+  /** Announcement after a directory result is revealed: `{name}`, `{view}`. */
+  revealAnnounce?: string;
+  /** Visible. Back button content. */
+  back?: string;
+  /** Name. Back button, when its content is hidden or an icon. */
+  backLabel?: string;
+  /** Name. The breadcrumb trail. */
+  breadcrumbLabel?: string;
+  /** Name. Scene switcher buttons or tabs. */
+  viewsLabel?: string;
+  /** Name. Scene switcher dropdown. */
+  chooseView?: string;
+  /** Announcement after navigation: `{name}`. */
+  viewAnnounce?: string;
+  /** Name. The zoomed-in map while it can be panned with arrow keys. */
+  mapLabel?: string;
+  /** Visible. Zoom-in button content. */
+  zoomIn?: string;
+  /** Name. Zoom-in button. */
+  zoomInLabel?: string;
+  /** Visible. Zoom-out button content. */
+  zoomOut?: string;
+  /** Name. Zoom-out button. */
+  zoomOutLabel?: string;
+  /** Visible. Reset-zoom button content. */
+  zoomReset?: string;
+  /** Name. Reset-zoom button. */
+  zoomResetLabel?: string;
+  /** Visible. Close button content (details and compact directory). */
+  close?: string;
+  /** Name. Details close button. */
+  closeLabel?: string;
+  /** Name. Untitled panel default content, unless `settings.details.label` is set. */
+  detailsLabel?: string;
+  /** Announcement after a layer toggle shows a layer: `{name}`. */
+  layerShown?: string;
+  /** Announcement after a layer toggle hides a layer: `{name}`. */
+  layerHidden?: string;
+  /** Announcement when a layer toggle fails. */
+  layerError?: string;
+  /** Visible. Loading state (`create()` option `strings`, before map.json loads). */
+  loading?: string;
+  /** Error state: `{message}` (`create()` option `strings`). */
+  error?: string;
+}
+
+export type VisitorStringKey = keyof VisitorStrings;
+
+// ---------------------------------------------------------------------------
 // Project settings
 // ---------------------------------------------------------------------------
 
@@ -451,6 +534,12 @@ export interface Settings {
   details?: DetailsSettings;
   /** Expands the effective viewBox by these amounts (canvas units). */
   padding?: { top: number; right: number; bottom: number; left: number };
+  /** The map's one language, a BCP 47 tag such as `cs`: set as `lang` on the renderer root and used for number formatting. */
+  lang?: string;
+  /** Text direction of the renderer root; set only when given. */
+  dir?: "ltr" | "rtl";
+  /** Visitor-facing text overrides; see VisitorStrings. */
+  strings?: VisitorStrings;
 }
 
 // ---------------------------------------------------------------------------
@@ -541,6 +630,11 @@ export interface RendererOptions {
   shadowDom?: boolean;
   /** Extra CSS injected into the shadow root (only used when shadowDom: true). */
   css?: string;
+  /**
+   * Text shown before a map is mounted: `loading` and `error`. map.json is not
+   * read yet (or could not be read), so `settings.strings` cannot supply them.
+   */
+  strings?: Pick<VisitorStrings, "loading" | "error">;
 }
 
 export interface ClickMapReadyEvent {

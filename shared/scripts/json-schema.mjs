@@ -8,9 +8,23 @@
 // Imports the TypeScript source directly through Node's built-in type
 // stripping (Node >= 22.18).
 import { readFileSync, writeFileSync } from "node:fs";
+import { register } from "node:module";
 import { fileURLToPath } from "node:url";
 import { toJsonSchema } from "@valibot/to-json-schema";
-import { CURRENT_SCHEMA_VERSION, definitionParts, definitionSchema } from "../schema.ts";
+
+// shared/ sources import each other as "./x.js" (bundler resolution); map a
+// relative .js import that does not exist to its .ts source.
+register(`data:text/javascript,${encodeURIComponent(`
+  export async function resolve(specifier, context, next) {
+    try {
+      return await next(specifier, context);
+    } catch (error) {
+      if (!specifier.startsWith(".") || !specifier.endsWith(".js")) throw error;
+      return next(specifier.slice(0, -3) + ".ts", context);
+    }
+  }
+`)}`);
+const { CURRENT_SCHEMA_VERSION, definitionParts, definitionSchema } = await import("../schema.ts");
 
 const outFile = fileURLToPath(new URL("../schema/clickmap-definition.schema.json", import.meta.url));
 

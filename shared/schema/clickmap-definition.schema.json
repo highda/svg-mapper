@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "svg-mapper map definition (map.json)",
-  "description": "ClickMapDefinition, the contract between the svg-mapper builder and renderer. This release writes schemaVersion 1.1.0 and reads any 1.x.y. A major version change is breaking; minor and patch changes are additive. See docs/data-model.md.",
+  "description": "ClickMapDefinition, the contract between the svg-mapper builder and renderer. This release writes schemaVersion 1.2.0 and reads any 1.x.y. A major version change is breaking; minor and patch changes are additive. See docs/data-model.md.",
   "$comment": "Generated from shared/schema.ts by shared/scripts/json-schema.mjs; do not edit by hand. Structural only: rules across objects (settings.initialViewId, goToView and toggleLayer targets and asset ids must exist; ids and view slugs must be unique; minZoom <= initialZoom <= maxZoom) are semantic checks made by validateProject, not by this schema. The runtime decoder additionally requires image.hitMask.data to hold exactly ceil(width * height / 8) base64-encoded bytes and data: URIs in assets[].src to be well formed. Objects accept extra properties.",
   "type": "object",
   "properties": {
@@ -361,6 +361,124 @@
             "bottom",
             "left"
           ]
+        },
+        "lang": {
+          "type": "string"
+        },
+        "dir": {
+          "enum": [
+            "ltr",
+            "rtl"
+          ],
+          "type": "string"
+        },
+        "strings": {
+          "type": "object",
+          "properties": {
+            "directoryToggle": {
+              "type": "string"
+            },
+            "directoryTitle": {
+              "type": "string"
+            },
+            "directoryLabel": {
+              "type": "string"
+            },
+            "directoryCloseLabel": {
+              "type": "string"
+            },
+            "searchPlaceholder": {
+              "type": "string"
+            },
+            "searchLabel": {
+              "type": "string"
+            },
+            "filterLabel": {
+              "type": "string"
+            },
+            "placeCount": {
+              "type": "string"
+            },
+            "placeCountOne": {
+              "type": "string"
+            },
+            "noResults": {
+              "type": "string"
+            },
+            "result": {
+              "type": "string"
+            },
+            "resultUnavailable": {
+              "type": "string"
+            },
+            "revealAnnounce": {
+              "type": "string"
+            },
+            "back": {
+              "type": "string"
+            },
+            "backLabel": {
+              "type": "string"
+            },
+            "breadcrumbLabel": {
+              "type": "string"
+            },
+            "viewsLabel": {
+              "type": "string"
+            },
+            "chooseView": {
+              "type": "string"
+            },
+            "viewAnnounce": {
+              "type": "string"
+            },
+            "mapLabel": {
+              "type": "string"
+            },
+            "zoomIn": {
+              "type": "string"
+            },
+            "zoomInLabel": {
+              "type": "string"
+            },
+            "zoomOut": {
+              "type": "string"
+            },
+            "zoomOutLabel": {
+              "type": "string"
+            },
+            "zoomReset": {
+              "type": "string"
+            },
+            "zoomResetLabel": {
+              "type": "string"
+            },
+            "close": {
+              "type": "string"
+            },
+            "closeLabel": {
+              "type": "string"
+            },
+            "detailsLabel": {
+              "type": "string"
+            },
+            "layerShown": {
+              "type": "string"
+            },
+            "layerHidden": {
+              "type": "string"
+            },
+            "layerError": {
+              "type": "string"
+            },
+            "loading": {
+              "type": "string"
+            },
+            "error": {
+              "type": "string"
+            }
+          },
+          "required": []
         }
       },
       "required": [

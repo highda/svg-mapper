@@ -13,10 +13,11 @@
 // `npm run schema:generate`), and the compile-time checks at the bottom keep
 // the TypeScript declarations in types.ts in lockstep with it (#196).
 import * as v from "valibot";
-import type { ClickMapDefinition, ProjectFile, SchemaVersion } from "./types.js";
+import type { ClickMapDefinition, ProjectFile, SchemaVersion, VisitorStrings } from "./types.js";
+import { DEFAULT_VISITOR_STRINGS } from "./strings.js";
 
 /** The schemaVersion this build writes. */
-export const CURRENT_SCHEMA_VERSION = "1.1.0" satisfies SchemaVersion;
+export const CURRENT_SCHEMA_VERSION = "1.2.0" satisfies SchemaVersion;
 /** The only schemaVersion major this build reads. Minor and patch versions are additive. */
 export const SUPPORTED_SCHEMA_MAJOR = 1;
 
@@ -150,6 +151,11 @@ const asset = v.object({
   inline: bool,
 });
 
+// Every key optional; built from the defaults (shared/strings.ts) so the key list has one source.
+const stringEntries: Record<string, ReturnType<typeof opt<typeof str>>> = {};
+for (const key in DEFAULT_VISITOR_STRINGS) stringEntries[key] = opt(str);
+const visitorStrings = v.object(stringEntries) as unknown as v.GenericSchema<VisitorStrings>;
+
 const corner = v.picklist(["top-left", "top-right", "bottom-left", "bottom-right"]);
 
 const settings = v.object({
@@ -192,6 +198,9 @@ const settings = v.object({
     hideWhenIdle: opt(bool),
   })),
   padding: opt(v.object({ top: atLeast(0), right: atLeast(0), bottom: atLeast(0), left: atLeast(0) })),
+  lang: opt(str),
+  dir: opt(v.picklist(["ltr", "rtl"])),
+  strings: opt(visitorStrings),
 });
 
 // Any 1.x.y; other majors are caught first in decode() with a stable code.
