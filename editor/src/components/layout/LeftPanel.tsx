@@ -28,6 +28,7 @@ function InlineRename({
     <input
       ref={inputRef}
       autoFocus
+      aria-label={`Rename ${value}`}
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
@@ -588,6 +589,7 @@ export function LeftPanel({ workspace = false }: { workspace?: boolean }) {
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+          aria-label="Search areas"
           placeholder="Search areas… (/)"
           className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-[10px] text-neutral-300 placeholder-neutral-600 outline-none focus:border-blue-500"
         />

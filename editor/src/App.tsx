@@ -10,6 +10,7 @@ import { ShortcutsHelp } from "./components/ui/ShortcutsHelp";
 import { CorruptDraftError, readDraft, removeDraft, type StoredDraft, writeDraft } from "./lib/draft-storage";
 import { projectSnapshot } from "./store";
 import { FirstUseGuide } from "./components/ui/FirstUseGuide";
+import { ModalDialog } from "./components/ui/ModalDialog";
 import { isEditableTarget, isModalOpen } from "./lib/shortcut-guard";
 
 function storageError(error: unknown, fallback: string): string {
@@ -35,6 +36,7 @@ export function App() {
   const [pendingWrites, setPendingWrites] = useState(0);
   const [draftChecked, setDraftChecked] = useState(false);
   const initialSavedSnapshot = useRef(savedSnapshot);
+  const restoreDraftRef = useRef<HTMLButtonElement>(null);
   const currentSnapshot = projectSnapshot(project);
   const isDirty = currentSnapshot !== savedSnapshot;
 
@@ -121,7 +123,7 @@ export function App() {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.isComposing || isEditableTarget(e)) return;
       // An open dialog owns the keyboard; "?" may only close the help dialog itself.
-      const helpOpen = document.querySelector('[role="dialog"][aria-label="Keyboard shortcuts"]') !== null;
+      const helpOpen = document.querySelector('[data-dialog="shortcuts-help"]') !== null;
       if (isModalOpen() && !(helpOpen && e.key === "?")) return;
 
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
@@ -175,27 +177,25 @@ export function App() {
       </div>
       {mobileInspectorOpen && <button type="button" aria-label="Close inspector overlay" className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={() => setMobileInspectorOpen(false)} />}
       <BottomBar />
-      {showHelp && <ShortcutsHelp onClose={() => setShowHelp(false)} />}
-      {recoverableDraft && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="draft-title">
-          <div className="max-w-md rounded-lg border border-neutral-600 bg-neutral-900 p-5 shadow-xl">
-            <h2 id="draft-title" className="text-base font-semibold text-white">Recover local draft?</h2>
-            <p className="mt-2 text-sm text-neutral-300">
-              A draft of “{recoverableDraft.project.project.name}” from {new Date(recoverableDraft.savedAt).toLocaleString()} is stored only in this browser.
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button className="rounded px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700" onClick={() => {
-                void discardStoredDraft("The stored draft could not be removed.");
-                setRecoverableDraft(null);
-              }}>Discard draft</button>
-              <button autoFocus className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-500" onClick={() => {
-                restoreDraft(recoverableDraft.project);
-                setRecoverableDraft(null);
-              }}>Restore draft</button>
-            </div>
-          </div>
+      <ShortcutsHelp open={showHelp} onClose={() => setShowHelp(false)} />
+      {/* Recovery needs an explicit choice: Escape and outside clicks do nothing (#174). */}
+      <ModalDialog
+        open={recoverableDraft !== null}
+        title="Recover local draft?"
+        description={recoverableDraft && <>A draft of “{recoverableDraft.project.project.name}” from {new Date(recoverableDraft.savedAt).toLocaleString()} is stored only in this browser.</>}
+        initialFocusRef={restoreDraftRef}
+      >
+        <div className="mt-4 flex justify-end gap-2">
+          <button type="button" className="rounded px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700" onClick={() => {
+            void discardStoredDraft("The stored draft could not be removed.");
+            setRecoverableDraft(null);
+          }}>Discard draft</button>
+          <button ref={restoreDraftRef} type="button" className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-500" onClick={() => {
+            if (recoverableDraft) restoreDraft(recoverableDraft.project);
+            setRecoverableDraft(null);
+          }}>Restore draft</button>
         </div>
-      )}
+      </ModalDialog>
     </div>
   );
 }

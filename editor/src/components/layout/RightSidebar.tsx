@@ -17,7 +17,7 @@ import type {
   Viewport,
   View,
 } from "@svg-mapper/shared";
-import { useId, useState } from "react";
+import { createContext, useContext, useId, useState, type ComponentProps } from "react";
 import { geometryLockReason, useStore } from "../../store";
 import { validateActionUrl } from "../../lib/url-validate";
 import { createAlphaHitMask, MAX_ALPHA_MASK_DIMENSION } from "../../lib/alpha-mask";
@@ -36,13 +36,34 @@ function SectionHeader({ title, scope }: { title: string; scope?: "Project" | "V
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+// Row labels are real <label>s (#174): the field inside a Row takes the Row's id
+// from context, so every inspector control has a programmatic name.
+const FieldIdContext = createContext<string | undefined>(undefined);
+const useFieldId = () => useContext(FieldIdContext);
+
+function Row({ label, children, plain }: { label: string; children: React.ReactNode; plain?: boolean }) {
+  const id = useId();
+  const labelClass = "w-20 shrink-0 text-[10px] text-neutral-500";
   return (
     <div className="flex items-center gap-1">
-      <span className="w-20 shrink-0 text-[10px] text-neutral-500">{label}</span>
-      <div className="min-w-0 flex-1">{children}</div>
+      {plain ? <span className={labelClass}>{label}</span> : <label htmlFor={id} className={labelClass}>{label}</label>}
+      <div className="min-w-0 flex-1">
+        <FieldIdContext.Provider value={plain ? undefined : id}>{children}</FieldIdContext.Provider>
+      </div>
     </div>
   );
+}
+
+function FieldSelect(props: ComponentProps<"select">) {
+  return <select id={useFieldId()} {...props} />;
+}
+
+function FieldTextarea(props: ComponentProps<"textarea">) {
+  return <textarea id={useFieldId()} {...props} />;
+}
+
+function FieldInput(props: ComponentProps<"input">) {
+  return <input id={useFieldId()} {...props} />;
 }
 
 // Uncontrolled text input — commits on blur/Enter. Keyed by its persisted value,
@@ -52,11 +73,13 @@ function TextField({
   onCommit,
   readOnly,
   placeholder,
+  describedBy,
 }: {
   defaultValue: string;
   onCommit?: (v: string) => void;
   readOnly?: boolean;
   placeholder?: string;
+  describedBy?: string;
 }) {
   function handleBlur(e: React.FocusEvent<HTMLInputElement>) {
     if (readOnly || !onCommit) return;
@@ -65,10 +88,12 @@ function TextField({
   return (
     <input
       key={defaultValue}
+      id={useFieldId()}
       type="text"
       defaultValue={defaultValue}
       readOnly={readOnly}
       placeholder={placeholder}
+      aria-describedby={describedBy}
       onBlur={handleBlur}
       onKeyDown={(e) => {
         if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); }
@@ -104,6 +129,7 @@ function NumberField({
   return (
     <input
       key={defaultValue}
+      id={useFieldId()}
       type="number"
       defaultValue={defaultValue}
       min={min}
@@ -143,7 +169,8 @@ function CheckToggle({
 // ---------------------------------------------------------------------------
 
 function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  const id = useId();
+  const ownId = useId();
+  const id = useFieldId() ?? ownId;
   const [draft, setDraft] = useState(value);
   // Follow the persisted value when it changes elsewhere (undo, picker, preset).
   const [synced, setSynced] = useState(value);
@@ -175,6 +202,7 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
         type="text"
         aria-label={`${label} CSS color`}
         aria-invalid={!valid}
+        aria-describedby={!valid ? `${id}-error` : undefined}
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={commit}
@@ -263,7 +291,7 @@ function ViewInspector({ view }: { view: View }) {
       {view.background && (
         <>
         <Row label="Fit">
-          <select
+          <FieldSelect
             aria-label="Background Fit"
             value={view.background.fit}
             onChange={(e) => setViewBackgroundFit(view.id, e.target.value as BackgroundFit)}
@@ -272,10 +300,10 @@ function ViewInspector({ view }: { view: View }) {
             {(["contain", "cover", "fill", "none"] as const).map((fit) => (
               <option key={fit} value={fit}>{fit}</option>
             ))}
-          </select>
+          </FieldSelect>
         </Row>
         <Row label="Position">
-          <select
+          <FieldSelect
             aria-label="Background Position"
             value={`${view.background.position?.x ?? 0.5},${view.background.position?.y ?? 0.5}`}
             onChange={(e) => {
@@ -287,13 +315,13 @@ function ViewInspector({ view }: { view: View }) {
             <option value="0,0">Top left</option><option value="0.5,0">Top</option><option value="1,0">Top right</option>
             <option value="0,0.5">Left</option><option value="0.5,0.5">Center</option><option value="1,0.5">Right</option>
             <option value="0,1">Bottom left</option><option value="0.5,1">Bottom</option><option value="1,1">Bottom right</option>
-          </select>
+          </FieldSelect>
         </Row>
         </>
       )}
 
       <Row label="Background">
-        <select
+        <FieldSelect
           value={view.background?.assetId ?? ""}
           onChange={handleAssetChange}
           className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
@@ -302,7 +330,7 @@ function ViewInspector({ view }: { view: View }) {
           {project.assets.map((a) => (
             <option key={a.id} value={a.id}>{a.name}</option>
           ))}
-        </select>
+        </FieldSelect>
       </Row>
 
       <SectionHeader title="Advanced: custom CSS" scope="View" />
@@ -314,6 +342,7 @@ function ViewInspector({ view }: { view: View }) {
         id={`view-css-${view.id}`}
         aria-label="View CSS"
         aria-invalid={customCssError ? "true" : undefined}
+        aria-describedby={customCssError ? `view-css-${view.id}-error` : undefined}
         value={customCss}
         onChange={(event) => setCustomCss(event.target.value)}
         onBlur={() => { if (!customCssError) setViewCustomCss(view.id, customCss.trim() || undefined); }}
@@ -322,7 +351,7 @@ function ViewInspector({ view }: { view: View }) {
         className="w-full resize-y rounded border border-neutral-700 bg-neutral-950 p-2 font-mono text-[11px] text-neutral-200 outline-none focus:border-blue-500"
         placeholder={".clickmap-bg { opacity: .8; }"}
       />
-      {customCssError ? <p role="alert" className="text-[10px] text-red-400">{customCssError}</p> : <p className="text-[10px] text-emerald-500">CSS syntax is ready to apply.</p>}
+      {customCssError ? <p id={`view-css-${view.id}-error`} role="alert" className="text-[10px] text-red-400">{customCssError}</p> : <p className="text-[10px] text-emerald-500">CSS syntax is ready to apply.</p>}
       <button
         type="button"
         onClick={() => { setCustomCss(""); setViewCustomCss(view.id, undefined); }}
@@ -397,7 +426,7 @@ function ViewInspector({ view }: { view: View }) {
         />
       </Row>
       <Row label="Color">
-        <input
+        <FieldInput
           aria-label="Area Label Color"
           type="color"
           value={project.settings.areaLabels?.color ?? "#000000"}
@@ -483,7 +512,7 @@ function ViewInspector({ view }: { view: View }) {
         label="Show view switcher"
       />
       <Row label="Position">
-        <select
+        <FieldSelect
           aria-label="Scene Switcher Position"
           value={project.settings.sceneSwitcher?.position ?? "bottom-center"}
           disabled={!project.settings.sceneSwitcher?.enabled}
@@ -499,10 +528,10 @@ function ViewInspector({ view }: { view: View }) {
           {(["top-left", "top-center", "top-right", "bottom-left", "bottom-center", "bottom-right"] as const).map((position) => (
             <option key={position} value={position}>{position.replace("-", " ")}</option>
           ))}
-        </select>
+        </FieldSelect>
       </Row>
       <Row label="Style">
-        <select
+        <FieldSelect
           aria-label="Scene Switcher Style"
           value={project.settings.sceneSwitcher?.style ?? "buttons"}
           disabled={!project.settings.sceneSwitcher?.enabled}
@@ -518,7 +547,7 @@ function ViewInspector({ view }: { view: View }) {
           <option value="buttons">Buttons</option>
           <option value="tabs">Tabs</option>
           <option value="dropdown">Dropdown</option>
-        </select>
+        </FieldSelect>
       </Row>
 
       <SectionHeader title="Advanced: camera" scope="View" />
@@ -533,7 +562,7 @@ function ViewInspector({ view }: { view: View }) {
         label="Show zoom controls"
       />
       <Row label="Position">
-        <select
+        <FieldSelect
           aria-label="Zoom Controls Position"
           value={project.settings.zoomControls?.position ?? "top-right"}
           disabled={!project.settings.zoomControls?.enabled}
@@ -549,7 +578,7 @@ function ViewInspector({ view }: { view: View }) {
           {(["top-left", "top-right", "bottom-left", "bottom-right"] as const).map((position) => (
             <option key={position} value={position}>{position.replace("-", " ")}</option>
           ))}
-        </select>
+        </FieldSelect>
       </Row>
       <Row label="Zoom step">
         <NumberField
@@ -561,7 +590,7 @@ function ViewInspector({ view }: { view: View }) {
         />
       </Row>
       <Row label="Reset to">
-        <select
+        <FieldSelect
           aria-label="Zoom Reset Behavior"
           value={project.settings.zoomControls?.resetBehavior ?? "initial"}
           onChange={(e) => updateSettings({ zoomControls: { ...project.settings.zoomControls, enabled: project.settings.zoomControls?.enabled ?? false, resetBehavior: e.target.value as "initial" | "fit" } })}
@@ -569,10 +598,10 @@ function ViewInspector({ view }: { view: View }) {
         >
           <option value="initial">Initial zoom</option>
           <option value="fit">Fit view</option>
-        </select>
+        </FieldSelect>
       </Row>
       <Row label="Wheel zoom">
-        <select
+        <FieldSelect
           aria-label="Wheel Zoom Mode"
           value={project.settings.zoomControls?.wheelMode ?? "off"}
           onChange={(e) => updateSettings({ zoomControls: { ...project.settings.zoomControls, enabled: project.settings.zoomControls?.enabled ?? false, wheelMode: e.target.value as "off" | "ctrl" | "meta" | "alt" | "shift" | "always" } })}
@@ -584,7 +613,7 @@ function ViewInspector({ view }: { view: View }) {
           <option value="alt">Alt</option>
           <option value="shift">Shift</option>
           <option value="always">Always</option>
-        </select>
+        </FieldSelect>
       </Row>
       {(["top", "right", "bottom", "left"] as const).map((side) => (
         <Row key={side} label={`Padding ${side}`}>
@@ -711,7 +740,7 @@ function LayerInspector() {
 
       <Row label="Opacity">
         <div className="flex items-center gap-1.5">
-          <input
+          <FieldInput
             type="range"
             min={0}
             max={1}
@@ -726,7 +755,7 @@ function LayerInspector() {
         </div>
       </Row>
 
-      <Row label="Areas">
+      <Row label="Areas" plain>
         <span className="text-xs text-neutral-400">{l.areas.length}</span>
       </Row>
     </div>
@@ -797,7 +826,7 @@ function GeometryEditor({
         <Row label="X"><NumberField defaultValue={g.x} onCommit={(v) => setMarker({ x: v })} /></Row>
         <Row label="Y"><NumberField defaultValue={g.y} onCommit={(v) => setMarker({ y: v })} /></Row>
         <Row label="Anchor">
-          <select
+          <FieldSelect
             aria-label="Marker anchor"
             value={g.anchor}
             onChange={(event) => setMarker({ anchor: event.target.value as MarkerAnchor })}
@@ -806,7 +835,7 @@ function GeometryEditor({
             {(["bottom-center", "center", "top-left", "top-center", "top-right", "bottom-left", "bottom-right", "middle-left", "middle-right"] as MarkerAnchor[]).map((anchor) => (
               <option key={anchor} value={anchor}>{anchor}</option>
             ))}
-          </select>
+          </FieldSelect>
         </Row>
       </div>
     );
@@ -836,6 +865,7 @@ function UrlField({
     setValue(defaultValue);
   }
   const validation = value === "" ? { valid: true } : validateActionUrl(value);
+  const errorId = `${useId()}-error`;
 
   function commit() {
     if (value !== defaultValue && validateActionUrl(value).valid) {
@@ -846,8 +876,11 @@ function UrlField({
   return (
     <div className="space-y-0.5">
       <input
+        id={useFieldId()}
         type="text"
         value={value}
+        aria-invalid={!validation.valid || undefined}
+        aria-describedby={!validation.valid ? errorId : undefined}
         placeholder="https://…"
         onChange={(e) => setValue(e.target.value)}
         onBlur={commit}
@@ -861,7 +894,7 @@ function UrlField({
         }`}
       />
       {!validation.valid && (
-        <p className="text-[10px] leading-tight text-red-400">{validation.error}</p>
+        <p id={errorId} className="text-[10px] leading-tight text-red-400">{validation.error}</p>
       )}
     </div>
   );
@@ -888,7 +921,7 @@ function PopupContentEditor({
         />
       </Row>
       <Row label="Body">
-        <textarea
+        <FieldTextarea
           key={action.content.body ?? ""}
           defaultValue={action.content.body ?? ""}
           onBlur={(e) => update({ body: e.target.value })}
@@ -918,7 +951,7 @@ function PopupContentEditor({
         />
       </Row>
       <Row label="Position">
-        <select
+        <FieldSelect
           value={action.position ?? "auto"}
           onChange={(e) =>
             updateAreaAction(areaId, { ...action, position: e.target.value as PopupAction["position"] })
@@ -930,7 +963,7 @@ function PopupContentEditor({
           <option value="bottom">Bottom</option>
           <option value="left">Left</option>
           <option value="right">Right</option>
-        </select>
+        </FieldSelect>
       </Row>
     </div>
   );
@@ -1002,7 +1035,7 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
   return (
     <div className="space-y-1.5">
       <Row label="Type">
-        <select
+        <FieldSelect
           value={action.type}
           onChange={(e) => setType(e.target.value as Action["type"])}
           className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 outline-none focus:border-blue-500"
@@ -1013,7 +1046,7 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
           <option value="goToView">Go to View</option>
           <option value="toggleLayer">Toggle Layer</option>
           <option value="customEvent">Custom Event</option>
-        </select>
+        </FieldSelect>
       </Row>
 
       {action.type === "url" && (
@@ -1025,7 +1058,7 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
             />
           </Row>
           <Row label="Target">
-            <select
+            <FieldSelect
               value={action.target}
               onChange={(e) =>
                 updateAreaAction(areaId, { ...action, target: e.target.value as "_blank" | "_self" })
@@ -1034,7 +1067,7 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
             >
               <option value="_blank">New tab</option>
               <option value="_self">Same tab</option>
-            </select>
+            </FieldSelect>
           </Row>
         </>
       )}
@@ -1046,7 +1079,7 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
       {action.type === "goToView" && (
         <>
           <Row label="Target">
-            <select
+            <FieldSelect
               value={action.targetViewId}
               onChange={(e) =>
                 updateAreaAction(areaId, { ...action, targetViewId: e.target.value })
@@ -1056,10 +1089,10 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
               {views.map((v) => (
                 <option key={v.id} value={v.id}>{v.name}</option>
               ))}
-            </select>
+            </FieldSelect>
           </Row>
           <Row label="Transition">
-            <select
+            <FieldSelect
               value={action.transition ?? "fade"}
               onChange={(e) =>
                 updateAreaAction(areaId, { ...action, transition: e.target.value as "fade" | "none" })
@@ -1068,14 +1101,14 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
             >
               <option value="fade">Fade</option>
               <option value="none">None</option>
-            </select>
+            </FieldSelect>
           </Row>
         </>
       )}
 
       {action.type === "toggleLayer" && (
         <Row label="Layer">
-          <select
+          <FieldSelect
             aria-label="Target layer"
             value={action.targetLayerId}
             onChange={(e) => updateAreaAction(areaId, { ...action, targetLayerId: e.target.value })}
@@ -1085,7 +1118,7 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
               <option value={action.targetLayerId}>Missing layer ({action.targetLayerId || "none"})</option>
             )}
             {layers.map((layer) => <option key={layer.id} value={layer.id}>{layer.name}</option>)}
-          </select>
+          </FieldSelect>
         </Row>
       )}
 
@@ -1103,6 +1136,7 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
             <textarea
               aria-label="Custom event JSON payload"
               aria-invalid={Boolean(payloadError)}
+              aria-describedby={payloadError ? `${areaId}-payload-error` : undefined}
               value={payloadDraft}
               placeholder={'{\n  "source": "map"\n}'}
               onChange={(e) => setPayloadDraft(e.target.value)}
@@ -1111,7 +1145,7 @@ function ActionEditor({ areaId, action }: { areaId: string; action: Action }) {
               className={`mt-1 w-full resize-y rounded border bg-neutral-800 px-1.5 py-1 font-mono text-xs text-neutral-200 outline-none focus:border-blue-500 ${payloadError ? "border-red-500" : "border-neutral-700"}`}
             />
           </label>
-          {payloadError && <p role="alert" className="text-[10px] text-red-400">{payloadError}</p>}
+          {payloadError && <p id={`${areaId}-payload-error`} role="alert" className="text-[10px] text-red-400">{payloadError}</p>}
         </>
       )}
     </div>
@@ -1141,7 +1175,7 @@ function TooltipEditor({ areaId, tooltip }: { areaId: string; tooltip: Tooltip |
             />
           </Row>
           <Row label="Body (HTML)">
-            <textarea
+            <FieldTextarea
               key={tooltip.body ?? ""}
               defaultValue={tooltip.body ?? ""}
               onBlur={(e) => updateAreaTooltip(areaId, { ...tooltip, body: e.target.value })}
@@ -1169,7 +1203,7 @@ function InteractionEditor({ areaId, area }: { areaId: string; area: { trigger?:
   return (
     <div className="space-y-1.5">
       <Row label="Trigger">
-        <select
+        <FieldSelect
           value={area.trigger ?? "both"}
           onChange={(e) =>
             updateAreaInteraction(areaId, { trigger: e.target.value as AreaTrigger })
@@ -1179,7 +1213,7 @@ function InteractionEditor({ areaId, area }: { areaId: string; area: { trigger?:
           <option value="both">Both (hover + click)</option>
           <option value="hover">Hover only</option>
           <option value="click">Click only</option>
-        </select>
+        </FieldSelect>
       </Row>
       <CheckToggle
         checked={area.alwaysHighlight ?? false}
@@ -1220,20 +1254,20 @@ function ImageRegionEditor({ area }: { area: import("@svg-mapper/shared").Area }
   }
   return <div className="space-y-1.5">
     <Row label="Visual">
-      <select aria-label="Area image" value={area.image?.assetId ?? ""} onChange={(event) => updateAreaImage(area.id, event.target.value ? { assetId: event.target.value } : undefined)} className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200">
+      <FieldSelect aria-label="Area image" value={area.image?.assetId ?? ""} onChange={(event) => updateAreaImage(area.id, event.target.value ? { assetId: event.target.value } : undefined)} className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200">
         <option value="">— none —</option>
         {project.assets.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}
-      </select>
+      </FieldSelect>
     </Row>
     {asset && <>
-      <Row label="Fit"><select aria-label="Image fit" value={area.image?.fit ?? "fill"} onChange={(event) => updateAreaImage(area.id, { ...area.image!, fit: event.target.value as "fill" | "contain" | "cover" })} className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200"><option value="fill">Fill</option><option value="contain">Contain</option><option value="cover">Cover</option></select></Row>
+      <Row label="Fit"><FieldSelect aria-label="Image fit" value={area.image?.fit ?? "fill"} onChange={(event) => updateAreaImage(area.id, { ...area.image!, fit: event.target.value as "fill" | "contain" | "cover" })} className="w-full rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200"><option value="fill">Fill</option><option value="contain">Contain</option><option value="cover">Cover</option></FieldSelect></Row>
       <Row label="Opacity"><NumberField defaultValue={area.image?.opacity ?? 1} min={0} max={1} step={0.05} onCommit={(opacity) => updateAreaImage(area.id, { ...area.image!, opacity })} /></Row>
       <Row label="Rotation"><NumberField defaultValue={area.image?.rotation ?? 0} min={-360} max={360} onCommit={(rotation) => updateAreaImage(area.id, { ...area.image!, rotation })} /></Row>
       <CheckToggle checked={area.image?.visible !== false} onChange={(visible) => updateAreaImage(area.id, { ...area.image!, visible })} label="Visible" />
       <CheckToggle checked={area.image?.locked ?? false} onChange={(locked) => updateAreaImage(area.id, { ...area.image!, locked })} label="Lock position" />
       <CheckToggle checked={area.image?.decorative ?? false} onChange={(decorative) => updateAreaImage(area.id, { ...area.image!, decorative })} label="Decorative" />
       {supportsAlphaMask ? <>
-        <Row label="Threshold"><input aria-label="Alpha threshold" type="range" min="0" max="1" step="0.05" value={threshold} onChange={(event) => setThreshold(Number(event.target.value))} className="w-full" /></Row>
+        <Row label="Threshold"><FieldInput aria-label="Alpha threshold" type="range" min="0" max="1" step="0.05" value={threshold} onChange={(event) => setThreshold(Number(event.target.value))} className="w-full" /></Row>
         <button type="button" onClick={generate} className="w-full rounded bg-blue-700 px-2 py-1 text-xs text-white hover:bg-blue-600">Generate alpha mask</button>
         <p className="text-[10px] text-neutral-500">{area.image?.hitMask ? `${area.image.hitMask.width}×${area.image.hitMask.height} cached mask` : `Rectangle fallback · max ${MAX_ALPHA_MASK_DIMENSION}px`}</p>
         {area.image?.hitMask && <CheckToggle checked={area.image.hitMask.debug ?? false} onChange={(debug) => updateAreaImage(area.id, { ...area.image!, hitMask: { ...area.image!.hitMask!, debug } })} label="Show mask overlay" />}
@@ -1349,7 +1383,7 @@ function LabelEditor({ areaId, label }: { areaId: string; label: AreaLabel | und
         />
       </Row>
       <Row label="Visibility">
-        <select
+        <FieldSelect
           value={label?.visible === true ? "show" : label?.visible === false ? "hide" : "inherit"}
           onChange={(e) => {
             const v = e.target.value;
@@ -1363,8 +1397,46 @@ function LabelEditor({ areaId, label }: { areaId: string; label: AreaLabel | und
           <option value="inherit">Follow project setting</option>
           <option value="show">Always show</option>
           <option value="hide">Always hide</option>
-        </select>
+        </FieldSelect>
       </Row>
+    </div>
+  );
+}
+
+// Accessible name and keyboard reachability used by Preview and exports (#174).
+// Plain choices only: authors never type raw tabindex numbers.
+function AccessibilityEditor({ area }: { area: import("@svg-mapper/shared").Area }) {
+  const { updateAreaAccessibility } = useStore();
+  const hintId = useId();
+  const ariaLabel = area.accessibility?.ariaLabel ?? "";
+  const tabIndex = area.accessibility?.tabIndex ?? 0;
+  const announced = ariaLabel.trim() || area.name;
+
+  function save(nextLabel: string, nextTabIndex: number) {
+    const trimmed = nextLabel.trim();
+    updateAreaAccessibility(area.id, trimmed || nextTabIndex !== 0 ? { ariaLabel: trimmed, tabIndex: nextTabIndex } : undefined);
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <Row label="Accessible name">
+        <TextField
+          defaultValue={ariaLabel}
+          placeholder={area.name}
+          describedBy={hintId}
+          onCommit={(value) => { if (value.trim() !== ariaLabel.trim()) save(value, tabIndex); }}
+        />
+      </Row>
+      <p id={hintId} className="text-[10px] text-neutral-500">
+        Screen readers announce “{announced}” in Preview and exports. Leave blank to use the area name.
+      </p>
+      <CheckToggle
+        checked={tabIndex < 0}
+        onChange={(skip) => save(ariaLabel, skip ? -1 : 0)}
+        label="Skip when pressing Tab"
+      />
+      {tabIndex > 0 && <p className="text-[10px] text-neutral-500">Custom tab order {tabIndex} from the imported project is kept.</p>}
+      {area.disabled && <p className="text-[10px] text-amber-400">Disabled areas are never reachable with Tab.</p>}
     </div>
   );
 }
@@ -1534,6 +1606,9 @@ function AreaInspector() {
 
       <SectionHeader title="Label" scope="Area" />
       <LabelEditor areaId={a.id} label={a.label} />
+
+      <SectionHeader title="Accessibility" scope="Area" />
+      <AccessibilityEditor area={a} />
 
       <SectionHeader title="Advanced: metadata" scope="Area" />
       <MetadataEditor areaId={a.id} metadata={a.metadata} />

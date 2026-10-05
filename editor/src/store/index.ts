@@ -4,6 +4,7 @@ import { current } from "immer";
 import type {
   Action,
   Area,
+  AreaAccessibility,
   AreaLabel,
   AreaStyle,
   AreaTrigger,
@@ -128,6 +129,8 @@ export interface AppState {
     patch: { trigger?: AreaTrigger; alwaysHighlight?: boolean; disabled?: boolean },
   ) => void;
   updateAreaLabel: (areaId: string, label: AreaLabel | undefined) => void;
+  /** Sets or clears (undefined) an area's accessible name / tab order. */
+  updateAreaAccessibility: (areaId: string, accessibility: AreaAccessibility | undefined) => void;
   updateAreaImage: (areaId: string, image: Area["image"]) => void;
   deleteArea: (areaId: string) => void;
   duplicateArea: (areaId: string) => void;
@@ -1201,6 +1204,16 @@ export const useStore = create<AppState>()(
       });
     },
 
+    updateAreaAccessibility(areaId: string, accessibility: AreaAccessibility | undefined) {
+      set((s) => {
+        const loc = findAreaLocation(s.project.views as unknown as View[], areaId);
+        if (!loc) return;
+        pushHistory(s);
+        const area = s.project.views[loc.viewIdx].layers[loc.layerIdx].areas[loc.areaIdx] as Area;
+        if (accessibility) area.accessibility = accessibility;
+        else delete area.accessibility;
+      });
+    },
     updateAreaLabel(areaId: string, label: import("@svg-mapper/shared").AreaLabel | undefined) {
       set((s) => {
         const loc = findAreaLocation(s.project.views as unknown as View[], areaId);
