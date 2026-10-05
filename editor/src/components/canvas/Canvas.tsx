@@ -11,6 +11,7 @@ import {
   createMarkerArea,
   polygonPointsToString,
   resizeRect,
+  resizePathToBounds,
   moveGeometry,
   snapGeometryToGrid,
   snapValue,
@@ -86,6 +87,19 @@ export function Canvas() {
     (geometry: Area["geometry"]) => grid.enabled ? snapGeometryToGrid(geometry, grid.size) : geometry,
     [grid.enabled, grid.size],
   );
+
+  /**
+   * Corner-handle resize. Rectangles resize directly; a path is stretched so
+   * its bounds fill the resized (and grid-snapped) box (#218).
+   */
+  const resizedGeometry = (before: Area["geometry"], handle: RectHandle, dx: number, dy: number): Area["geometry"] | null => {
+    if (before.type === "rect") return snapGeometry(resizeRect(before, handle, dx, dy));
+    if (before.type !== "path") return null;
+    const bounds = getGeometryBbox(before);
+    if (!bounds) return null;
+    const box = snapGeometry(resizeRect({ type: "rect", ...bounds }, handle, dx, dy));
+    return box.type === "rect" ? resizePathToBounds(before, box) : null;
+  };
 
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -447,7 +461,7 @@ export function Canvas() {
       if (view.id !== activeViewId) continue;
       for (const layer of view.layers) {
         for (const area of layer.areas) {
-          if (movingIds.includes(area.id) && area.geometry.type !== "path" && canEditGeometry(layer, area)) {
+          if (movingIds.includes(area.id) && canEditGeometry(layer, area)) {
             geometrySnapshots.push({ id: area.id, geometry: area.geometry });
           }
         }
@@ -595,10 +609,8 @@ export function Canvas() {
         });
       }
     } else if (d.type === "resize" && d.areaId && d.handle && d.areaGeoBefore) {
-      if (d.areaGeoBefore.type !== "rect") return;
-      const dx = cp.x - d.startContent.x;
-      const dy = cp.y - d.startContent.y;
-      const newGeo = snapGeometry(resizeRect(d.areaGeoBefore, d.handle, dx, dy));
+      const newGeo = resizedGeometry(d.areaGeoBefore, d.handle, cp.x - d.startContent.x, cp.y - d.startContent.y);
+      if (!newGeo) return;
       useStore.setState((s) => {
         for (const v of s.project.views) {
           for (const layer of v.layers) {
@@ -685,10 +697,8 @@ export function Canvas() {
       // The store skips locked areas itself and reports them in one notice.
       useStore.getState().moveAreas(d.movingIds, dx, dy);
     } else if (d.type === "resize" && d.areaId && d.handle && d.areaGeoBefore) {
-      if (d.areaGeoBefore.type !== "rect") return;
-      const dx = cp.x - d.startContent.x;
-      const dy = cp.y - d.startContent.y;
-      const finalGeo = snapGeometry(resizeRect(d.areaGeoBefore, d.handle, dx, dy));
+      const finalGeo = resizedGeometry(d.areaGeoBefore, d.handle, cp.x - d.startContent.x, cp.y - d.startContent.y);
+      if (!finalGeo) return;
       restoreDragBaseline(d);
       useStore.getState().updateAreaGeometry(d.areaId, finalGeo);
     } else if (d.type === "draw-circle") {
