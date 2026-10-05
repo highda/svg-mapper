@@ -411,6 +411,83 @@ describe("generateExportPackage", () => {
     expect(strFromU8(files["README.txt"]!)).toContain("../shared/map.png");
   });
 
+  function packagedAssets(assets: Asset[]) {
+    const project = createNewProject("Collisions");
+    project.assets = assets;
+    const pkg = generateExportPackage(toDefinition(project), STUB_JS, STUB_CSS, { inlineAssets: false });
+    const files = unzipSync(pkg.zip);
+    const parsed = JSON.parse(pkg.mapJson) as { assets: Asset[] };
+    return { files, srcs: parsed.assets.map((asset) => asset.src) };
+  }
+
+  function binaryAsset(id: string, name: string, payload: string, type: Asset["type"] = "image/png"): Asset {
+    return { id, type, name, src: `data:${type};base64,${btoa(payload)}`, width: 1, height: 1, inline: true };
+  }
+
+  it("never lets a generated suffix collide with a later original name (#170)", () => {
+    const svg = (id: string, name: string, fill: string): Asset => ({
+      id,
+      type: "image/svg+xml",
+      name,
+      src: `<svg xmlns="http://www.w3.org/2000/svg"><rect fill="${fill}"/></svg>`,
+      width: 1,
+      height: 1,
+      inline: true,
+    });
+    const { files, srcs } = packagedAssets([svg("x", "a.svg", "red"), svg("y", "a.svg", "green"), svg("z", "a-1.svg", "blue")]);
+
+    expect(srcs).toEqual(["assets/a.svg", "assets/a-1.svg", "assets/a-1-1.svg"]);
+    expect(strFromU8(files["assets/a.svg"]!)).toContain("red");
+    expect(strFromU8(files["assets/a-1.svg"]!)).toContain("green");
+    expect(strFromU8(files["assets/a-1-1.svg"]!)).toContain("blue");
+  });
+
+  it("allocates distinct paths for sanitizer-equivalent, case-variant, and repeated names", () => {
+    const payloads = ["one", "two", "three", "four", "five", "six", "seven"];
+    const names = ["plan.png", "plan-1.png", "plan 1.png", "plan?1.png", "PLAN.png", "plan.png", "plan.png"];
+    const { files, srcs } = packagedAssets(names.map((name, index) => binaryAsset(`p${index}`, name, payloads[index]!)));
+
+    expect(srcs).toEqual([
+      "assets/plan.png",
+      "assets/plan-1.png",
+      "assets/plan-1-1.png",
+      "assets/plan-1-2.png",
+      "assets/PLAN-2.png",
+      "assets/plan-3.png",
+      "assets/plan-4.png",
+    ]);
+    expect(new Set(srcs.map((src) => src.toLowerCase())).size).toBe(names.length);
+    expect(Object.keys(files).filter((path) => path.startsWith("assets/"))).toHaveLength(names.length);
+    payloads.forEach((payload, index) => expect(strFromU8(files[srcs[index]!]!)).toBe(payload));
+  });
+
+  it("keeps mixed MIME and Unicode names deterministic and unique", () => {
+    const assets = [
+      binaryAsset("u1", "café.png", "png-cafe"),
+      binaryAsset("u2", "cafè.jpeg", "jpg-cafe", "image/jpeg"),
+      binaryAsset("u3", "caf.png", "png-caf"),
+      binaryAsset("u4", "地図.png", "png-unicode"),
+      binaryAsset("u5", "地図.webp", "webp-unicode", "image/webp"),
+      binaryAsset("u6", "u4.png", "png-id-name"),
+      binaryAsset("u7", "plan.svg", "png-misnamed"),
+    ];
+    const first = packagedAssets(assets);
+    const second = packagedAssets(assets);
+
+    expect(first.srcs).toEqual([
+      "assets/caf.png",
+      "assets/caf.jpg",
+      "assets/caf-1.png",
+      "assets/u4.png",
+      "assets/u5.webp",
+      "assets/u4-1.png",
+      "assets/plan.png",
+    ]);
+    expect(second.srcs).toEqual(first.srcs);
+    const payloads = ["png-cafe", "jpg-cafe", "png-caf", "png-unicode", "webp-unicode", "png-id-name", "png-misnamed"];
+    payloads.forEach((payload, index) => expect(strFromU8(first.files[first.srcs[index]!]!)).toBe(payload));
+  });
+
   it("reports preserved dependencies and rejects malformed embedded data", () => {
     const project = createNewProject("Dependencies");
     project.assets = [{ id: "remote", type: "image/png", name: "remote", src: "https://cdn.example.test/map.png", width: 1, height: 1, inline: false }];
