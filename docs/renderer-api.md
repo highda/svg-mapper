@@ -2,6 +2,8 @@
 
 The export supplies a dependency-free browser script. Loading it creates the global `ClickMapRenderer` object.
 
+The builder is optional. To embed a `map.json` written by hand, by a script, or by a CMS, follow [Using the renderer without the builder](renderer-standalone.md).
+
 ## Embed and initialize
 
 ```html
