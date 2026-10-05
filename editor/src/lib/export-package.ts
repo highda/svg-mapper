@@ -112,6 +112,7 @@ function attachClickMapHooks(map) {
     "camera:change": function (event) { console.debug("[clickmap] camera changed", event); },
     "area:hover": function (event) { console.debug("[clickmap] area hovered", event); },
     "area:click": function (event) { console.debug("[clickmap] area clicked", event); },
+    "area:select": function (event) { console.debug("[clickmap] selection changed", event.areaId, event); },
     "popup:open": function (event) { console.debug("[clickmap] popup opened", event); },
     "popup:close": function (event) { console.debug("[clickmap] popup closed", event); }
   };

@@ -4,12 +4,21 @@
 > Spec being built: see [ASSIGNMENT.md](./ASSIGNMENT.md).
 
 ## Active
-Issue:        (none — pick from agent:ready)
-Branch:       main
+Issue:        orchestrated batch (owner-approved, max 3 parallel subagents) — #173, #171, #196
+Branch:       feat/173-layer-toggle-camera, feat/171-*, feat/196-*
+Started:      2026-10-05
+
+### Notes / gotchas
+- Owner allowed up to 3 parallel subagents in separate worktrees; the orchestrating session holds the claims, merges PRs and keeps this file. Several `agent:in-progress` labels at once are intentional during this run.
+- Local e2e: the installed Playwright expects a newer headless shell than /opt/pw-browsers provides; use a temporary uncommitted config pointing at /opt/pw-browsers/chromium and a unique port per worktree.
+- #223 approved by owner (same-origin iframe fallback); waits on #218, #221, #222.
 
 ---
 
 ## Ledger (most recent first)
+- 2026-10-05 — closed #195 — scripts/check-boundaries.mjs (TS scanner) enforces shared/renderer/editor import rules and the renderer bundle against scripts/dependency-allowlist.json, mirrored in ASSIGNMENT §2.6; wired into static-checks; PR #226.
+- 2026-10-05 — closed #164 — layer/image locks enforced in the store (geometry, insert, delete, reorder); locked content stays selectable and non-geometry editable; mixed selections move only unlocked items; new content targets selected/first unlocked layer; lockNotice explains refusals; PR #225.
+- 2026-10-05 — closed #170 — export reserves every emitted asset path (case-insensitive) so generated suffixes never collide with later names; e2e extracts the ZIP and checks each image's pixels; PR #224.
 - 2026-10-05 — closed #169 — one Valibot schema (shared/schema.ts) replaces the editor decoder; renderer decodes before mounting, shows accessible loading/error states, unwinds failed construction, delivers early errors to immediate subscribers, reports image failures; budget raised to 45 KB (owner decision, now 42.2 KB); PR #212.
 - 2026-10-05 — closed #168 — view CSS parsed by native CSSOM and rebuilt from rules (selectors, keyframes and @layer names scoped per instance; resources/global rules rejected after escape decoding); shared by Inspector, Export validation and renderer; css-tree rejected at 23.6 KB gzip; PR #210.
 - 2026-10-05 — closed #167 — DOMPurify HTML/SVG profiles in shared/sanitize.ts at renderer insertion, SVG import and export; popup HTML can no longer style the host; renderer budget raised to 40 KB (owner decision, now 36.6 KB); PR #208.

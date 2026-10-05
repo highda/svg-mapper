@@ -8,6 +8,7 @@ import type {
   View,
   Area,
   Action,
+  Layer,
   AreaStyleState,
 } from "../../shared/types.js";
 import { scopeViewCss, validateViewCss } from "../../shared/view-css.js";
@@ -191,6 +192,12 @@ class Renderer implements ClickMapInstance {
   private hoveredId: string | null = null;
   private focusedId: string | null = null;
   private pinnedTooltipId: string | null = null;
+  /** The current view's selected area, painted with `style.active` until cleared. */
+  private selectedId: string | null = null;
+  /** Directory reveal waiting for its destination view to finish rendering. */
+  private pendingReveal: { viewId: string; run: () => void } | null = null;
+  /** Re-filters the directory after effective layer visibility changes. */
+  private refreshDirectory: (() => void) | null = null;
   private alphaMaskBytes = new Map<string, string>();
   /** Per-view runtime overrides. They survive navigation, while reset clears them. */
   private layerVisibility = new Map<string, Map<string, boolean>>();
@@ -453,6 +460,7 @@ class Renderer implements ClickMapInstance {
     window.addEventListener("keydown", this.onWindowKeyDown);
     window.addEventListener("keyup", this.onWindowKeyUp);
     this.svgEl.addEventListener("pointerdown", (e) => this.onPanStart(e));
+    this.root.addEventListener("keydown", (e) => this.onRootKeyDown(e));
     window.addEventListener("pointermove", this.onWindowPointerMove);
     window.addEventListener("pointerup", this.onWindowPointerUp);
 
@@ -465,11 +473,12 @@ class Renderer implements ClickMapInstance {
     const config = this.def.settings.directory;
     if (!config?.enabled) return;
 
-    type Entry = { area: Area; view: View; search: string; category: string };
+    // Every layer is indexed once; effective (authored + runtime) visibility is
+    // applied on each update, so toggled and reset layers stay in sync with the map.
+    type Entry = { area: Area; view: View; layer: Layer; search: string; category: string };
     const entries: Entry[] = [];
     for (const view of this.def.views) {
       for (const layer of view.layers) {
-        if (!layer.visible) continue; // Hidden authoring layers are intentionally undiscoverable.
         for (const area of layer.areas) {
           const metadataText = (config.metadataKeys ?? []).map((key) => area.metadata?.[key])
             .filter((value) => value !== undefined && value !== null)
@@ -477,6 +486,7 @@ class Renderer implements ClickMapInstance {
           entries.push({
             area,
             view,
+            layer,
             search: `${area.name} ${metadataText}`.toLocaleLowerCase(),
             category: String(config.categoryKey ? area.metadata?.[config.categoryKey] ?? "" : ""),
           });
@@ -529,7 +539,9 @@ class Renderer implements ClickMapInstance {
 
     const update = () => {
       const query = input.value.trim().toLocaleLowerCase();
-      const matches = entries.filter((entry) => (!query || entry.search.includes(query)) && (!category || entry.category === category));
+      // Hidden layers (authored or toggled at runtime) are intentionally undiscoverable.
+      const matches = entries.filter((entry) => this.isLayerVisible(entry.view, entry.layer) &&
+        (!query || entry.search.includes(query)) && (!category || entry.category === category));
       status.textContent = `${matches.length} ${matches.length === 1 ? "place" : "places"}`;
       list.replaceChildren();
       if (matches.length === 0) {
@@ -576,6 +588,7 @@ class Renderer implements ClickMapInstance {
     slot.append(toggle, panel);
     this.directoryEl = panel;
     this.directoryToggle = toggle;
+    this.refreshDirectory = update;
     update();
   }
 
@@ -594,6 +607,7 @@ class Renderer implements ClickMapInstance {
     // In a compact embed, get the panel out of the way so the result is visible.
     if (this.compact) this.setDirectoryOpen(false);
     const reveal = () => {
+      if (this.destroyed || this.currentViewId !== view.id) return;
       const el = this.findAreaEl(area.id);
       if (!el) return;
       const shape = geometryBounds(area.geometry) ?? svgBBox(el);
@@ -606,14 +620,28 @@ class Renderer implements ClickMapInstance {
       this.currentViewBox = { x: bounds.x + bounds.w / 2 - width / 2, y: bounds.y + bounds.h / 2 - height / 2, w: width, h: height };
       this.applyViewBox();
       this.emitCameraChange("reveal");
+      this.setSelection(area.id);
       el.focus();
       this.ariaLiveEl.textContent = `${area.name}, ${view.name}`;
-      this.updateDeepLinkHash(view.id, area.id);
     };
+    // Only the latest choice may reveal: a newer one replaces any pending reveal.
+    this.pendingReveal = null;
     if (view.id !== this.currentViewId) {
       this.goToView(view.id);
-      window.setTimeout(reveal, 170);
+      // Navigation was refused (re-entrant or unknown view): nothing to reveal.
+      if (this.currentViewId !== view.id) return;
+    }
+    if (this.transitionTimer !== null) {
+      // The destination is still fading in; reveal once its render completes.
+      this.pendingReveal = { viewId: view.id, run: reveal };
     } else reveal();
+  }
+
+  /** Called when a view render finishes: run a reveal waiting for exactly that view. */
+  private completePendingReveal(viewId: string) {
+    const pending = this.pendingReveal;
+    this.pendingReveal = null;
+    if (pending && pending.viewId === viewId && !this.destroyed) pending.run();
   }
 
   // -------------------------------------------------------------------------
@@ -634,6 +662,9 @@ class Renderer implements ClickMapInstance {
     this.hoveredId = null;
     this.focusedId = null;
     this.pinnedTooltipId = null;
+    // Navigation and reset already announced the cleared selection; the old
+    // nodes are replaced below, so the view always starts unselected.
+    this.selectedId = null;
     this.hideTooltip();
     this.closePopover();
     this.viewW = view.canvas.width;
@@ -641,13 +672,18 @@ class Renderer implements ClickMapInstance {
     this.applyViewCss(view);
 
     this.renderBackground(view);
-    this.renderAreas(view);
+    // Entering a view starts from its authored camera; later scene refreshes
+    // (layer toggles) keep whatever camera the visitor has since chosen.
+    this.resetCameraForView(view);
+    this.svgEl.replaceChildren();
+    this.syncLayers(view);
+    this.renderLabels(view);
     this.svgEl.style.touchAction = view.viewport.panEnabled ? "none" : "auto";
     this.renderBackButton(view);
     this.renderSceneSwitcher();
     this.renderZoomControls();
     this.updateScale();
-    this.applyChoropleth();
+    this.renderChoroplethLegend();
   }
 
   private applyViewCss(view: View) {
@@ -705,69 +741,98 @@ class Renderer implements ClickMapInstance {
     this.bgSvgEl = backgroundSvg;
   }
 
-  private renderAreas(view: View) {
-    this.svgEl.innerHTML = "";
-
+  private resetCameraForView(view: View) {
     const base = this.getBaseViewBox(view);
-    const initialZoom = this.getZoomLimits(view).initial;
-    this.currentViewBox = this.zoomedViewBox(base, initialZoom);
+    this.currentViewBox = this.zoomedViewBox(base, this.getZoomLimits(view).initial);
     this.applyViewBox();
+  }
 
+  /** Effective visibility: a runtime toggle when present, otherwise the authored value. */
+  private isLayerVisible(view: View, layer: Layer): boolean {
+    return this.layerVisibility.get(view.id)?.get(layer.id) ?? layer.visible;
+  }
+
+  /**
+   * Bring the rendered layer groups in line with effective visibility without
+   * rebuilding layers that stay visible, so their SVG nodes (and any keyboard
+   * focus, hover or open popover anchored to them) survive. Returns the groups
+   * that were removed.
+   */
+  private syncLayers(view: View): SVGGElement[] {
+    const rendered = new Map<string, SVGGElement>();
+    for (const child of Array.from(this.svgEl.children)) {
+      if (child instanceof SVGGElement && child.classList.contains("clickmap-layer")) {
+        rendered.set(child.getAttribute("data-layer-id") ?? "", child);
+      }
+    }
+    const removed: SVGGElement[] = [];
+    let previous: SVGGElement | null = null;
+    for (const layer of view.layers) {
+      const existing = rendered.get(layer.id) ?? null;
+      if (!this.isLayerVisible(view, layer)) {
+        if (existing) removed.push(existing);
+        continue;
+      }
+      let g = existing;
+      if (!g) {
+        g = svgEl<SVGGElement>("g");
+        g.setAttribute("class", "clickmap-layer");
+        g.setAttribute("opacity", String(layer.opacity));
+        g.setAttribute("data-layer-id", layer.id);
+        for (const area of layer.areas) {
+          const visual = this.makeAreaImageEl(area);
+          if (visual) g.appendChild(visual);
+          const el = this.makeAreaEl(area);
+          if (!el) continue;
+          this.applyAreaStyle(area, el);
+          g.appendChild(el);
+        }
+        if (previous) previous.after(g);
+        else this.svgEl.prepend(g);
+      }
+      previous = g;
+    }
+    for (const g of removed) g.remove();
+    return removed;
+  }
+
+  /** Labels follow the same effective visibility as the geometry they name (issue #26). */
+  private renderLabels(view: View) {
+    this.svgEl.querySelector(":scope > .clickmap-area-labels")?.remove();
     const labelSettings = this.def.settings.areaLabels;
+    if (!labelSettings?.enabled) return;
+
+    const labelsG = svgEl<SVGGElement>("g");
+    labelsG.setAttribute("class", "clickmap-area-labels");
+    labelsG.setAttribute("pointer-events", "none");
 
     for (const layer of view.layers) {
-      const visible = this.layerVisibility.get(view.id)?.get(layer.id) ?? layer.visible;
-      if (!visible) continue;
-
-      const g = svgEl<SVGGElement>("g");
-      g.setAttribute("class", "clickmap-layer");
-      g.setAttribute("opacity", String(layer.opacity));
-      g.setAttribute("data-layer-id", layer.id);
-
+      if (!this.isLayerVisible(view, layer)) continue;
       for (const area of layer.areas) {
-        const visual = this.makeAreaImageEl(area);
-        if (visual) g.appendChild(visual);
-        const el = this.makeAreaEl(area);
-        if (el) g.appendChild(el);
+        if (area.label?.visible === false) continue;
+        const bbox = this.getAreaBBox(area);
+        if (!bbox) continue;
+        const text = svgEl<SVGTextElement>("text");
+        text.setAttribute("class", "clickmap-area-label");
+        text.setAttribute("x", String(bbox.cx));
+        text.setAttribute("y", String(bbox.cy));
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("dominant-baseline", "central");
+        text.setAttribute("fill", labelSettings.color ?? "#000000");
+        text.setAttribute("font-size", String(labelSettings.fontSize ?? 14));
+        text.setAttribute("font-weight", labelSettings.fontWeight ?? "normal");
+        text.setAttribute("pointer-events", "none");
+        text.setAttribute("data-label-area", area.id);
+        text.textContent = area.label?.text ?? area.name;
+        labelsG.appendChild(text);
       }
-
-      this.svgEl.appendChild(g);
     }
 
-    // Area labels (issue #26)
-    if (labelSettings?.enabled) {
-      const labelsG = svgEl<SVGGElement>("g");
-      labelsG.setAttribute("class", "clickmap-area-labels");
-      labelsG.setAttribute("pointer-events", "none");
+    this.svgEl.appendChild(labelsG);
 
-      for (const layer of view.layers) {
-        if (!layer.visible) continue;
-        for (const area of layer.areas) {
-          if (area.label?.visible === false) continue;
-          const bbox = this.getAreaBBox(area);
-          if (!bbox) continue;
-          const text = svgEl<SVGTextElement>("text");
-          text.setAttribute("class", "clickmap-area-label");
-          text.setAttribute("x", String(bbox.cx));
-          text.setAttribute("y", String(bbox.cy));
-          text.setAttribute("text-anchor", "middle");
-          text.setAttribute("dominant-baseline", "central");
-          text.setAttribute("fill", labelSettings.color ?? "#000000");
-          text.setAttribute("font-size", String(labelSettings.fontSize ?? 14));
-          text.setAttribute("font-weight", labelSettings.fontWeight ?? "normal");
-          text.setAttribute("pointer-events", "none");
-          text.setAttribute("data-label-area", area.id);
-          text.textContent = area.label?.text ?? area.name;
-          labelsG.appendChild(text);
-        }
-      }
-
-      this.svgEl.appendChild(labelsG);
-
-      // After paint: hide labels wider than their area (done in a rAF so text is measured)
-      if (labelSettings.hideWhenSmaller !== false) {
-        requestAnimationFrame(() => this.updateLabelVisibility());
-      }
+    // After paint: hide labels wider than their area (done in a rAF so text is measured)
+    if (labelSettings.hideWhenSmaller !== false) {
+      requestAnimationFrame(() => this.updateLabelVisibility());
     }
   }
 
@@ -1236,54 +1301,31 @@ class Renderer implements ClickMapInstance {
   // Choropleth (issue #24 C3)
   // -------------------------------------------------------------------------
 
+  /** Repaint every rendered area of the current view through the style resolver. */
   private applyChoropleth() {
-    const opts = this.choroplethOptions;
-    this.root.querySelector(".clickmap-legend")?.remove();
-
     const view = this.def.views.find((v) => v.id === this.currentViewId);
-    if (!view) return;
-    if (!opts) return;
-    if (this.choroplethData.size === 0) {
+    if (view) {
       for (const layer of view.layers) {
         for (const area of layer.areas) {
           const el = this.findAreaEl(area.id);
-          if (el) this.applyRestingStyle(area, el);
-        }
-      }
-      return;
-    }
-
-    const values = Array.from(this.choroplethData.values());
-    const minV = Math.min(...values);
-    const maxV = Math.max(...values);
-    const range = maxV - minV || 1;
-
-    for (const layer of view.layers) {
-      for (const area of layer.areas) {
-        const el = this.findAreaEl(area.id);
-        if (!el) continue;
-        if (this.choroplethData.has(area.id)) {
-          const t = (this.choroplethData.get(area.id)! - minV) / range;
-          const color = lerpColor(opts.colorLow, opts.colorHigh, t);
-          el.setAttribute("fill", color);
-        } else if (opts.noDataColor) {
-          el.setAttribute("fill", opts.noDataColor);
+          if (el) this.applyAreaStyle(area, el);
         }
       }
     }
-
-    if (opts.legend) this.renderChoroplethLegend(opts);
+    this.renderChoroplethLegend();
   }
 
-  private renderChoroplethLegend(opts: ChoroplethOptions) {
+  private renderChoroplethLegend() {
+    this.root.querySelector(".clickmap-legend")?.remove();
+    const opts = this.choroplethOptions;
+    if (!opts?.legend || this.choroplethData.size === 0) return;
+
     const legend = document.createElement("div");
     legend.className = "clickmap-legend";
     legend.style.cssText =
       `background:rgba(255,255,255,0.9);border:1px solid #ccc;border-radius:4px;padding:6px 8px;font-size:11px;`;
 
-    const values = Array.from(this.choroplethData.values());
-    const minV = Math.min(...values);
-    const maxV = Math.max(...values);
+    const { min: minV, max: maxV } = this.getChoroplethRange();
 
     const gradient = document.createElement("div");
     gradient.style.cssText =
@@ -1299,8 +1341,19 @@ class Renderer implements ClickMapInstance {
     this.slots.get("bottom-right")!.appendChild(legend);
   }
 
+  private choroplethRange: { min: number; max: number } | null = null;
+
+  private getChoroplethRange() {
+    if (!this.choroplethRange) {
+      const values = Array.from(this.choroplethData.values());
+      this.choroplethRange = { min: Math.min(...values), max: Math.max(...values) };
+    }
+    return this.choroplethRange;
+  }
+
   setChoroplethData(data: Array<{ id: string; value: number }>) {
     this.choroplethData.clear();
+    this.choroplethRange = null;
     for (const d of data) this.choroplethData.set(d.id, d.value);
     if (this.choroplethOptions) {
       this.choroplethOptions = { ...this.choroplethOptions, data };
@@ -1325,10 +1378,56 @@ class Renderer implements ClickMapInstance {
       if (opts.noDataColor) el.setAttribute("fill", opts.noDataColor);
       return;
     }
-    const values = Array.from(this.choroplethData.values());
-    const minV = Math.min(...values);
-    const range = Math.max(...values) - minV || 1;
-    el.setAttribute("fill", lerpColor(opts.colorLow, opts.colorHigh, (value - minV) / range));
+    const { min, max } = this.getChoroplethRange();
+    el.setAttribute("fill", lerpColor(opts.colorLow, opts.colorHigh, (value - min) / (max - min || 1)));
+  }
+
+  /**
+   * The single style resolver for an area's current state. Precedence:
+   * disabled, then selected (`style.active`), then hover/focus, then resting
+   * (always-highlight, choropleth or default).
+   */
+  private applyAreaStyle(area: Area, el: SVGElement) {
+    if (!area.disabled && this.selectedId === area.id) {
+      this.applyStyle(el, area.style.active);
+    } else if (!area.disabled && (this.hoveredId === area.id || this.focusedId === area.id)) {
+      this.applyStyle(el, area.style.hover);
+    } else {
+      this.applyRestingStyle(area, el);
+    }
+  }
+
+  /**
+   * Make `id` the current view's selected area, or clear the selection with
+   * null. Repaints both areas through the resolver, mirrors the selection in
+   * `aria-current` and (optionally) an enabled deep link, and emits
+   * `area:select`. Unknown, hidden and disabled areas cannot be selected.
+   */
+  private setSelection(id: string | null, updateHash = true) {
+    const area = id === null ? null : this.findAreaInCurrentView(id);
+    const el = id === null ? null : this.findAreaEl(id);
+    if (id !== null && (!area || !el || area.disabled)) return;
+    const previous = this.selectedId;
+    if (previous === id) return;
+    this.selectedId = id;
+    if (previous !== null) {
+      const prevArea = this.findAreaInCurrentView(previous);
+      const prevEl = this.findAreaEl(previous);
+      prevEl?.removeAttribute("aria-current");
+      if (prevArea && prevEl) this.applyAreaStyle(prevArea, prevEl);
+    }
+    if (area && el) {
+      el.setAttribute("aria-current", "true");
+      this.applyAreaStyle(area, el);
+    }
+    if (updateHash) this.updateDeepLinkHash(this.currentViewId, id ?? undefined);
+    this.emit({
+      type: "area:select",
+      instanceId: this.instanceId,
+      viewId: this.currentViewId,
+      areaId: id,
+      areaName: area?.name ?? null,
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -1409,16 +1508,14 @@ class Renderer implements ClickMapInstance {
     if (this.hoveredId === area.id) return;
 
     // Restore previous
-    if (this.hoveredId) {
-      const prev = this.findAreaInCurrentView(this.hoveredId);
-      const prevEl = prev ? this.findAreaEl(this.hoveredId) : null;
-      if (prev && prevEl) {
-        this.applyRestingStyle(prev, prevEl);
-      }
-    }
-
+    const previousId = this.hoveredId;
     this.hoveredId = area.id;
-    this.applyStyle(el, area.style.hover);
+    if (previousId) {
+      const prev = this.findAreaInCurrentView(previousId);
+      const prevEl = prev ? this.findAreaEl(previousId) : null;
+      if (prev && prevEl) this.applyAreaStyle(prev, prevEl);
+    }
+    this.applyAreaStyle(area, el);
     this.emit({
       type: "area:hover",
       areaId: area.id,
@@ -1442,11 +1539,9 @@ class Renderer implements ClickMapInstance {
 
     const prev = this.findAreaInCurrentView(this.hoveredId);
     const prevEl = this.findAreaEl(this.hoveredId);
-    if (prev && prevEl && this.focusedId !== prev.id) {
-      this.applyRestingStyle(prev, prevEl);
-    }
-
     this.hoveredId = null;
+    if (prev && prevEl) this.applyAreaStyle(prev, prevEl);
+
     if (this.focusedId === null && this.pinnedTooltipId === null) this.hideTooltip();
   }
 
@@ -1456,25 +1551,40 @@ class Renderer implements ClickMapInstance {
 
   private onClick(e: MouseEvent) {
     const hit = this.getAreaFromEvent(e);
-    if (!hit) return;
+    if (!hit) {
+      // Activating empty map space (including transparent pixels of an
+      // alpha-masked image region) clears the selection; a disabled area or a
+      // Space-drag pan does not.
+      const el = (e.target as Element).closest?.("[data-area-id]");
+      const area = el ? this.findAreaInCurrentView(el.getAttribute("data-area-id") ?? "") : null;
+      if (!this.spaceHeld && !area?.disabled) this.setSelection(null);
+      return;
+    }
     const { area } = hit;
 
     const trigger = area.trigger ?? "both";
     if (trigger === "hover") {
       // Touch has no durable hover state. Tapping a hover-only area toggles its
-      // authored tooltip without dispatching the click action.
-      if (!area.tooltip?.enabled) return;
-      if (this.pinnedTooltipId === area.id) {
+      // authored tooltip (and its selection) without dispatching the click action.
+      if (this.pinnedTooltipId === area.id || this.selectedId === area.id) {
         this.pinnedTooltipId = null;
         if (this.focusedId === null && this.hoveredId === null) this.hideTooltip();
+        this.setSelection(null);
       } else {
+        this.setSelection(area.id);
+        if (!area.tooltip?.enabled) return;
         this.pinnedTooltipId = area.id;
         this.showTooltip(area);
         this.positionTooltipForArea(area);
       }
       return;
     }
+    this.activateArea(area);
+  }
 
+  /** Select the area, announce the click, then run its action. */
+  private activateArea(area: Area) {
+    this.setSelection(area.id);
     this.emit({
       type: "area:click",
       areaId: area.id,
@@ -1482,7 +1592,6 @@ class Renderer implements ClickMapInstance {
       action: area.action,
       ...(area.metadata !== undefined ? { metadata: area.metadata } : {}),
     });
-    this.updateDeepLinkHash(this.currentViewId, area.id);
     this.dispatchAction(area.action, area);
   }
 
@@ -1493,6 +1602,7 @@ class Renderer implements ClickMapInstance {
     e.preventDefault();
     const trigger = hit.area.trigger ?? "both";
     if (trigger === "hover") {
+      this.setSelection(hit.area.id);
       if (hit.area.tooltip?.enabled) {
         this.showTooltip(hit.area);
         this.positionTooltipForArea(hit.area);
@@ -1500,22 +1610,26 @@ class Renderer implements ClickMapInstance {
       }
       return;
     }
-    this.emit({
-      type: "area:click",
-      areaId: hit.area.id,
-      areaName: hit.area.name,
-      action: hit.area.action,
-      ...(hit.area.metadata !== undefined ? { metadata: hit.area.metadata } : {}),
-    });
-    this.updateDeepLinkHash(this.currentViewId, hit.area.id);
-    this.dispatchAction(hit.area.action, hit.area);
+    this.activateArea(hit.area);
+  }
+
+  /**
+   * Escape inside the map clears the selection. An open popup handles Escape
+   * itself (closing it also clears its area's selection), and text fields keep
+   * their native Escape behaviour.
+   */
+  private onRootKeyDown(e: KeyboardEvent) {
+    if (e.key !== "Escape" || this.selectedId === null || this.openPopoverId !== null) return;
+    const target = e.composedPath()[0];
+    if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement) return;
+    this.setSelection(null);
   }
 
   private onFocusIn(e: FocusEvent) {
     const hit = this.getAreaFromEvent(e);
     if (!hit) return;
     this.focusedId = hit.area.id;
-    this.applyStyle(hit.el, hit.area.style.hover);
+    this.applyAreaStyle(hit.area, hit.el);
     if (hit.area.tooltip?.enabled) {
       this.showTooltip(hit.area);
       this.positionTooltipForArea(hit.area);
@@ -1528,8 +1642,8 @@ class Renderer implements ClickMapInstance {
     if (related?.closest?.(`[data-area-id="${escId(this.focusedId)}"]`)) return;
     const area = this.findAreaInCurrentView(this.focusedId);
     const el = this.findAreaEl(this.focusedId);
-    if (area && el && this.hoveredId !== area.id) this.applyRestingStyle(area, el);
     this.focusedId = null;
+    if (area && el) this.applyAreaStyle(area, el);
     if (this.hoveredId === null && this.pinnedTooltipId === null) this.hideTooltip();
   }
 
@@ -1577,12 +1691,61 @@ class Renderer implements ClickMapInstance {
       return;
     }
     const overrides = this.layerVisibility.get(view.id) ?? new Map<string, boolean>();
-    const visible = !(overrides.get(layer.id) ?? layer.visible);
+    const visible = !this.isLayerVisible(view, layer);
     overrides.set(layer.id, visible);
     this.layerVisibility.set(view.id, overrides);
-    this.renderAreas(view);
-    this.applyChoropleth();
+    this.refreshScene(view);
     this.ariaLiveEl.textContent = `${layer.name} ${visible ? "shown" : "hidden"}.`;
+  }
+
+  /**
+   * Re-derive geometry, labels and directory from effective visibility while
+   * keeping the camera. Surviving area nodes are untouched, so their focus,
+   * hover and popover anchoring persist; state on removed areas is cleared and
+   * focus that was inside a removed layer moves to the nearest remaining control.
+   */
+  private refreshScene(view: View) {
+    const active = this.getActiveElement();
+    const removed = this.syncLayers(view);
+    if (removed.length > 0) {
+      const gone = (id: string | null) => id !== null && !this.findAreaEl(id);
+      if (gone(this.selectedId)) this.setSelection(null);
+      if (gone(this.hoveredId)) this.hoveredId = null;
+      if (gone(this.focusedId)) this.focusedId = null;
+      if (gone(this.pinnedTooltipId)) this.pinnedTooltipId = null;
+      if (gone(this.openPopoverId)) {
+        // The trigger is gone too: do not let closing pull focus back to it.
+        this.popoverReturnFocus = null;
+        this.closePopover();
+      }
+      if (this.hoveredId === null && this.focusedId === null && this.pinnedTooltipId === null) this.hideTooltip();
+      if (active && removed.some((g) => g.contains(active))) this.focusNearestArea(removed);
+    }
+    this.renderLabels(view);
+    this.refreshDirectory?.();
+    this.refreshOverlays();
+  }
+
+  /** Move focus from a removed layer to the next remaining area, else the previous, else a map control. */
+  private focusNearestArea(removed: SVGGElement[]) {
+    const focusable = (root: ParentNode) =>
+      Array.from(root.querySelectorAll<SVGElement>('[data-area-id][tabindex]:not([tabindex="-1"])'));
+    // Removed groups are detached; locate their former position by the layer order.
+    const view = this.def.views.find((v) => v.id === this.currentViewId);
+    const removedIds = new Set(removed.map((g) => g.getAttribute("data-layer-id")));
+    const order = view?.layers.map((layer) => layer.id) ?? [];
+    const firstRemoved = order.findIndex((id) => removedIds.has(id));
+    let after: SVGElement | undefined;
+    let before: SVGElement | undefined;
+    for (const g of Array.from(this.svgEl.querySelectorAll<SVGGElement>(":scope > .clickmap-layer"))) {
+      const index = order.indexOf(g.getAttribute("data-layer-id") ?? "");
+      const areas = focusable(g);
+      if (index > firstRemoved && !after) after = areas[0];
+      if (index < firstRemoved && areas.length) before = areas[areas.length - 1];
+    }
+    const target = after ?? before ??
+      this.controlsEl.querySelector<HTMLElement>("button:not([disabled]), select, input");
+    target?.focus({ preventScroll: true });
   }
 
   // -------------------------------------------------------------------------
@@ -1846,6 +2009,8 @@ class Renderer implements ClickMapInstance {
     if (this.popoverReturnFocus?.isConnected) this.popoverReturnFocus.focus();
     this.popoverReturnFocus = null;
     this.emit({ type: "popup:close", popupId });
+    // Closing an area's details ends its selection.
+    if (this.selectedId === popupId) this.setSelection(null);
   }
 
   private getActiveElement(): Element | null {
@@ -1959,6 +2124,8 @@ class Renderer implements ClickMapInstance {
     if (areaId) {
       const el = this.findAreaEl(areaId);
       el?.setAttribute("data-deep-linked", "true");
+      // The link already names this area, so the hash is left as written.
+      this.setSelection(areaId, false);
     }
   }
 
@@ -2029,6 +2196,7 @@ class Renderer implements ClickMapInstance {
     const prev = this.currentViewId;
     this.navigationInProgress = true;
     this.emit({ type: "view:leave", instanceId: this.instanceId, viewId: prev, nextViewId: viewId });
+    this.setSelection(null, false);
     this.navigationInProgress = false;
     if (options.historyMode !== "browser") this.navigationStack.push(prev);
     this.currentViewId = viewId;
@@ -2039,6 +2207,7 @@ class Renderer implements ClickMapInstance {
       this.emit({ type: "view:enter", instanceId: this.instanceId, viewId });
       this.emit({ type: "view:change", previousViewId: prev, currentViewId: viewId });
       this.navigationInProgress = false;
+      this.completePendingReveal(viewId);
     }, options.transition);
     if (this.def.settings.enableHistory && options.historyMode === "push") {
       this.pushOwnedHistoryState(viewId);
@@ -2059,11 +2228,13 @@ class Renderer implements ClickMapInstance {
     if (this.navigationInProgress) return;
     const prev = this.navigationStack.pop();
     if (prev === undefined) return;
+    this.pendingReveal = null;
     const active = this.getActiveElement();
     const preserveFocus = Boolean(active && (this.root.contains(active) || this.shadowRoot?.contains(active)));
     const from = this.currentViewId;
     this.navigationInProgress = true;
     this.emit({ type: "view:leave", instanceId: this.instanceId, viewId: from, nextViewId: prev });
+    this.setSelection(null, false);
     this.navigationInProgress = false;
     this.currentViewId = prev;
     this.fade(() => {
@@ -2080,15 +2251,18 @@ class Renderer implements ClickMapInstance {
 
   reset() {
     this.cancelTransition();
+    this.pendingReveal = null;
     const from = this.currentViewId;
     const to = this.def.settings.initialViewId;
     if (this.navigationInProgress) return;
     this.navigationInProgress = true;
     if (from !== to) this.emit({ type: "view:leave", instanceId: this.instanceId, viewId: from, nextViewId: to });
+    this.setSelection(null, false);
     this.navigationStack = [];
     this.layerVisibility.clear();
     this.currentViewId = this.def.settings.initialViewId;
     this.renderView(this.currentViewId);
+    this.refreshDirectory?.();
     if (from !== to) {
       this.emit({ type: "view:enter", instanceId: this.instanceId, viewId: to });
       this.emit({ type: "view:change", previousViewId: from, currentViewId: to });
@@ -2097,6 +2271,14 @@ class Renderer implements ClickMapInstance {
     this.navigationInProgress = false;
     this.updateDeepLinkHash(this.currentViewId);
     if (this.def.settings.enableHistory) this.replaceOwnedHistoryState(this.currentViewId);
+  }
+
+  select(areaId: string) {
+    if (!this.destroyed) this.setSelection(areaId);
+  }
+
+  clearSelection() {
+    if (!this.destroyed) this.setSelection(null);
   }
 
   getCurrentView() {
@@ -2111,6 +2293,8 @@ class Renderer implements ClickMapInstance {
     if (this.destroyed) return;
     this.destroyed = true;
     this.navigationInProgress = false;
+    this.pendingReveal = null;
+    this.refreshDirectory = null;
     this.stopPopoverTracking?.();
     this.stopPopoverTracking = null;
     this.cancelTransition();
@@ -2160,6 +2344,8 @@ type QueuedOp =
   | { kind: "goToView"; viewId: string }
   | { kind: "goBack" }
   | { kind: "reset" }
+  | { kind: "select"; areaId: string }
+  | { kind: "clearSelection" }
   | { kind: "destroy" }
   | { kind: "setChoroplethData"; data: Array<{ id: string; value: number }> };
 
@@ -2227,6 +2413,8 @@ class FailedRenderer implements ClickMapInstance {
   goToView() {}
   goBack() {}
   reset() {}
+  select() {}
+  clearSelection() {}
   setChoroplethData() {}
   getCurrentView() {
     return "";
@@ -2272,7 +2460,7 @@ class DeferredRenderer implements ClickMapInstance {
         // Decode before any map DOM is mounted.
         const decoded = decodeDefinition(json);
         if (!decoded.ok) {
-          this.fail("INVALID_DEFINITION", decoded.message);
+          this.fail(decoded.code, decoded.message);
           return;
         }
         const fallbackUrl = new URL(options.definitionUrl!, document.baseURI).href;
@@ -2294,6 +2482,8 @@ class DeferredRenderer implements ClickMapInstance {
           else if (op.kind === "goToView") this.inner.goToView(op.viewId);
           else if (op.kind === "goBack") this.inner.goBack();
           else if (op.kind === "reset") this.inner.reset();
+          else if (op.kind === "select") this.inner.select(op.areaId);
+          else if (op.kind === "clearSelection") this.inner.clearSelection();
           else if (op.kind === "destroy") this.inner.destroy();
           else if (op.kind === "setChoroplethData") this.inner.setChoroplethData(op.data);
         }
@@ -2318,6 +2508,12 @@ class DeferredRenderer implements ClickMapInstance {
   }
   reset() {
     this.inner ? this.inner.reset() : this.queue.push({ kind: "reset" });
+  }
+  select(areaId: string) {
+    this.inner ? this.inner.select(areaId) : this.queue.push({ kind: "select", areaId });
+  }
+  clearSelection() {
+    this.inner ? this.inner.clearSelection() : this.queue.push({ kind: "clearSelection" });
   }
   getCurrentView() {
     return this.inner?.getCurrentView() ?? "";
@@ -2366,7 +2562,7 @@ export function create(options: RendererOptions): ClickMapInstance {
     // Decode before mounting: an invalid definition never builds partial DOM.
     const container = resolveContainer(options);
     const decoded = decodeDefinition(options.definition);
-    if (!decoded.ok) return new FailedRenderer(container, "INVALID_DEFINITION", decoded.message);
+    if (!decoded.ok) return new FailedRenderer(container, decoded.code, decoded.message);
     try {
       return new Renderer({ ...options, container }, decoded.value);
     } catch (error) {

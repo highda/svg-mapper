@@ -150,6 +150,321 @@ describe("renderer interaction model", () => {
     expect(document.querySelector(`[data-area-id="${amenity.id}"]`)).toBeNull();
   });
 
+  it("keeps the camera and keyboard focus when a layer toggles, with labels and directory in sync", () => {
+    const project = createNewProject();
+    project.settings.zoomControls = { enabled: true, position: "top-right" };
+    project.views[0].viewport.zoomEnabled = true;
+    project.views[0].viewport.maxZoom = 4;
+    project.settings.areaLabels = { enabled: true, hideWhenSmaller: false };
+    project.settings.directory = { enabled: true };
+    const trigger = createRectArea(0, 0, 20, 20);
+    trigger.name = "Show amenities";
+    trigger.action = { type: "toggleLayer", targetLayerId: "amenities" };
+    const amenity = createRectArea(40, 0, 20, 20);
+    amenity.name = "Accessible toilets";
+    project.views[0].layers = [
+      { id: "controls", name: "Controls", visible: true, locked: false, opacity: 1, areas: [trigger] },
+      { id: "amenities", name: "Amenities", visible: false, locked: false, opacity: 1, areas: [amenity] },
+    ];
+    const instance = create({ container: "#map", definition: toDefinition(project) });
+    const camera = vi.fn();
+    instance.on("camera:change", camera);
+    const svg = document.querySelector<SVGSVGElement>(".clickmap-areas")!;
+    const directory = () => document.querySelector(".clickmap-directory-results")!.textContent;
+    const label = () => document.querySelector(`[data-label-area="${amenity.id}"]`);
+
+    document.querySelector<HTMLButtonElement>(".clickmap-zoom-in")!.click();
+    const zoomed = svg.getAttribute("viewBox");
+    expect(zoomed).not.toBe("0 0 1600 900");
+    camera.mockClear();
+    const triggerEl = areaElement(trigger.id);
+    triggerEl.focus();
+    expect(label()).toBeNull();
+    expect(directory()).not.toContain("Accessible toilets");
+
+    triggerEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(svg.getAttribute("viewBox")).toBe(zoomed);
+    expect(camera).not.toHaveBeenCalled();
+    expect(areaElement(trigger.id)).toBe(triggerEl);
+    expect(document.activeElement).toBe(triggerEl);
+    expect(label()).not.toBeNull();
+    expect(directory()).toContain("Accessible toilets");
+    // Geometry and labels keep authored layer order.
+    expect(Array.from(svg.children).map((child) => child.getAttribute("data-layer-id") ?? child.getAttribute("class")))
+      .toEqual(["controls", "amenities", "clickmap-area-labels"]);
+
+    triggerEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(svg.getAttribute("viewBox")).toBe(zoomed);
+    expect(label()).toBeNull();
+    expect(directory()).not.toContain("Accessible toilets");
+
+    triggerEl.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(directory()).toContain("Accessible toilets");
+    instance.reset();
+    expect(svg.getAttribute("viewBox")).toBe("0 0 1600 900");
+    expect(label()).toBeNull();
+    expect(directory()).not.toContain("Accessible toilets");
+  });
+
+  it("moves focus to the nearest remaining area when the focused trigger hides its own layer", () => {
+    const project = createNewProject();
+    const first = createRectArea(0, 0, 20, 20);
+    first.name = "First";
+    const trigger = createRectArea(40, 0, 20, 20);
+    trigger.name = "Hide me";
+    trigger.tooltip = { enabled: true, title: "Hide me" };
+    trigger.action = { type: "toggleLayer", targetLayerId: "overlay" };
+    const next = createRectArea(80, 0, 20, 20);
+    next.name = "Next";
+    project.views[0].layers = [
+      { id: "base", name: "Base", visible: true, locked: false, opacity: 1, areas: [first] },
+      { id: "overlay", name: "Overlay", visible: true, locked: false, opacity: 1, areas: [trigger] },
+      { id: "top", name: "Top", visible: true, locked: false, opacity: 1, areas: [next] },
+    ];
+    create({ container: "#map", definition: toDefinition(project) });
+
+    areaElement(trigger.id).focus();
+    areaElement(trigger.id).dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(document.querySelector(`[data-area-id="${trigger.id}"]`)).toBeNull();
+    expect(document.activeElement).toBe(areaElement(next.id));
+    expect(areaElement(next.id)).toHaveAttribute("fill", next.style.hover.fill);
+    expect(document.querySelector(".clickmap-aria-live")).toHaveTextContent("Overlay hidden");
+  });
+
+  it("keeps the activated area selected with style.active under hover, focus loss and other areas", () => {
+    const styled = (fill: string) => {
+      const area = createRectArea(0, 0, 10, 10);
+      area.style = structuredClone(area.style);
+      area.style.active = { fill, stroke: "#00ff00", strokeWidth: 5 };
+      return area;
+    };
+    const plain = styled("#ff0000");
+    const valued = styled("#0000ff");
+    valued.geometry = { type: "rect", x: 20, y: 0, width: 10, height: 10 };
+    const highlighted = styled("#ffff00");
+    highlighted.alwaysHighlight = true;
+    const disabled = styled("#00ffff");
+    disabled.disabled = true;
+    disabled.style.disabled = { fill: "#aaaaaa", stroke: "#333333", strokeWidth: 1 };
+    const project = createNewProject();
+    project.views[0].layers = [{
+      id: "layer_1", name: "Layer 1", visible: true, locked: false, opacity: 1, areas: [plain, valued, highlighted, disabled],
+    }];
+    const instance = create({
+      container: "#map",
+      definition: toDefinition(project),
+      choropleth: { data: [{ id: valued.id, value: 1 }, { id: disabled.id, value: 2 }], colorLow: "#000000", colorHigh: "#ffffff" },
+    });
+    const selections: Array<string | null> = [];
+    const order: string[] = [];
+    instance.on("area:select", (event) => { selections.push(event.areaId); order.push(event.type); });
+    instance.on("area:click", (event) => order.push(event.type));
+    const click = (id: string) => areaElement(id).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    // Pointer activation selects; hover over the selected area keeps active.
+    click(plain.id);
+    expect(areaElement(plain.id)).toHaveAttribute("fill", "#ff0000");
+    expect(areaElement(plain.id)).toHaveAttribute("stroke-width", "5");
+    expect(areaElement(plain.id)).toHaveAttribute("aria-current", "true");
+    expect(areaElement(plain.id)).toHaveAttribute("role", "button");
+    expect(order).toEqual(["area:select", "area:click"]);
+    areaElement(plain.id).dispatchEvent(new Event("pointerover", { bubbles: true }));
+    expect(areaElement(plain.id)).toHaveAttribute("fill", "#ff0000");
+    // Hovering another area leaves the selection painted.
+    areaElement(valued.id).dispatchEvent(new Event("pointerover", { bubbles: true }));
+    expect(areaElement(valued.id)).toHaveAttribute("fill", valued.style.hover.fill);
+    expect(areaElement(plain.id)).toHaveAttribute("fill", "#ff0000");
+    areaElement(valued.id).dispatchEvent(new Event("pointerout", { bubbles: true }));
+    expect(areaElement(valued.id)).toHaveAttribute("fill", "rgb(0,0,0)");
+
+    // A new activation moves the selection; the previous area returns to its resolved style.
+    click(valued.id);
+    expect(areaElement(valued.id)).toHaveAttribute("fill", "#0000ff");
+    expect(areaElement(plain.id)).toHaveAttribute("fill", plain.style.default.fill);
+    expect(areaElement(plain.id)).not.toHaveAttribute("aria-current");
+    expect(document.querySelectorAll('[aria-current="true"]')).toHaveLength(1);
+
+    // Disabled areas cannot be selected, by pointer or API, and do not clear the selection.
+    click(disabled.id);
+    instance.select(disabled.id);
+    expect(areaElement(disabled.id)).toHaveAttribute("fill", "#aaaaaa");
+    expect(areaElement(valued.id)).toHaveAttribute("fill", "#0000ff");
+
+    // Escape clears, restoring the choropleth resting colour.
+    areaElement(valued.id).dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(areaElement(valued.id)).toHaveAttribute("fill", "rgb(0,0,0)");
+    expect(areaElement(valued.id)).not.toHaveAttribute("aria-current");
+
+    // Active outranks always-highlight; clearing returns to the highlight (hover) style.
+    instance.select(highlighted.id);
+    expect(areaElement(highlighted.id)).toHaveAttribute("fill", "#ffff00");
+    instance.clearSelection();
+    expect(areaElement(highlighted.id)).toHaveAttribute("fill", highlighted.style.hover.fill);
+
+    // Activating empty map space clears; unknown ids are ignored.
+    click(plain.id);
+    instance.select("missing");
+    expect(areaElement(plain.id)).toHaveAttribute("aria-current", "true");
+    document.querySelector(".clickmap-areas")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(areaElement(plain.id)).toHaveAttribute("fill", plain.style.default.fill);
+
+    expect(selections).toEqual([plain.id, valued.id, null, highlighted.id, null, plain.id, null]);
+  });
+
+  it("selects on Enter/Space, keeps the selection after blur, and clears it with Escape", () => {
+    const area = createRectArea(0, 0, 10, 10);
+    area.style = { ...structuredClone(area.style), active: { fill: "#ff0000", stroke: "#000000", strokeWidth: 4 } };
+    const instance = renderAreas(area);
+    const select = vi.fn();
+    instance.on("area:select", select);
+    const el = areaElement(area.id);
+
+    el.focus();
+    expect(el).toHaveAttribute("fill", area.style.hover.fill);
+    el.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    expect(el).toHaveAttribute("fill", "#ff0000");
+    el.dispatchEvent(new KeyboardEvent("keyup", { key: " ", bubbles: true }));
+    el.blur();
+    expect(el).toHaveAttribute("fill", "#ff0000");
+    expect(el).toHaveAttribute("aria-current", "true");
+    // Repeated activation of the selected area does not re-announce it.
+    el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(select).toHaveBeenCalledTimes(1);
+    expect(select).toHaveBeenCalledWith(expect.objectContaining({ type: "area:select", areaId: area.id, areaName: area.name }));
+
+    el.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(el).toHaveAttribute("fill", area.style.default.fill);
+    expect(select).toHaveBeenLastCalledWith(expect.objectContaining({ areaId: null, areaName: null }));
+  });
+
+  it("clears the selection when its popup closes, its layer hides, the view changes, or the map resets", () => {
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true })));
+    const project = createNewProject();
+    const withPopup = createRectArea(0, 0, 10, 10);
+    withPopup.action = { type: "popup", content: { title: "Details" } };
+    const hider = createRectArea(20, 0, 10, 10);
+    hider.action = { type: "toggleLayer", targetLayerId: "extra" };
+    const extra = createRectArea(40, 0, 10, 10);
+    extra.action = { type: "toggleLayer", targetLayerId: "extra" }; // hides its own layer
+    const go = createRectArea(60, 0, 10, 10);
+    go.action = { type: "goToView", targetViewId: "view_second", transition: "none" };
+    project.views[0].layers = [
+      { id: "base", name: "Base", visible: true, locked: false, opacity: 1, areas: [withPopup, hider, go] },
+      { id: "extra", name: "Extra", visible: true, locked: false, opacity: 1, areas: [extra] },
+    ];
+    project.views.push({ ...structuredClone(project.views[0]), id: "view_second", name: "Second", slug: "second" });
+    const instance = create({ container: "#map", definition: toDefinition(project) });
+    const events: string[] = [];
+    instance.on("area:select", (event) => events.push(`select:${event.viewId}:${event.areaId}`));
+    instance.on("view:leave", (event) => events.push(`leave:${event.viewId}`));
+    const click = (id: string) => areaElement(id).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    click(withPopup.id);
+    expect(areaElement(withPopup.id)).toHaveAttribute("aria-current", "true");
+    document.querySelector<HTMLButtonElement>(".clickmap-popover-close")!.click();
+    expect(areaElement(withPopup.id)).not.toHaveAttribute("aria-current");
+
+    click(extra.id); // selects itself, then hides its own layer
+    expect(document.querySelector(`[data-area-id="${extra.id}"]`)).toBeNull();
+    click(hider.id); // shows "extra" again
+    instance.select(extra.id);
+    instance.reset();
+    expect(document.querySelector('[aria-current="true"]')).toBeNull();
+
+    instance.select(withPopup.id);
+    click(go.id);
+    expect(instance.getCurrentView()).toBe("view_second");
+    expect(document.querySelector('[aria-current="true"]')).toBeNull();
+    const view = project.views[0].id;
+    expect(events).toEqual([
+      `select:${view}:${withPopup.id}`, `select:${view}:null`,
+      `select:${view}:${extra.id}`, `select:${view}:null`,
+      `select:${view}:${hider.id}`, `select:${view}:${extra.id}`, `select:${view}:null`,
+      `select:${view}:${withPopup.id}`, `select:${view}:${go.id}`, `leave:${view}`, `select:${view}:null`,
+    ]);
+  });
+
+  it("selects deep-linked and directory areas and mirrors the selection in the hash", () => {
+    const project = createNewProject();
+    const first = createRectArea(0, 0, 10, 10);
+    const second = createRectArea(20, 0, 10, 10);
+    second.name = "Second place";
+    project.views[0].layers = [{ id: "layer", name: "Layer", visible: true, locked: false, opacity: 1, areas: [first, second] }];
+    project.views[0].slug = "ground";
+    project.settings.directory = { enabled: true };
+    window.history.replaceState(null, "", `#ground/${first.id}`);
+    const instance = create({ container: "#map", definition: toDefinition(project), deepLink: { enabled: true } });
+
+    expect(areaElement(first.id)).toHaveAttribute("aria-current", "true");
+    expect(areaElement(first.id)).toHaveAttribute("fill", first.style.active.fill);
+    Array.from(document.querySelectorAll<HTMLButtonElement>(".clickmap-directory-result"))
+      .find((button) => button.textContent?.startsWith("Second place"))!.click();
+    expect(areaElement(second.id)).toHaveAttribute("aria-current", "true");
+    expect(areaElement(first.id)).not.toHaveAttribute("aria-current");
+    expect(window.location.hash).toBe(`#ground/${second.id}`);
+    instance.clearSelection();
+    expect(window.location.hash).toBe("#ground");
+  });
+
+  it("selects and clears with the keyboard inside Shadow DOM", () => {
+    const area = createRectArea(0, 0, 10, 10);
+    const project = createNewProject();
+    project.views[0].layers = [{ id: "layer", name: "Layer", visible: true, locked: false, opacity: 1, areas: [area] }];
+    const host = document.querySelector<HTMLElement>("#map")!;
+    create({ container: host, definition: toDefinition(project), shadowDom: true });
+    const el = host.shadowRoot!.querySelector<SVGElement>(`[data-area-id="${area.id}"]`)!;
+
+    el.focus();
+    el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, composed: true }));
+    expect(el).toHaveAttribute("aria-current", "true");
+    expect(el).toHaveAttribute("fill", area.style.active.fill);
+    el.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, composed: true }));
+    expect(el).not.toHaveAttribute("aria-current");
+    expect(el).toHaveAttribute("fill", area.style.hover.fill);
+  });
+
+  it("reveals only the final directory choice after cross-view navigation completes", () => {
+    vi.useFakeTimers();
+    try {
+      const project = createNewProject();
+      const makeView = (id: string, areaName: string, x: number) => {
+        const area = createRectArea(x, 400, 40, 40);
+        area.id = `${id}-place`;
+        area.name = areaName;
+        return { ...structuredClone(project.views[0]), id, name: id, slug: id,
+          layers: [{ id: `${id}-layer`, name: "Places", visible: true, locked: false, opacity: 1, areas: [area] }] };
+      };
+      project.views = [makeView("home", "Home place", 100), makeView("north", "North place", 400), makeView("south", "South place", 1200)];
+      project.settings.initialViewId = "home";
+      project.settings.directory = { enabled: true };
+      const instance = create({ container: "#map", definition: toDefinition(project) });
+      const reveals: string[] = [];
+      instance.on("camera:change", (event) => { if (event.reason === "reveal") reveals.push(event.viewId); });
+      const choose = (name: string) => Array.from(document.querySelectorAll<HTMLButtonElement>(".clickmap-directory-result"))
+        .find((button) => button.textContent?.startsWith(name))!.click();
+
+      choose("North place");
+      choose("South place");
+      expect(reveals).toEqual([]);
+      vi.advanceTimersByTime(1000);
+      expect(instance.getCurrentView()).toBe("south");
+      expect(reveals).toEqual(["south"]);
+      expect(document.activeElement).toBe(areaElement("south-place"));
+
+      // Same destination twice while it is still fading in: the latest wins once rendered.
+      choose("Home place");
+      expect(document.querySelector('[data-area-id="home-place"]')).toBeNull();
+      vi.advanceTimersByTime(1000);
+      expect(reveals).toEqual(["south", "home"]);
+
+      choose("North place");
+      instance.destroy();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("dispatches authored custom-event payloads", () => {
     const area = createRectArea(0, 0, 10, 10);
     area.action = { type: "customEvent", eventName: "map:request-details", payload: { propertyId: 42 } };

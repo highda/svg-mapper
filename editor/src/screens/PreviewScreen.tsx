@@ -35,7 +35,7 @@ function parseDimension(value: string): number | null | undefined {
 interface PreviewMessage {
   source?: string;
   kind?: "event" | "url" | "hook-log" | "hook-error" | "size" | "host-resized" | "harness-ready";
-  event?: { type: string; currentViewId?: string; areaName?: string; message?: string };
+  event?: { type: string; currentViewId?: string; areaName?: string | null; message?: string };
   page?: Box;
   map?: Box;
   host?: Box | PreviewHostSize;
@@ -59,6 +59,7 @@ export function PreviewScreen() {
   const [blockUrls, setBlockUrls] = useState(true);
   const [currentViewId, setCurrentViewId] = useState<string | null>(null);
   const [lastEvent, setLastEvent] = useState<string>("—");
+  const [selectedName, setSelectedName] = useState<string | null>(null);
   const [showHooks, setShowHooks] = useState(false);
   const [hookCode, setHookCode] = useState('map.on("area:click", event => log(`Clicked ${event.areaName}`));');
   const [activeHookCode, setActiveHookCode] = useState("");
@@ -122,6 +123,7 @@ export function PreviewScreen() {
         // A freshly loaded map starts over; drop status from the previous one.
         setCurrentViewId(null);
         setLastEvent("—");
+        setSelectedName(null);
         setHarnessGeneration((n) => n + 1);
       } else if (msg.kind === "host-resized" && msg.host) {
         const next = msg.host as PreviewHostSize;
@@ -145,6 +147,9 @@ export function PreviewScreen() {
         }
         if (ev.type === "ready") {
           setLastEvent("ready");
+        } else if (ev.type === "area:select") {
+          setSelectedName(ev.areaName ?? null);
+          setLastEvent(ev.areaName ? `area:select (${ev.areaName})` : "area:select (cleared)");
         } else if (ev.type === "error") {
           setLastEvent(`error: ${ev.message ?? ""}`);
         } else if (ev.type !== "area:hover") {
@@ -242,6 +247,9 @@ export function PreviewScreen() {
         <div className="ml-auto flex items-center gap-3 text-xs text-neutral-500">
           <span>
             View: <span className="text-neutral-300">{viewName}</span>
+          </span>
+          <span>
+            Selected: <span className="text-neutral-300" data-testid="preview-selected">{selectedName ?? "—"}</span>
           </span>
           <span>
             Last event: <span className="text-neutral-300">{lastEvent}</span>

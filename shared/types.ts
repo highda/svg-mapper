@@ -2,7 +2,12 @@
 // Schema
 // ---------------------------------------------------------------------------
 
-export type SchemaVersion = "1.0.0";
+/**
+ * `schemaVersion` of a map definition: `MAJOR.MINOR.PATCH`. A major change is
+ * breaking; minor and patch changes are additive. This release reads major
+ * version 1 only (docs/data-model.md, "Versioning").
+ */
+export type SchemaVersion = `1.${number}.${number}`;
 
 // ---------------------------------------------------------------------------
 // Asset
@@ -91,6 +96,7 @@ export interface AreaStyleState {
 export interface AreaStyle {
   default: AreaStyleState;
   hover: AreaStyleState;
+  /** Selected: the area the visitor last activated, until the selection is cleared (#214). */
   active: AreaStyleState;
   /** Rendered when area.disabled is true (issue #22). */
   disabled?: AreaStyleState;
@@ -548,6 +554,15 @@ export interface ClickMapAreaClickEvent {
   metadata?: Record<string, unknown>;
 }
 
+/** The view's selected area changed; `areaId` and `areaName` are null when it was cleared. */
+export interface ClickMapAreaSelectEvent {
+  type: "area:select";
+  instanceId: string;
+  viewId: string;
+  areaId: string | null;
+  areaName: string | null;
+}
+
 export interface ClickMapPopupOpenEvent {
   type: "popup:open";
   popupId: string;
@@ -572,6 +587,7 @@ export type ClickMapEvent =
   | ClickMapCameraChangeEvent
   | ClickMapAreaHoverEvent
   | ClickMapAreaClickEvent
+  | ClickMapAreaSelectEvent
   | ClickMapPopupOpenEvent
   | ClickMapPopupCloseEvent
   | ClickMapErrorEvent;
@@ -582,6 +598,10 @@ export interface ClickMapInstance {
   goToView(viewId: string): void;
   goBack(): void;
   reset(): void;
+  /** Select an area of the current view (painted with `style.active`); ignored for unknown, hidden or disabled areas. */
+  select(areaId: string): void;
+  /** Clear the current view's selection, if any. */
+  clearSelection(): void;
   getCurrentView(): string;
   getDefinition(): ClickMapDefinition;
   destroy(): void;

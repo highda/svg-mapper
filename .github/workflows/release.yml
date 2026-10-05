@@ -31,17 +31,20 @@ jobs:
       - run: npm ci --prefix renderer
       - run: npm ci --prefix editor
       - run: npm run typecheck --prefix shared
+      - run: npm run schema:check --prefix shared
       - run: npm run typecheck --prefix renderer
       - run: npm run test --prefix editor
       - run: npm run build --prefix renderer
+      - run: npm run build:types --prefix renderer
       - run: npm run build --prefix editor
         env:
           VITE_BASE_PATH: ./
       - name: Assemble archives
         run: |
           mkdir -p release/svg-mapper-renderer release/svg-mapper-editor
-          cp renderer/dist/clickmap-renderer.js renderer/dist/clickmap-renderer.css release/svg-mapper-renderer/
-          cp docs/renderer-api.md docs/data-model.md docs/export-format.md release/svg-mapper-renderer/
+          cp renderer/dist/clickmap-renderer.js renderer/dist/clickmap-renderer.css renderer/dist/clickmap-renderer.d.ts release/svg-mapper-renderer/
+          cp shared/schema/clickmap-definition.schema.json release/svg-mapper-renderer/
+          cp docs/renderer-standalone.md docs/renderer-api.md docs/data-model.md docs/export-format.md release/svg-mapper-renderer/
           cp -R editor/dist/. release/svg-mapper-editor/
           cd release
           zip -r svg-mapper-renderer.zip svg-mapper-renderer

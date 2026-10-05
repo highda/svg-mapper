@@ -4,6 +4,7 @@ import { assetDisplaySource } from "@svg-mapper/shared";
 import { geometryToSvgPath, getRectHandles, type RectHandle } from "../../lib/area-utils";
 import { alphaMaskToSvgPath } from "../../lib/alpha-mask";
 import { useStore } from "../../store";
+import { useStylePreview } from "../../store/style-preview";
 
 interface Props {
   area: Area;
@@ -32,6 +33,7 @@ export function AreaShape({
 }: Props) {
   const [hovered, setHovered] = useState(false);
   const assets = useStore((state) => state.project.assets);
+  const previewState = useStylePreview((state) => state.state);
 
   const d = geometryToSvgPath(area.geometry);
   if (!d) return null;
@@ -41,9 +43,12 @@ export function AreaShape({
   const isDisabled = area.disabled === true;
   const alwaysHL = area.alwaysHighlight === true;
 
-  const activeStyle = isDisabled
+  // Mirrors the renderer's precedence: disabled > active (previewed) > hover >
+  // always-highlight > default. The Inspector's preview applies to selected areas.
+  const shownStyle = isDisabled
     ? (area.style.disabled ?? { ...area.style.default, fill: "#9ca3af", stroke: "#6b7280" })
-    : (hovered || alwaysHL) ? area.style.hover : area.style.default;
+    : selected && previewState === "active" ? area.style.active
+      : (hovered || alwaysHL || (selected && previewState === "hover")) ? area.style.hover : area.style.default;
 
   function handlePointerEnter() {
     setHovered(true);
@@ -69,9 +74,9 @@ export function AreaShape({
       {/* Main area shape */}
       <path
         d={d}
-        fill={activeStyle.fill}
-        stroke={activeStyle.stroke}
-        strokeWidth={activeStyle.strokeWidth}
+        fill={shownStyle.fill}
+        stroke={shownStyle.stroke}
+        strokeWidth={shownStyle.strokeWidth}
         style={{ cursor: geometryLocked ? "pointer" : "move" }}
         data-locked={geometryLocked ? "true" : undefined}
         onPointerDown={(e) => {

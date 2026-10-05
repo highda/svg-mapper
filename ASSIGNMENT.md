@@ -123,7 +123,8 @@ The same JSON shape is the editor's persistence format **and** the renderer's in
 
 This brief no longer duplicates the schema, because copies drift out of date. The canonical sources are:
 
-- [`shared/types.ts`](shared/types.ts): the TypeScript declarations (`ProjectFile`, `ClickMapDefinition`, views, layers, areas, geometry and action variants).
+- [`shared/schema.ts`](shared/schema.ts): the single structural schema. The runtime decoder, the published JSON Schema [`shared/schema/clickmap-definition.schema.json`](shared/schema/clickmap-definition.schema.json), and the drift checks against the types are all derived from it.
+- [`shared/types.ts`](shared/types.ts): the documented TypeScript declarations (`ProjectFile`, `ClickMapDefinition`, views, layers, areas, geometry and action variants), kept in lockstep with the schema at compile time.
 - [`docs/data-model.md`](docs/data-model.md): field-by-field reference, sizing modes, and decoding rules.
 - [`docs/export-format.md`](docs/export-format.md) and [`docs/renderer-api.md`](docs/renderer-api.md): package layout and runtime API.
 
@@ -286,7 +287,7 @@ type ClickMapInstance = {
 - Fetch / accept the JSON definition.
 - Resolve asset references (external URLs, inline base64, or inline SVG markup).
 - Render the active View: background, layers in order, areas with default style.
-- Apply hover/active state styles on pointer + keyboard focus.
+- Apply hover styles on pointer hover and keyboard focus, and the active style to the selected area (the one last activated) until Escape, empty space, closing its popup, or leaving the view clears it. Precedence: disabled > active > hover/focus > always-highlight > default.
 - Dispatch the configured action on click / Enter / Space.
 - Animate View transitions (`fade` minimum; others optional).
 - Maintain navigation history; support `goBack()` and browser back button when `enableHistory: true`.

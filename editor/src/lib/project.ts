@@ -1,5 +1,5 @@
 import type { ClickMapDefinition, ProjectFile, View, Settings } from "@svg-mapper/shared";
-import { decodeProjectFile } from "@svg-mapper/shared";
+import { CURRENT_SCHEMA_VERSION, SUPPORTED_SCHEMA_MAJOR, decodeProjectFile } from "@svg-mapper/shared";
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -45,7 +45,7 @@ export function createNewProject(name = "Untitled Map"): ProjectFile {
   };
 
   return {
-    schemaVersion: "1.0.0",
+    schemaVersion: CURRENT_SCHEMA_VERSION,
     project: {
       id,
       name,
@@ -68,15 +68,28 @@ export function createNewProject(name = "Untitled Map"): ProjectFile {
   };
 }
 
-/** Throws a descriptive error unless `value` is a structurally valid project file. */
 /**
- * Structural check with the shared schema (#169). Repairable semantic problems,
- * such as actions pointing at missing views, are left to validateProject so
- * the project still opens for repair.
+ * Throws a descriptive error unless `value` is a structurally valid project
+ * file, using the shared schema (#169). Repairable semantic problems, such as
+ * actions pointing at missing views, are left to validateProject so the
+ * project still opens for repair. A file with another schemaVersion major is
+ * refused outright (#196): it may mean something this editor cannot preserve.
  */
 export function assertProjectFile(value: unknown): asserts value is ProjectFile {
   const result = decodeProjectFile(value);
-  if (!result.ok) throw new Error(result.message);
+  if (result.ok) return;
+  if (result.code === "UNSUPPORTED_SCHEMA_VERSION") {
+    const version = (value as { schemaVersion: string }).schemaVersion;
+    const newer = Number(version.split(".")[0]) > SUPPORTED_SCHEMA_MAJOR;
+    throw new Error(
+      newer
+        ? `This map uses schemaVersion ${version}, which is newer than this editor supports ` +
+            `(${SUPPORTED_SCHEMA_MAJOR}.x). Open it with a newer version of svg-mapper.`
+        : `This map uses schemaVersion ${version}, an older format this editor cannot open ` +
+            `(it reads ${SUPPORTED_SCHEMA_MAJOR}.x).`,
+    );
+  }
+  throw new Error(result.message);
 }
 
 export function parseProjectFile(json: string): ProjectFile {
