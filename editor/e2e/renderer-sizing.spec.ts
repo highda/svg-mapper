@@ -51,6 +51,14 @@ for (const shadowDom of [false, true]) {
     await mount(page, "fixed", "", shadowDom);
     await settle(page);
     expect(await viewBox(page)).toEqual({ width: 800, height: 500, svgHeight: 500 });
+
+    // Canvas size ignores the host in both dimensions, inside a wide window.
+    await page.setViewportSize({ width: 1400, height: 900 });
+    for (const style of ["width: 320px; height: 120px;", "width: 1200px; height: 900px;"]) {
+      await page.evaluate((css) => { document.getElementById("host")!.setAttribute("style", css); }, style);
+      await settle(page);
+      expect(await viewBox(page), style).toEqual({ width: 800, height: 500, svgHeight: 500 });
+    }
   });
 
   test(`fluid width follows the host width and view aspect (${dom})`, async ({ page }) => {

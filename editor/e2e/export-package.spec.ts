@@ -193,10 +193,10 @@ test("colliding asset names export to distinct files that all display (#170)", a
   }
 });
 
-test("production editor remains operable with touch emulation", async ({ browser }) => {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+test("production editor remains operable with touch emulation", async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   const page = await context.newPage();
-  await page.goto("http://127.0.0.1:4173/");
+  await page.goto("/");
   await page.getByRole("button", { name: "Project", exact: true }).tap();
   await expect(page.getByRole("region", { name: "Project operations" })).toBeVisible();
   await page.getByRole("button", { name: "Project", exact: true }).tap();
