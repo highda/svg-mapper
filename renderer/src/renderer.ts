@@ -43,6 +43,8 @@ const OVERLAY_PADDING = 8;
  */
 const COMPACT_WIDTH = 560;
 const COMPACT_HEIGHT = 360;
+/** A press that moves less than this (CSS px) is a click, not a pan. */
+const PAN_THRESHOLD = 4;
 
 type ControlSlot = "top-left" | "top-center" | "top-right" | "bottom-left" | "bottom-center" | "bottom-right";
 
@@ -217,10 +219,12 @@ class Renderer implements ClickMapInstance {
   private choroplethData: Map<string, number> = new Map();
   private choroplethOptions: ChoroplethOptions | null = null;
 
-  // Spacebar pan state
+  // Pointer pan (#215): one path for mouse, pen and Space-drag; touch joins it in #113.
   private spaceHeld = false;
-  private panStart: { x: number; y: number } | null = null;
-  private panStartViewBox: { x: number; y: number; w: number; h: number } | null = null;
+  /** The press that may become a pan; `scale` is screen px per SVG unit at its start. */
+  private pan: { id: number; x: number; y: number; vb: { x: number; y: number }; scale: number; moved: boolean } | null = null;
+  /** Set when a drag ends so its trailing click activates nothing. */
+  private suppressClick = false;
   private currentViewBox: { x: number; y: number; w: number; h: number } | null = null;
   private navigationInProgress = false;
 
@@ -437,13 +441,15 @@ class Renderer implements ClickMapInstance {
     this.svgEl.addEventListener("focusout", (e) => this.onFocusOut(e));
     this.svgEl.addEventListener("wheel", this.onWheel, { passive: false });
 
-    // Spacebar pan (issue #27 G3)
+    // Drag and Space-drag pan (issues #27 G3, #215)
     window.addEventListener("keydown", this.onWindowKeyDown);
     window.addEventListener("keyup", this.onWindowKeyUp);
     this.svgEl.addEventListener("pointerdown", (e) => this.onPanStart(e));
     this.root.addEventListener("keydown", (e) => this.onRootKeyDown(e));
     window.addEventListener("pointermove", this.onWindowPointerMove);
     window.addEventListener("pointerup", this.onWindowPointerUp);
+    window.addEventListener("pointercancel", this.onWindowPointerUp);
+    this.svgEl.addEventListener("lostpointercapture", () => this.endPan());
 
     // Close popover on outside click
     document.addEventListener("click", this.onDocumentClick);
@@ -724,6 +730,7 @@ class Renderer implements ClickMapInstance {
   }
 
   private resetCameraForView(view: View) {
+    this.endPan();
     const base = this.getBaseViewBox(view);
     this.currentViewBox = this.zoomedViewBox(base, this.getZoomLimits(view).initial);
     this.applyViewBox();
@@ -1076,15 +1083,41 @@ class Renderer implements ClickMapInstance {
     };
   }
 
+  /**
+   * Clamp the camera so the canvas (plus padding) never leaves the renderer
+   * box, then apply it. Bounds use the region the SVG actually shows, so a
+   * letterboxed host neither reveals empty bands nor pans an axis that fits.
+   */
   private applyViewBox() {
-    if (!this.currentViewBox) return;
-    const { x, y, w, h } = this.currentViewBox;
+    const vb = this.currentViewBox;
+    const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
+    if (!vb || !view) return;
+    const base = this.getBaseViewBox(view);
+    const rect = this.svgEl.getBoundingClientRect();
+    const s = Math.min(rect.width / vb.w, rect.height / vb.h);
+    vb.x = clampAxis(vb.x, vb.w, s > 0 ? rect.width / s : vb.w, base.x, base.w);
+    vb.y = clampAxis(vb.y, vb.h, s > 0 ? rect.height / s : vb.h, base.y, base.h);
+    // Only a zoomed-in, pan-enabled map grabs drags and takes a keyboard stop.
+    const pannable = view.viewport.panEnabled && (vb.w < base.w || vb.h < base.h);
+    if (pannable !== this.root.classList.contains("clickmap-root--pannable")) {
+      this.root.classList.toggle("clickmap-root--pannable", pannable);
+      if (pannable) {
+        this.svgEl.setAttribute("tabindex", "0");
+        this.svgEl.setAttribute("role", "group");
+        this.svgEl.setAttribute("aria-label", "Map, arrow keys pan");
+      } else {
+        this.svgEl.removeAttribute("tabindex");
+        this.svgEl.removeAttribute("aria-label");
+        this.svgEl.setAttribute("role", "presentation");
+      }
+    }
+    const { x, y, w, h } = vb;
     this.svgEl.setAttribute("viewBox", `${x} ${y} ${w} ${h}`);
     this.bgSvgEl?.setAttribute("viewBox", `${x} ${y} ${w} ${h}`);
   }
 
   // -------------------------------------------------------------------------
-  // Spacebar pan (issue #27 G3)
+  // Pan: drag, Space-drag and arrow keys (issues #27 G3, #215)
   // -------------------------------------------------------------------------
 
   private onWindowKeyDown = (e: KeyboardEvent) => {
@@ -1107,52 +1140,58 @@ class Renderer implements ClickMapInstance {
   };
 
   private onWindowKeyUp = (e: KeyboardEvent) => {
-    if (e.code === "Space") {
-      this.spaceHeld = false;
-      this.panStart = null;
-      this.panStartViewBox = null;
-    }
+    if (e.code === "Space") this.spaceHeld = false;
   };
 
-  private onWindowPointerMove = (e: PointerEvent) => this.onPanMove(e);
-  private onWindowPointerUp = () => this.onPanEnd();
-
   private onPanStart(e: PointerEvent) {
-    if (!this.spaceHeld || !this.currentViewBox) return;
-    const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
-    if (!view?.viewport.panEnabled || !this.isZoomedIn()) return;
-    this.panStart = { x: e.clientX, y: e.clientY };
-    this.panStartViewBox = { ...this.currentViewBox };
-    this.svgEl.setPointerCapture(e.pointerId);
-    e.preventDefault();
+    this.suppressClick = false;
+    // Touch keeps the page's gestures until #113 adds its gesture policy.
+    if (e.button !== 0 || e.pointerType === "touch" || !this.currentViewBox ||
+      !this.root.classList.contains("clickmap-root--pannable")) return;
+    const { x, y } = this.currentViewBox;
+    // The SVG's screen transform includes letterboxing, so pans track the pointer 1:1.
+    this.pan = { id: e.pointerId, x: e.clientX, y: e.clientY, vb: { x, y }, scale: this.svgEl.getScreenCTM?.()?.a || 1, moved: false };
+    if (this.spaceHeld) {
+      this.beginDrag();
+      e.preventDefault();
+    }
   }
 
-  private onPanMove(e: PointerEvent) {
-    if (!this.panStart || !this.panStartViewBox || !this.currentViewBox) return;
-    const containerW = this.container.clientWidth || 1;
-    const scale = this.panStartViewBox.w / containerW;
-    const dx = (e.clientX - this.panStart.x) * scale;
-    const dy = (e.clientY - this.panStart.y) * scale;
-    this.currentViewBox = {
-      ...this.panStartViewBox,
-      x: this.panStartViewBox.x - dx,
-      y: this.panStartViewBox.y - dy,
-    };
+  private beginDrag() {
+    this.pan!.moved = true;
+    try { this.svgEl.setPointerCapture(this.pan!.id); } catch { /* pointer already gone */ }
+    this.root.classList.add("clickmap-root--panning");
+  }
+
+  private onWindowPointerMove = (e: PointerEvent) => {
+    const pan = this.pan;
+    if (!pan || e.pointerId !== pan.id) return;
+    const dx = e.clientX - pan.x;
+    const dy = e.clientY - pan.y;
+    if (!pan.moved) {
+      if (Math.hypot(dx, dy) < PAN_THRESHOLD) return;
+      this.beginDrag();
+    }
+    this.panTo(pan.vb.x - dx / pan.scale, pan.vb.y - dy / pan.scale);
+  };
+
+  private onWindowPointerUp = (e: PointerEvent) => {
+    if (e.pointerId === this.pan?.id) this.endPan(e.type === "pointerup");
+  };
+
+  /** Finish or cancel a press. A completed drag swallows the click that follows. */
+  private endPan(dragged = false) {
+    if (dragged && this.pan?.moved) this.suppressClick = true;
+    this.pan = null;
+    this.root.classList.remove("clickmap-root--panning");
+  }
+
+  private panTo(x: number, y: number) {
+    const vb = this.currentViewBox!;
+    const before = vb.x + "," + vb.y;
+    this.currentViewBox = { ...vb, x, y };
     this.applyViewBox();
-    this.emitCameraChange("pan");
-  }
-
-  private onPanEnd() {
-    this.panStart = null;
-    this.panStartViewBox = null;
-  }
-
-  private isZoomedIn() {
-    if (!this.currentViewBox) return false;
-    const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
-    if (!view) return false;
-    const base = this.getBaseViewBox(view);
-    return this.currentViewBox.w < base.w || this.currentViewBox.h < base.h;
+    if (before !== this.currentViewBox.x + "," + this.currentViewBox.y) this.emitCameraChange("pan");
   }
 
   private emitCameraChange(reason: "zoom" | "pan" | "reset" | "reveal") {
@@ -1593,6 +1632,12 @@ class Renderer implements ClickMapInstance {
   }
 
   private onClick(e: MouseEvent) {
+    if (this.suppressClick && e.detail > 0) {
+      // The release of a drag is not a click on the map, an area or the page.
+      this.suppressClick = false;
+      e.stopPropagation();
+      return;
+    }
     const hit = this.getAreaFromEvent(e);
     if (!hit) {
       // Activating empty map space (including transparent pixels of an
@@ -1638,6 +1683,15 @@ class Renderer implements ClickMapInstance {
   }
 
   private onKeyDown(e: KeyboardEvent) {
+    // Arrow keys pan when the map itself (not an area) has focus.
+    const arrow = /^Arrow(Left|Right|Up|Down)$/.exec(e.key)?.[1];
+    if (arrow && e.target === this.svgEl && this.root.classList.contains("clickmap-root--pannable")) {
+      e.preventDefault();
+      const vb = this.currentViewBox!;
+      const step = (a: string, b: string, size: number) => (arrow === a ? -size : arrow === b ? size : 0) / 10;
+      this.panTo(vb.x + step("Left", "Right", vb.w), vb.y + step("Up", "Down", vb.h));
+      return;
+    }
     if (e.key !== "Enter" && e.key !== " ") return;
     const hit = this.getAreaFromEvent(e);
     if (!hit) return;
@@ -2245,6 +2299,8 @@ class Renderer implements ClickMapInstance {
     if (this.def.settings.areaLabels?.enabled && this.def.settings.areaLabels.hideWhenSmaller !== false) {
       this.updateLabelVisibility();
     }
+    // A resized host shows a different region, so re-apply the camera bounds.
+    this.applyViewBox();
     this.syncStage();
     this.refreshOverlays();
   }
@@ -2516,6 +2572,7 @@ class Renderer implements ClickMapInstance {
     window.removeEventListener("keyup", this.onWindowKeyUp);
     window.removeEventListener("pointermove", this.onWindowPointerMove);
     window.removeEventListener("pointerup", this.onWindowPointerUp);
+    window.removeEventListener("pointercancel", this.onWindowPointerUp);
     window.removeEventListener("popstate", this.onPopState);
     document.removeEventListener("click", this.onDocumentClick);
     this.svgEl?.removeEventListener("wheel", this.onWheel);
@@ -2603,10 +2660,24 @@ function failureMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/**
+ * Keep a camera axis inside the canvas: the visible span (the view box plus any
+ * letterbox) stays within the canvas, or is centred on it when wider.
+ */
+function clampAxis(pos: number, size: number, visible: number, start: number, extent: number): number {
+  const pad = (visible - size) / 2;
+  const eps = extent * 1e-9;
+  if (visible >= extent - eps) return start + (extent - size) / 2;
+  const lo = start + pad;
+  const hi = start + extent - visible + pad;
+  return pos < lo - eps ? lo : pos > hi + eps ? hi : pos;
+}
+
 function areaCursor(area: Area): string {
   if (area.disabled) return "not-allowed";
   const trigger = area.trigger ?? "both";
-  return area.action.type !== "none" && trigger !== "hover" ? "pointer" : "default";
+  // Inert areas inherit the map cursor: `grab` while it can pan.
+  return area.action.type !== "none" && trigger !== "hover" ? "pointer" : "";
 }
 
 /** The instance returned when a definition cannot be shown: visible, observable, inert. */
