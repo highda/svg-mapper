@@ -1202,7 +1202,7 @@ class Renderer implements ClickMapInstance {
     const scale = w / base.w;
     for (const el of Array.from(this.svgEl.querySelectorAll<SVGElement>('[data-scale-mode="screen"]'))) {
       const area = this.findAreaInView(el.getAttribute("data-area-id") ?? "", view);
-      if (area?.geometry.type === "marker") el.setAttribute("transform", markerTransform(area.geometry, markerIcon(area.geometry, this.def.icons), scale));
+      if (area?.geometry.type === "marker") el.firstElementChild?.setAttribute("transform", markerTransform(area.geometry, markerIcon(area.geometry, this.def.icons), scale));
     }
   }
 
@@ -1350,19 +1350,22 @@ class Renderer implements ClickMapInstance {
         break;
       }
       case "marker": {
-        // A group in icon units (#219): a transparent box is the hit area and
-        // focus outline, then the icon. Path icons take the style's fill and
-        // stroke; an image icon cannot be recoloured, so the box carries the
-        // style's stroke as an outline instead.
+        // The area group holds the style; inside it, a group in icon units
+        // (#219) holds a transparent box, the hit area and focus outline, and
+        // the icon. Path icons take the style's fill and stroke; an image
+        // icon cannot be recoloured, so the box draws the stroke as an outline.
+        // The transform sits on the inner group so the focus outline keeps
+        // the width every other area's has.
         const icon = markerIcon(g, this.def.icons);
         const asset = icon.assetId !== undefined ? this.def.assets.find((candidate) => candidate.id === icon.assetId) : undefined;
         shape = svgEl<SVGGElement>("g");
+        const art = shape.appendChild(svgEl<SVGGElement>("g"));
         const box = svgEl<SVGRectElement>("rect");
         box.setAttribute("width", String(icon.width));
         box.setAttribute("height", String(icon.height));
         box.setAttribute("fill", "transparent");
         if (!asset) box.setAttribute("stroke", "none");
-        shape.appendChild(box);
+        art.appendChild(box);
         if (asset) {
           const image = svgEl<SVGImageElement>("image");
           this.reportAssetFailure(image, asset.name);
@@ -1370,16 +1373,16 @@ class Renderer implements ClickMapInstance {
           image.setAttribute("width", String(icon.width));
           image.setAttribute("height", String(icon.height));
           image.setAttribute("preserveAspectRatio", "none");
-          shape.prepend(image);
+          art.prepend(image);
         } else {
           const path = svgEl<SVGPathElement>("path");
           path.setAttribute("d", icon.d ?? "");
-          shape.appendChild(path);
+          art.appendChild(path);
         }
         // Strokes stay in canvas units whatever the icon's own scale.
         this.strokeScale.set(shape, (g.size ?? 24) / icon.width);
         if (g.scaleMode === "screen") shape.setAttribute("data-scale-mode", "screen");
-        shape.setAttribute("transform", markerTransform(g, icon, this.cameraScale()));
+        art.setAttribute("transform", markerTransform(g, icon, this.cameraScale()));
         break;
       }
       default:

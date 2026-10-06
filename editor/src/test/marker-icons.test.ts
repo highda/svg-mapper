@@ -326,6 +326,8 @@ describe("renderer", () => {
   });
 
   const el = (id: string) => document.querySelector<SVGGElement>(`[data-area-id="${id}"]`)!;
+  /** The inner group in icon units, which carries the transform. */
+  const art = (id: string) => el(id).firstElementChild as SVGGElement;
 
   it("draws a path icon in its box with the style's fill, strokes kept in canvas units, and a box hit area", () => {
     const area = marker("wc", { icon: "t", size: 30 });
@@ -335,7 +337,7 @@ describe("renderer", () => {
     expect(group.tagName).toBe("g");
     expect(group.getAttribute("fill")).toBe("#ff0000");
     expect(Number(group.getAttribute("stroke-width"))).toBeCloseTo(1, 9);
-    expect(group.getAttribute("transform")).toBe(markerTransform(area.geometry as MarkerGeometry, TOILET));
+    expect(art("wc").getAttribute("transform")).toBe(markerTransform(area.geometry as MarkerGeometry, TOILET));
     expect(group.querySelector("path")!.getAttribute("d")).toBe(TOILET.d);
     const box = group.querySelector("rect")!;
     expect([box.getAttribute("width"), box.getAttribute("height"), box.getAttribute("fill"), box.getAttribute("stroke")]).toEqual(["15", "15", "transparent", "none"]);
@@ -371,16 +373,16 @@ describe("renderer", () => {
     project.settings.zoomControls = { enabled: true };
     create({ container: "#map", definition: toDefinition(project) });
     const svg = document.querySelector<SVGSVGElement>(".clickmap-areas")!;
-    const mapTransform = el("map").getAttribute("transform");
-    expect(el("screen").getAttribute("transform")).toBe(mapTransform);
+    const mapTransform = art("map").getAttribute("transform");
+    expect(art("screen").getAttribute("transform")).toBe(mapTransform);
     document.querySelector<HTMLButtonElement>(".clickmap-zoom-in")!.click();
     document.querySelector<HTMLButtonElement>(".clickmap-zoom-in")!.click();
     const width = Number(svg.getAttribute("viewBox")!.split(" ")[2]);
     expect(width).toBeLessThan(1600);
     const scale = width / 1600;
-    expect(el("screen").getAttribute("transform")).toBe(markerTransform({ x: 100, y: 200, anchor: "bottom-center", size: 30, scaleMode: "screen" }, TOILET, scale));
-    expect(el("map").getAttribute("transform")).toBe(mapTransform);
+    expect(art("screen").getAttribute("transform")).toBe(markerTransform({ x: 100, y: 200, anchor: "bottom-center", size: 30, scaleMode: "screen" }, TOILET, scale));
+    expect(art("map").getAttribute("transform")).toBe(mapTransform);
     document.querySelector<HTMLButtonElement>(".clickmap-zoom-reset")!.click();
-    expect(el("screen").getAttribute("transform")).toBe(mapTransform);
+    expect(art("screen").getAttribute("transform")).toBe(mapTransform);
   });
 });

@@ -625,7 +625,7 @@ describe("renderer interaction model", () => {
     // The default pin is drawn in its 24 x 32 icon box, tip on the anchor point (#219).
     const marker = areaElement(area.id);
     expect(marker.tagName.toLowerCase()).toBe("g");
-    expect(marker.getAttribute("transform")).toBe("translate(88,88) scale(1)");
+    expect(marker.firstElementChild!.getAttribute("transform")).toBe("translate(88,88) scale(1)");
     expect(marker.querySelector("path")!.getAttribute("d")).toBe(MARKER_PIN.d);
     expect(marker).toHaveAttribute("aria-label", "Reception");
   });

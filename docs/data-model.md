@@ -248,7 +248,7 @@ A `marker` area is a waypoint drawn at the point `x`,`y`. Its `anchor` names whi
 "geometry": { "type": "marker", "x": 410, "y": 220, "anchor": "bottom-center", "icon": "maki-toilet", "size": 32, "scaleMode": "screen" }
 ```
 
-The whole icon box is the marker's hit area and keyboard focus outline, including the transparent parts of the icon. Labels, place-directory reveal, and popover anchoring use the same box at map scale. The renderer draws a marker as `<g class="clickmap-area">` holding a transparent `<rect>` (the hit box) and the icon's `<path>` or `<image>`, in icon units under a `transform` attribute.
+The whole icon box is the marker's hit area and keyboard focus outline, including the transparent parts of the icon. Labels, place-directory reveal, and popover anchoring use the same box at map scale. The renderer draws a marker as `<g class="clickmap-area">`, which carries the style, around a `<g transform="…">` in icon units holding a transparent `<rect>` (the hit box) and the icon's `<path>` or `<image>`.
 
 Keys are free-form strings. The editor uses the gallery id (`maki-toilet`, `badge-a`, `exit`) for its built-in icons and `icon_…` for uploads. The renderer has no built-in gallery: a map carries the path data of every icon it uses. The editor writes only icons some marker uses into `map.json`, and drops image assets that only unused icons referenced. See `editor/src/lib/icons/NOTICE.md` for the gallery's sources and licences (Mapbox Maki, CC0; badge glyphs drawn with Liberation Sans, OFL).
 
