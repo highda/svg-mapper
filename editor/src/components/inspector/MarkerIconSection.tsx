@@ -154,9 +154,8 @@ export function MarkerIconSection({
         <button
           type="button"
           onClick={() => {
-            const patch: Partial<Pick<MarkerGeometry, "size" | "scaleMode">> = { size: geometry.size, scaleMode: geometry.scaleMode as MarkerScaleMode | undefined };
-            setMarkerIcon(selectedMarkerIds, geometry.icon === undefined ? null : { key: geometry.icon });
-            updateMarkers(selectedMarkerIds, patch);
+            // One gesture, one undo step.
+            updateMarkers(selectedMarkerIds, { icon: geometry.icon, size: geometry.size, scaleMode: geometry.scaleMode as MarkerScaleMode | undefined });
           }}
           className="w-full rounded bg-blue-700 px-2 py-1 text-xs text-white hover:bg-blue-600"
         >

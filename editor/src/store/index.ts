@@ -103,8 +103,12 @@ export interface AppState {
    * locked layers are left unchanged. One undo step.
    */
   setMarkerIcon: (areaIds: string[], icon: { key: string; entry?: MarkerIcon } | null) => void;
-  /** Set marker size and scale mode on the given markers; locked ones are skipped. One undo step. */
-  updateMarkers: (areaIds: string[], patch: Partial<Pick<MarkerGeometry, "size" | "scaleMode">>) => void;
+  /**
+   * Set icon, size and scale mode on the given markers; a key present with
+   * `undefined` restores the default. Locked markers are skipped, and an
+   * `icon` that is not in the project's icons is ignored. One undo step.
+   */
+  updateMarkers: (areaIds: string[], patch: Partial<Pick<MarkerGeometry, "icon" | "size" | "scaleMode">>) => void;
 
   // ── View CRUD ────────────────────────────────────────────────────────────
   addView: () => void;
@@ -665,12 +669,13 @@ export const useStore = create<AppState>()(
       set((s) => {
         const markers = markerDrafts(s, areaIds);
         s.lockNotice = markers.skipped > 0 ? skippedNotice(markers.skipped, markers.reason) : null;
-        const changes = markers.editable.filter((geometry) =>
-          ("size" in patch && geometry.size !== patch.size) || ("scaleMode" in patch && geometry.scaleMode !== patch.scaleMode));
+        const keys = (["icon", "size", "scaleMode"] as const).filter((key) =>
+          key in patch && (key !== "icon" || patch.icon === undefined || s.project.icons?.[patch.icon] !== undefined));
+        const changes = markers.editable.filter((geometry) => keys.some((key) => geometry[key] !== patch[key]));
         if (changes.length === 0) return;
         pushHistory(s);
         for (const geometry of changes) {
-          for (const key of ["size", "scaleMode"] as const) {
+          for (const key of keys) {
             if (!(key in patch)) continue;
             const value = patch[key];
             if (value === undefined) delete geometry[key];

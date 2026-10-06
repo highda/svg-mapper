@@ -303,6 +303,25 @@ describe("store", () => {
     expect(geometry("m1")).not.toHaveProperty("scaleMode");
   });
 
+  it("applies the primary marker's icon, size and scale mode to a selection as one undo step", () => {
+    useStore.setState((s) => {
+      s.project.icons = { t: TOILET, c: galleryIconEntry(findGalleryIcon("maki-cafe")!) };
+      s.project.views[0]!.layers = [{ id: "layer", name: "Layer", visible: true, locked: false, opacity: 1, areas: [
+        marker("primary", { icon: "t", size: 40, scaleMode: "screen" }),
+        marker("m2", { icon: "c", size: 20 }),
+        marker("m3"),
+      ] }];
+    });
+    const geometries = () => useStore.getState().project.views[0]!.layers[0]!.areas.map((area) => area.geometry as MarkerGeometry);
+    const before = structuredClone(geometries());
+    const history = useStore.getState().past.length;
+    useStore.getState().updateMarkers(["primary", "m2", "m3"], { icon: "t", size: 40, scaleMode: "screen" });
+    expect(geometries().map(({ icon, size, scaleMode }) => ({ icon, size, scaleMode }))).toEqual(Array(3).fill({ icon: "t", size: 40, scaleMode: "screen" }));
+    expect(useStore.getState().past.length).toBe(history + 1);
+    useStore.getState().undo();
+    expect(geometries()).toEqual(before);
+  });
+
   it("keeps uploaded icons in the project library so other markers can reuse them", () => {
     useStore.getState().addIcon("icon_up", PNG_ICON, PNG_ASSET);
     expect(useStore.getState().project.icons).toEqual({ icon_up: PNG_ICON });
