@@ -21,7 +21,7 @@ import { sanitizeRichHtml } from "../../shared/sanitize.js";
 import { decodeDefinition, DETAILS_SIZE_PATTERN } from "../../shared/schema.js";
 import { DEFAULT_VISITOR_STRINGS, formatVisitorString, ICON_PATH_PATTERN } from "../../shared/strings.js";
 import { resolveSizingMode } from "../../shared/sizing.js";
-import { assetDisplaySource, fitImageRect, markerPathData, shapeBounds } from "../../shared/scene-geometry.js";
+import { assetDisplaySource, fitImageRect, markerIcon, markerTransform, shapeBounds } from "../../shared/scene-geometry.js";
 import { alphaMaskHit, areaImagePlacement, imagePreserveAspectRatio, imageRotationTransform, isAreaHidden } from "../../shared/area-image.js";
 import { Emitter } from "./emitter.js";
 import {
@@ -642,7 +642,7 @@ class Renderer implements ClickMapInstance {
       if (this.destroyed || this.currentViewId !== view.id) return;
       const el = this.findAreaEl(area.id);
       if (!el) return;
-      const shape = shapeBounds(area.geometry) ?? svgBBox(el) ?? { x: 0, y: 0, width: 1, height: 1 };
+      const shape = shapeBounds(area.geometry, this.def.icons) ?? svgBBox(el) ?? { x: 0, y: 0, width: 1, height: 1 };
       const bounds = { x: shape.x, y: shape.y, w: shape.width, h: shape.height };
       const base = this.getBaseViewBox(view);
       const limits = this.getZoomLimits(view);
@@ -900,7 +900,7 @@ class Renderer implements ClickMapInstance {
   }
 
   private getAreaBBox(area: Area): { cx: number; cy: number; w: number; h: number } | null {
-    const b = shapeBounds(area.geometry) ?? svgBBox(this.findAreaEl(area.id));
+    const b = shapeBounds(area.geometry, this.def.icons) ?? svgBBox(this.findAreaEl(area.id));
     return b ? { cx: b.x + b.width / 2, cy: b.y + b.height / 2, w: b.width, h: b.height } : null;
   }
 
@@ -1198,6 +1198,12 @@ class Renderer implements ClickMapInstance {
     const { x, y, w, h } = vb;
     this.svgEl.setAttribute("viewBox", `${x} ${y} ${w} ${h}`);
     this.bgSvgEl?.setAttribute("viewBox", `${x} ${y} ${w} ${h}`);
+    // Screen-scaled markers keep their on-screen size about their anchor point.
+    const scale = w / base.w;
+    for (const el of Array.from(this.svgEl.querySelectorAll<SVGElement>('[data-scale-mode="screen"]'))) {
+      const area = this.findAreaInView(el.getAttribute("data-area-id") ?? "", view);
+      if (area?.geometry.type === "marker") el.firstElementChild?.setAttribute("transform", markerTransform(area.geometry, markerIcon(area.geometry, this.def.icons), scale));
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -1299,6 +1305,15 @@ class Renderer implements ClickMapInstance {
   // Area element construction
   // -------------------------------------------------------------------------
 
+  /** Icon-to-canvas scale of marker groups, so their strokes keep canvas units (#219). */
+  private strokeScale = new WeakMap<SVGElement, number>();
+
+  /** The shown viewBox width over the view's full width: 1 at zoom 1, 0.5 at zoom 2. */
+  private cameraScale(): number {
+    const view = this.def.views.find((candidate) => candidate.id === this.currentViewId);
+    return view && this.currentViewBox ? this.currentViewBox.w / this.getBaseViewBox(view).w : 1;
+  }
+
   private makeAreaEl(area: Area): SVGElement | null {
     const g = area.geometry;
     let shape: SVGElement;
@@ -1335,9 +1350,39 @@ class Renderer implements ClickMapInstance {
         break;
       }
       case "marker": {
-        const p = svgEl<SVGPathElement>("path");
-        p.setAttribute("d", markerPathData(g.x, g.y, g.anchor));
-        shape = p;
+        // The area group holds the style; inside it, a group in icon units
+        // (#219) holds a transparent box, the hit area and focus outline, and
+        // the icon. Path icons take the style's fill and stroke; an image
+        // icon cannot be recoloured, so the box draws the stroke as an outline.
+        // The transform sits on the inner group so the focus outline keeps
+        // the width every other area's has.
+        const icon = markerIcon(g, this.def.icons);
+        const asset = icon.assetId !== undefined ? this.def.assets.find((candidate) => candidate.id === icon.assetId) : undefined;
+        shape = svgEl<SVGGElement>("g");
+        const art = shape.appendChild(svgEl<SVGGElement>("g"));
+        const box = svgEl<SVGRectElement>("rect");
+        box.setAttribute("width", String(icon.width));
+        box.setAttribute("height", String(icon.height));
+        box.setAttribute("fill", "transparent");
+        if (!asset) box.setAttribute("stroke", "none");
+        art.appendChild(box);
+        if (asset) {
+          const image = svgEl<SVGImageElement>("image");
+          this.reportAssetFailure(image, asset.name);
+          image.setAttribute("href", assetDisplaySource(asset.src, this.assetBaseUrl));
+          image.setAttribute("width", String(icon.width));
+          image.setAttribute("height", String(icon.height));
+          image.setAttribute("preserveAspectRatio", "none");
+          art.prepend(image);
+        } else {
+          const path = svgEl<SVGPathElement>("path");
+          path.setAttribute("d", icon.d ?? "");
+          art.appendChild(path);
+        }
+        // Strokes stay in canvas units whatever the icon's own scale.
+        this.strokeScale.set(shape, (g.size ?? 24) / icon.width);
+        if (g.scaleMode === "screen") shape.setAttribute("data-scale-mode", "screen");
+        art.setAttribute("transform", markerTransform(g, icon, this.cameraScale()));
         break;
       }
       default:
@@ -1412,7 +1457,7 @@ class Renderer implements ClickMapInstance {
   private applyStyle(el: SVGElement, style: AreaStyleState) {
     el.setAttribute("fill", style.fill);
     el.setAttribute("stroke", style.stroke);
-    el.setAttribute("stroke-width", String(style.strokeWidth));
+    el.setAttribute("stroke-width", String(style.strokeWidth / (this.strokeScale.get(el) ?? 1)));
   }
 
   // -------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 # Data model
 
-`map.json` (`ClickMapDefinition`) is the contract between the builder and the renderer, and what anyone must produce to use the renderer without the builder: by hand, from a script, or from a CMS ([guide](renderer-standalone.md)). The current `schemaVersion` is `"1.2.0"`.
+`map.json` (`ClickMapDefinition`) is the contract between the builder and the renderer, and what anyone must produce to use the renderer without the builder: by hand, from a script, or from a CMS ([guide](renderer-standalone.md)). The current `schemaVersion` is `"1.3.0"`.
 
 One structural schema, the Valibot schema in [`shared/schema.ts`](../shared/schema.ts), is the source of all three machine-readable forms of the contract:
 
@@ -15,7 +15,7 @@ The release renderer ZIP ships the JSON Schema as `clickmap-definition.schema.js
 `schemaVersion` is `MAJOR.MINOR.PATCH`:
 
 - A **major** change is breaking: an existing field changes meaning or type, or a field becomes required. A renderer or editor reads exactly one major version, currently `1`.
-- **Minor** and **patch** changes are additive: new optional fields or values that older readers may ignore. Any `1.x.y` is accepted. This release writes `1.2.0`. 1.1 added `settings.details` and the popup action's `presentation`, which 1.0 readers ignore (their popups stay popovers). 1.2 added `settings.lang`, `settings.dir`, and `settings.strings` ([Visitor text](#visitor-text)), which older readers ignore (they show their English defaults).
+- **Minor** and **patch** changes are additive: new optional fields or values that older readers may ignore. Any `1.x.y` is accepted. This release writes `1.3.0`. 1.1 added `settings.details` and the popup action's `presentation`, which 1.0 readers ignore (their popups stay popovers). 1.2 added `settings.lang`, `settings.dir`, and `settings.strings` ([Visitor text](#visitor-text)), which older readers ignore (they show their English defaults). 1.3 added marker `icon`, `size`, and `scaleMode` and the top-level `icons` ([Marker icons](#marker-icons)), which older readers ignore (they draw the default pin).
 
 A file whose `schemaVersion` is a well-formed version with another major is refused before anything is mounted:
 
@@ -220,9 +220,37 @@ An optional `image` references an asset by `assetId`. `fit` is `fill`, `contain`
 | `circle` | `cx`, `cy`, `r` |
 | `polygon` | `points`, an array of `[x,y]` pairs |
 | `path` | SVG path string `d` |
-| `marker` | `x`, `y`, and a `MarkerAnchor` |
+| `marker` | `x`, `y`, a `MarkerAnchor`, and optional `icon`, `size`, and `scaleMode` ([Marker icons](#marker-icons)) |
 
 A `path` area's `d` uses the full SVG path grammar (`M`, `L`, `H`, `V`, `C`, `S`, `Q`, `T`, `A`, `Z`, absolute and relative). Path areas are ordinary areas: labels, place-directory reveal, popover anchoring, and every editor transform use the outline's exact bounds (real curve extrema, not control points). The shared module `shared/path-geometry.ts` parses `d` into a canonical list of absolute `M`, `L`, `C` (cubic), and `Z` segments: quadratics become exact cubics and each elliptical arc becomes cubics of at most a quarter turn, so any affine transform of the canonical form is exact. The stored value stays the `d` string; the editor writes canonical `d` back (coordinates rounded to 1/1000 unit) only when a path is moved, snapped, or resized. The editor refuses to open a project whose path data is malformed, naming the JSON path (`$.views[i].layers[j].areas[k].geometry.d`) and the offending character, and Export validation reports malformed or blank `d` as an error on the area. The structural decoder (`decodeDefinition`/`decodeProjectFile`) and the JSON Schema only require a string. The renderer itself does not bundle the parser: it draws `d` as the browser does and measures path areas with `getBBox()`, which yields the same exact bounds.
+
+### Marker icons
+
+A `marker` area is a waypoint drawn at the point `x`,`y`. Its `anchor` names which point of its box sits there (`bottom-center` puts a pin's tip on the point). Three optional fields (schema 1.3) choose what it draws and how big:
+
+| Field | Meaning |
+| --- | --- |
+| `icon` | Key of an entry in the top-level `icons`. Omitted, or a key that is not there, draws the default pin (24 × 32). Export validation reports an unknown key as `MISSING_ICON`. |
+| `size` | Width of the marker in canvas units, greater than 0. The height follows the icon's aspect ratio. Defaults to 24. |
+| `scaleMode` | `map` (the default): the marker grows and shrinks with the map when the visitor zooms. `screen`: it keeps the on-screen size it has at zoom 1 (the whole view shown) while the visitor zooms and pans. It shrinks about its anchor point, so the point stays where it was placed. |
+
+`icons` maps a key to a `MarkerIcon`: `name`, a `width` × `height` box with its origin at 0,0, and exactly one of:
+
+- `d`: SVG path data in that box. The marker's style states paint it: `fill` and `stroke` of `default`, `hover`, `active`, and `disabled` apply to the icon as they do to any area. `strokeWidth` stays in canvas units at any `size`.
+- `assetId`: an image asset (PNG, WebP, JPEG, or SVG) drawn stretched to the box. An image cannot be recoloured, so style states only draw their `stroke` as an outline around the box (fill is ignored). Disabled markers are also faded, as every disabled area is. Export validation reports a missing asset as `MISSING_ICON_ASSET` and malformed path data as `INVALID_ICON`.
+
+```json
+"icons": {
+  "maki-toilet": { "name": "Toilets", "width": 15, "height": 15, "d": "M3 1.5a1.5 1.5 0 1 0 3 0…Z" },
+  "logo": { "name": "Logo", "width": 64, "height": 32, "assetId": "asset_logo" }
+},
+…
+"geometry": { "type": "marker", "x": 410, "y": 220, "anchor": "bottom-center", "icon": "maki-toilet", "size": 32, "scaleMode": "screen" }
+```
+
+The whole icon box is the marker's hit area and keyboard focus outline, including the transparent parts of the icon. Labels, place-directory reveal, and popover anchoring use the same box at map scale. The renderer draws a marker as `<g class="clickmap-area">`, which carries the style, around a `<g transform="…">` in icon units holding a transparent `<rect>` (the hit box) and the icon's `<path>` or `<image>`.
+
+Keys are free-form strings. The editor uses the gallery id (`maki-toilet`, `badge-a`, `exit`) for its built-in icons and `icon_…` for uploads. The renderer has no built-in gallery: a map carries the path data of every icon it uses. The editor writes only icons some marker uses into `map.json`, and drops image assets that only unused icons referenced. See `editor/src/lib/icons/NOTICE.md` for the gallery's sources and licences (Mapbox Maki, CC0; badge glyphs drawn with Liberation Sans, OFL).
 
 Each `style` contains `default`, `hover`, and `active` states, plus optional `disabled`. `active` is the selected state: the renderer paints it on the area a visitor last activated (pointer, Enter/Space, the place directory, or an area deep link) until the selection is cleared, and it wins over `hover`. Only `disabled` outranks it. New areas get an `active` style distinct from `hover`. A state is `{ fill, stroke, strokeWidth }`; colors are CSS color strings.
 

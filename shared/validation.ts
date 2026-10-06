@@ -103,6 +103,8 @@ function geometryError(geometry: Geometry): string | null {
         return "marker has non-numeric position";
       if (!["bottom-center", "center", "top-left", "top-center", "top-right", "bottom-left", "bottom-right", "middle-left", "middle-right"].includes(geometry.anchor))
         return "marker has an invalid anchor";
+      if (geometry.size !== undefined && !(isFiniteNumber(geometry.size) && geometry.size > 0))
+        return "marker has a non-positive size";
       return null;
     default:
       return "unknown geometry type";
@@ -178,6 +180,7 @@ export function validateProject(project: ClickMapDefinition): ValidationResult[]
   const views = project.views ?? [];
   const assetsById = new Map(project.assets.map((a) => [a.id, a]));
   const viewIds = new Set(views.map((v) => v.id));
+  const icons = project.icons ?? {};
 
   // ── Errors ────────────────────────────────────────────────────────────────
 
@@ -236,6 +239,19 @@ export function validateProject(project: ClickMapDefinition): ValidationResult[]
     if (count > 1) err("DUPLICATE_ID", `Duplicate id "${id}" used ${count} times.`);
   }
 
+  // Marker icons (#219): path data or an existing asset.
+  for (const [key, icon] of Object.entries(icons)) {
+    const label = icon.name || key;
+    if (!(icon.width > 0) || !(icon.height > 0)) {
+      err("INVALID_ICON", `Icon "${label}" must have a positive width and height.`);
+    } else if (icon.assetId !== undefined) {
+      if (!assetsById.has(icon.assetId)) err("MISSING_ICON_ASSET", `Icon "${label}" references a missing asset "${icon.assetId}".`, { assetId: icon.assetId });
+    } else {
+      const error = typeof icon.d === "string" && icon.d.trim() ? pathDataError(icon.d) : "empty path data";
+      if (error) err("INVALID_ICON", `Icon "${label}" has malformed path data: ${error}.`);
+    }
+  }
+
   // Same parser and rules as the renderer, so Export cannot call CSS ready that the map would drop (#168).
   if (typeof document !== "undefined") {
     for (const view of views) {
@@ -277,6 +293,9 @@ export function validateProject(project: ClickMapDefinition): ValidationResult[]
         const geoErr = geometryError(area.geometry);
         if (geoErr) {
           err("INVALID_GEOMETRY", `Area "${area.name}" has invalid geometry: ${geoErr}.`, ref);
+        }
+        if (area.geometry.type === "marker" && area.geometry.icon !== undefined && !Object.prototype.hasOwnProperty.call(icons, area.geometry.icon)) {
+          err("MISSING_ICON", `Marker "${area.name}" references a missing icon "${area.geometry.icon}"; the default pin is drawn instead.`, ref);
         }
         if (area.image) {
           const asset = assetsById.get(area.image.assetId);

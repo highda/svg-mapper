@@ -1,4 +1,4 @@
-import type { Area, AreaStyle, Geometry, MarkerAnchor, RectGeometry } from "@svg-mapper/shared";
+import type { Area, AreaStyle, Geometry, MarkerAnchor, MarkerIcon, RectGeometry } from "@svg-mapper/shared";
 import {
   PathDataError,
   fitPathSegments,
@@ -184,8 +184,31 @@ export function geometryToSvgPath(geo: Geometry): string {
   }
 }
 
-export function getGeometryBbox(geo: Geometry): { x: number; y: number; width: number; height: number } | null {
-  return geometryBounds(geo);
+/** Bounds in canvas units; pass the project's `icons` so marker icons keep their aspect ratio. */
+export function getGeometryBbox(geo: Geometry, icons?: Record<string, MarkerIcon>): { x: number; y: number; width: number; height: number } | null {
+  return geometryBounds(geo, icons);
+}
+
+/** Smallest marker size the editor writes, in canvas units. */
+export const MIN_MARKER_SIZE = 4;
+
+/**
+ * Resize a marker by dragging a corner of its icon box (#219): the anchor
+ * point stays put and the icon keeps its aspect ratio, so the size follows
+ * whichever axis the drag grew more.
+ */
+export function resizeMarker(
+  geo: Extract<Geometry, { type: "marker" }>,
+  icons: Record<string, MarkerIcon> | undefined,
+  handle: RectHandle,
+  dx: number,
+  dy: number,
+): Extract<Geometry, { type: "marker" }> {
+  const box = geometryBounds(geo, icons)!;
+  const resized = resizeRect({ type: "rect", ...box }, handle, dx, dy);
+  const scale = Math.max(resized.width / box.width, resized.height / box.height);
+  const size = Math.max(MIN_MARKER_SIZE, Math.round(box.width * scale * 10) / 10);
+  return { ...geo, size };
 }
 
 export function calculateZoomToFit(

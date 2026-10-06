@@ -20,7 +20,7 @@ import type {
   View,
 } from "@svg-mapper/shared";
 import { createContext, useContext, useEffect, useId, useState, type ComponentProps } from "react";
-import { geometryBounds } from "@svg-mapper/shared";
+import { geometryBounds, markerIcon } from "@svg-mapper/shared";
 import { geometryLockReason, useStore } from "../../store";
 import { resizePathToBounds } from "../../lib/area-utils";
 import { useStylePreview, type StylePreviewState } from "../../store/style-preview";
@@ -32,6 +32,7 @@ import { colorToHex, isValidCssColor, parseCssColor, withHexColor, withOpacity }
 import { validateViewCss } from "../../lib/view-css";
 import { DetailsSettingsSection, PopupPresentationField } from "../details/DetailsInspector";
 import { InspectorSection } from "../inspector/InspectorSection";
+import { MarkerIconSection } from "../inspector/MarkerIconSection";
 import { VisitorTextSection } from "../inspector/VisitorTextSection";
 import { visitorTextSummary } from "../../lib/visitor-text";
 import { useLayoutPrefs } from "../../store/layout-prefs";
@@ -1717,6 +1718,17 @@ function AreaInspector() {
           <GeometryEditor areaId={a.id} geometry={a.geometry as unknown as { type: string }} />
         </fieldset>
       </InspectorSection>
+      {a.geometry.type === "marker" && (
+        <InspectorSection id="area.markerIcon" title="Marker icon" scope="Area" summary={markerIcon(a.geometry, project.icons).name}>
+          <fieldset disabled={geometryLock !== null} className="min-w-0 disabled:opacity-60">
+            <MarkerIconSection
+              areaId={a.id}
+              geometry={a.geometry as MarkerGeometry}
+              selectedMarkerIds={selectedAreas.filter((candidate) => candidate.geometry.type === "marker").map((candidate) => candidate.id)}
+            />
+          </fieldset>
+        </InspectorSection>
+      )}
       <InspectorSection id="area.style" title="Style" scope="Area">
         <div className="space-y-1 rounded border border-neutral-700 bg-neutral-800/60 p-2">
           <label className="block text-xs text-neutral-400" htmlFor="shared-style-select">Named style preset</label>

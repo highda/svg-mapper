@@ -13,6 +13,8 @@ import type {
   BackgroundPosition,
   EditorState,
   Layer,
+  MarkerGeometry,
+  MarkerIcon,
   ProjectFile,
   Settings,
   SharedStyle,
@@ -44,6 +46,7 @@ interface HistorySnapshot {
   assets: Asset[];
   settings: Settings;
   sharedStyles: Record<string, SharedStyle>;
+  icons?: Record<string, MarkerIcon>;
 }
 
 export interface AppState {
@@ -89,6 +92,23 @@ export interface AppState {
   setViewBackgroundFit: (viewId: string, fit: BackgroundFit) => void;
   setViewBackgroundPosition: (viewId: string, position: BackgroundPosition) => void;
   addImageElement: (assetId: string) => void;
+  /**
+   * Add an icon to the project's icon library under `key` (with the asset an
+   * image icon references) without using it yet (#219).
+   */
+  addIcon: (key: string, icon: MarkerIcon, asset?: Asset) => void;
+  /**
+   * Draw `icon` (a key in the project's icons, added from `entry` when
+   * missing) on the given markers, or the default pin with null. Markers in
+   * locked layers are left unchanged. One undo step.
+   */
+  setMarkerIcon: (areaIds: string[], icon: { key: string; entry?: MarkerIcon } | null) => void;
+  /**
+   * Set icon, size and scale mode on the given markers; a key present with
+   * `undefined` restores the default. Locked markers are skipped, and an
+   * `icon` that is not in the project's icons is ignored. One undo step.
+   */
+  updateMarkers: (areaIds: string[], patch: Partial<Pick<MarkerGeometry, "icon" | "size" | "scaleMode">>) => void;
 
   // ── View CRUD ────────────────────────────────────────────────────────────
   addView: () => void;
@@ -205,6 +225,7 @@ function snapshot(state: AppState): HistorySnapshot {
     assets: current(state.project.assets) as Asset[],
     settings: current(state.project.settings) as Settings,
     sharedStyles: current(state.project.sharedStyles) as Record<string, SharedStyle>,
+    icons: state.project.icons ? current(state.project.icons) as Record<string, MarkerIcon> : undefined,
   };
 }
 
@@ -289,6 +310,27 @@ function partitionByGeometryLock(s: AppState, wanted: ReadonlySet<string>) {
         skipped += 1;
         reason = why;
       } else editable.push(area);
+    }
+  }
+  return { editable, skipped, reason };
+}
+
+/** Marker geometry drafts among `areaIds` (any view) that may be edited, and a count of locked ones. */
+function markerDrafts(s: AppState, areaIds: readonly string[]) {
+  const wanted = new Set(areaIds);
+  const editable: Array<MarkerGeometry & { type: "marker" }> = [];
+  let skipped = 0;
+  let reason: string | null = null;
+  for (const view of s.project.views) {
+    for (const layer of view.layers) {
+      for (const area of layer.areas) {
+        if (!wanted.has(area.id) || area.geometry.type !== "marker") continue;
+        const why = geometryLockReason(layer, area);
+        if (why) {
+          skipped += 1;
+          reason = why;
+        } else editable.push(area.geometry as MarkerGeometry & { type: "marker" });
+      }
     }
   }
   return { editable, skipped, reason };
@@ -596,6 +638,50 @@ export const useStore = create<AppState>()(
       set((s) => {
         pushHistory(s);
         s.project.assets.push(asset);
+      });
+    },
+
+    addIcon(key, icon, asset) {
+      set((s) => {
+        pushHistory(s);
+        if (asset && !s.project.assets.some((candidate) => candidate.id === asset.id)) s.project.assets.push(asset);
+        s.project.icons = { ...(s.project.icons ?? {}), [key]: icon };
+      });
+    },
+
+    setMarkerIcon(areaIds, icon) {
+      set((s) => {
+        const markers = markerDrafts(s, areaIds);
+        s.lockNotice = markers.skipped > 0 ? skippedNotice(markers.skipped, markers.reason) : null;
+        const key = icon?.key;
+        if (markers.editable.length === 0 || (key !== undefined && !icon?.entry && !s.project.icons?.[key])) return;
+        if (markers.editable.every((geometry) => geometry.icon === key) && (key === undefined || s.project.icons?.[key])) return;
+        pushHistory(s);
+        if (icon && icon.entry && !s.project.icons?.[icon.key]) s.project.icons = { ...(s.project.icons ?? {}), [icon.key]: icon.entry };
+        for (const geometry of markers.editable) {
+          if (key === undefined) delete geometry.icon;
+          else geometry.icon = key;
+        }
+      });
+    },
+
+    updateMarkers(areaIds, patch) {
+      set((s) => {
+        const markers = markerDrafts(s, areaIds);
+        s.lockNotice = markers.skipped > 0 ? skippedNotice(markers.skipped, markers.reason) : null;
+        const keys = (["icon", "size", "scaleMode"] as const).filter((key) =>
+          key in patch && (key !== "icon" || patch.icon === undefined || s.project.icons?.[patch.icon] !== undefined));
+        const changes = markers.editable.filter((geometry) => keys.some((key) => geometry[key] !== patch[key]));
+        if (changes.length === 0) return;
+        pushHistory(s);
+        for (const geometry of changes) {
+          for (const key of keys) {
+            if (!(key in patch)) continue;
+            const value = patch[key];
+            if (value === undefined) delete geometry[key];
+            else (geometry as unknown as Record<string, unknown>)[key] = value;
+          }
+        }
       });
     },
 
@@ -1051,7 +1137,7 @@ export const useStore = create<AppState>()(
         const wanted = new Set(areaIds);
         const { editable, skipped, reason } = partitionByGeometryLock(s, wanted);
         const entries = editable.flatMap((area) => {
-          const bounds = getGeometryBbox(area.geometry as Area["geometry"]);
+          const bounds = getGeometryBbox(area.geometry as Area["geometry"], s.project.icons);
           return bounds ? [{ area, bounds }] : [];
         });
         s.lockNotice = skipped > 0 ? skippedNotice(skipped, reason) : null;
@@ -1080,7 +1166,7 @@ export const useStore = create<AppState>()(
         const { editable, skipped, reason } = partitionByGeometryLock(s, wanted);
         s.lockNotice = skipped > 0 ? skippedNotice(skipped, reason) : null;
         const entries = editable.flatMap((area) => {
-          const bounds = getGeometryBbox(area.geometry as Area["geometry"]);
+          const bounds = getGeometryBbox(area.geometry as Area["geometry"], s.project.icons);
           return bounds ? [{ area, bounds }] : [];
         }).sort((a, b) => (horizontal ? a.bounds.x + a.bounds.width / 2 : a.bounds.y + a.bounds.height / 2)
           - (horizontal ? b.bounds.x + b.bounds.width / 2 : b.bounds.y + b.bounds.height / 2));
@@ -1465,6 +1551,8 @@ export const useStore = create<AppState>()(
         s.project.assets = prev.assets;
         s.project.settings = prev.settings as typeof s.project.settings;
         s.project.sharedStyles = prev.sharedStyles as typeof s.project.sharedStyles;
+        if (prev.icons) s.project.icons = prev.icons;
+        else delete s.project.icons;
         reconcileActiveView(s);
         s.selectedAreaId = null;
         s.selectedAreaIds = [];
@@ -1482,6 +1570,8 @@ export const useStore = create<AppState>()(
         s.project.assets = next.assets;
         s.project.settings = next.settings as typeof s.project.settings;
         s.project.sharedStyles = next.sharedStyles as typeof s.project.sharedStyles;
+        if (next.icons) s.project.icons = next.icons;
+        else delete s.project.icons;
         reconcileActiveView(s);
         s.selectedAreaId = null;
         s.selectedAreaIds = [];

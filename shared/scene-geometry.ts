@@ -2,7 +2,7 @@
 // so both draw the same scene: asset display sources, fitted background
 // rectangles, marker geometry, area bounds and rounded rectangles.
 import { pathBounds } from "./path-geometry.js";
-import type { BackgroundFit, Geometry, MarkerAnchor } from "./types.js";
+import type { BackgroundFit, Geometry, MarkerAnchor, MarkerGeometry, MarkerIcon } from "./types.js";
 
 export interface Rect {
   x: number;
@@ -58,20 +58,63 @@ export function fitImageRect(
   return { x: (frame.width - width) * px, y: (frame.height - height) * py, width, height };
 }
 
-/** Markers are a fixed 24x32 pin in canvas units, placed by their anchor point. */
+/** The default marker is a 24 × 32 pin in canvas units, placed by its anchor point. */
 export const MARKER_WIDTH = 24;
 export const MARKER_HEIGHT = 32;
 
-export function markerTopLeft(x: number, y: number, anchor: MarkerAnchor): { x: number; y: number } {
-  const horizontal = anchor.endsWith("left") ? 0 : anchor.endsWith("right") ? MARKER_WIDTH : MARKER_WIDTH / 2;
-  const vertical = anchor.startsWith("top") ? 0 : anchor.startsWith("middle") || anchor === "center" ? MARKER_HEIGHT / 2 : MARKER_HEIGHT;
+/** The default pin as an icon: what a marker draws without a known `icon`. */
+export const MARKER_PIN: MarkerIcon = {
+  name: "Pin",
+  width: MARKER_WIDTH,
+  height: MARKER_HEIGHT,
+  d: "M12,32C10,27 2,20 2,12A10,10 0 1,1 22,12C22,20 14,27 12,32Z",
+};
+
+/** Top-left corner of a `width` × `height` box whose `anchor` point is at x,y. */
+export function markerTopLeft(
+  x: number,
+  y: number,
+  anchor: MarkerAnchor,
+  width = MARKER_WIDTH,
+  height = MARKER_HEIGHT,
+): { x: number; y: number } {
+  const horizontal = anchor.endsWith("left") ? 0 : anchor.endsWith("right") ? width : width / 2;
+  const vertical = anchor.startsWith("top") ? 0 : anchor.startsWith("middle") || anchor === "center" ? height / 2 : height;
   return { x: x - horizontal, y: y - vertical };
 }
 
-/** SVG path data for the marker pin. */
+/** SVG path data for the default marker pin. */
 export function markerPathData(x: number, y: number, anchor: MarkerAnchor): string {
   const t = markerTopLeft(x, y, anchor);
   return `M${t.x + 12},${t.y + 32} C${t.x + 10},${t.y + 27} ${t.x + 2},${t.y + 20} ${t.x + 2},${t.y + 12} A10,10 0 1,1 ${t.x + 22},${t.y + 12} C${t.x + 22},${t.y + 20} ${t.x + 14},${t.y + 27} ${t.x + 12},${t.y + 32} Z`;
+}
+
+/** The icon a marker draws (#219): its `icon` entry when that exists, otherwise the pin. */
+export function markerIcon(geo: Pick<MarkerGeometry, "icon">, icons?: Record<string, MarkerIcon>): MarkerIcon {
+  const icon = geo.icon !== undefined && icons && Object.prototype.hasOwnProperty.call(icons, geo.icon) ? icons[geo.icon] : undefined;
+  return icon && icon.width > 0 && icon.height > 0 ? icon : MARKER_PIN;
+}
+
+/**
+ * A marker's box in canvas units at map scale: `size` wide (default 24), the
+ * icon's aspect ratio preserved, placed so its anchor point is at x,y.
+ */
+export function markerBox(geo: MarkerGeometry, icon: Pick<MarkerIcon, "width" | "height">): Rect {
+  const width = geo.size !== undefined && geo.size > 0 ? geo.size : MARKER_WIDTH;
+  const height = (width * icon.height) / icon.width;
+  return { ...markerTopLeft(geo.x, geo.y, geo.anchor, width, height), width, height };
+}
+
+/**
+ * The SVG transform from icon units to canvas units. `cameraScale` is the
+ * shown viewBox width over the view's full width (1 at zoom 1, 0.5 at zoom
+ * 2): a `screen` marker is scaled by it about its anchor point, so its
+ * on-screen size stays the size it has at zoom 1. `map` markers ignore it.
+ */
+export function markerTransform(geo: MarkerGeometry, icon: Pick<MarkerIcon, "width" | "height">, cameraScale = 1): string {
+  const box = markerBox(geo, icon);
+  const s = geo.scaleMode === "screen" && cameraScale > 0 ? cameraScale : 1;
+  return `translate(${geo.x + (box.x - geo.x) * s},${geo.y + (box.y - geo.y) * s}) scale(${(box.width / icon.width) * s})`;
 }
 
 /** Path data for a rectangle, with corners rounded like SVG <rect rx> (clamped to half the side). */
@@ -85,9 +128,11 @@ export function rectPathData(x: number, y: number, width: number, height: number
 /**
  * Axis-aligned bounds of the analytic shapes (rect, circle, polygon, marker)
  * in canvas units; null for paths. The renderer uses this and measures
- * rendered paths with getBBox(), so it never bundles the path parser.
+ * rendered paths with getBBox(), so it never bundles the path parser. A
+ * marker's bounds are its icon box at map scale; pass the definition's
+ * `icons` so an icon's aspect ratio is known.
  */
-export function shapeBounds(geo: Geometry): Rect | null {
+export function shapeBounds(geo: Geometry, icons?: Record<string, MarkerIcon>): Rect | null {
   switch (geo.type) {
     case "rect":
       return { x: geo.x, y: geo.y, width: geo.width, height: geo.height };
@@ -102,7 +147,7 @@ export function shapeBounds(geo: Geometry): Rect | null {
       return { x: minX, y: minY, width: Math.max(...xs) - minX, height: Math.max(...ys) - minY };
     }
     case "marker":
-      return { ...markerTopLeft(geo.x, geo.y, geo.anchor), width: MARKER_WIDTH, height: MARKER_HEIGHT };
+      return markerBox(geo, markerIcon(geo, icons));
     default:
       return null;
   }
@@ -113,6 +158,6 @@ export function shapeBounds(geo: Geometry): Rect | null {
  * bounds (real cubic extrema, see path-geometry.ts); empty or malformed path
  * data returns null.
  */
-export function geometryBounds(geo: Geometry): Rect | null {
-  return geo.type === "path" ? pathBounds(geo.d) : shapeBounds(geo);
+export function geometryBounds(geo: Geometry, icons?: Record<string, MarkerIcon>): Rect | null {
+  return geo.type === "path" ? pathBounds(geo.d) : shapeBounds(geo, icons);
 }
