@@ -1,5 +1,5 @@
 import type { ClickMapDefinition, ProjectFile, View, Settings } from "@svg-mapper/shared";
-import { CURRENT_SCHEMA_VERSION, SUPPORTED_SCHEMA_MAJOR, decodeProjectFile, findMalformedPathData } from "@svg-mapper/shared";
+import { CURRENT_SCHEMA_VERSION, SUPPORTED_SCHEMA_MAJOR, decodeProjectFile, findMalformedPathData, pruneUnusedIcons } from "@svg-mapper/shared";
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -129,9 +129,14 @@ export function serializeProjectFile(project: ProjectFile): string {
   return JSON.stringify(updated, null, 2);
 }
 
+/**
+ * The published definition (Preview and Export): editor state removed, and
+ * only the marker icons the map uses (#219), so an unused gallery pick or
+ * upload never ships.
+ */
 export function toDefinition(file: ProjectFile): ClickMapDefinition {
   const { editor: _editor, ...definition } = file;
-  return definition as ClickMapDefinition;
+  return pruneUnusedIcons(definition as ClickMapDefinition);
 }
 
 export function downloadJson(filename: string, content: string): void {

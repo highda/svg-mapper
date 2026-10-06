@@ -17,7 +17,7 @@ import type { ClickMapDefinition, ProjectFile, SchemaVersion, VisitorStrings } f
 import { DEFAULT_VISITOR_STRINGS } from "./strings.js";
 
 /** The schemaVersion this build writes. */
-export const CURRENT_SCHEMA_VERSION = "1.2.0" satisfies SchemaVersion;
+export const CURRENT_SCHEMA_VERSION = "1.3.0" satisfies SchemaVersion;
 /** The only schemaVersion major this build reads. Minor and patch versions are additive. */
 export const SUPPORTED_SCHEMA_MAJOR = 1;
 
@@ -28,6 +28,7 @@ const str = v.string();
 const bool = v.boolean();
 const num = v.pipe(v.number(), v.finite());
 const atLeast = (minimum: number) => v.pipe(v.number(), v.finite(), v.minValue(minimum));
+const positive = v.pipe(v.number(), v.finite(), v.gtValue(0));
 const unit = v.pipe(v.number(), v.finite(), v.minValue(0), v.maxValue(1));
 const opt = <T extends v.GenericSchema>(schema: T) => v.exactOptional(schema);
 const dict = v.record(v.string(), v.unknown());
@@ -63,8 +64,16 @@ const geometry = v.variant("type", [
     x: num,
     y: num,
     anchor: v.picklist(["bottom-center", "center", "top-left", "top-center", "top-right", "bottom-left", "bottom-right", "middle-left", "middle-right"]),
+    icon: opt(str),
+    size: opt(positive),
+    scaleMode: opt(v.picklist(["map", "screen"])),
   }),
 ]);
+
+const markerIcon = v.pipe(
+  v.object({ name: str, width: positive, height: positive, d: opt(str), assetId: opt(str) }),
+  v.check((icon) => (icon.d === undefined) !== (icon.assetId === undefined), "exactly one of d and assetId"),
+);
 
 /** Decoded byte length of canonical base64, or -1 when it is not base64. */
 function base64Length(data: string): number {
@@ -218,6 +227,7 @@ const definitionEntries = {
   popups: v.array(v.object({ id: str, name: str, title: opt(str), body: opt(str), allowHtml: opt(bool) })),
   sharedStyles: v.record(v.string(), v.object({ name: str, style: areaStyle })),
   customEvents: v.array(str),
+  icons: opt(v.record(v.string(), markerIcon)),
 };
 
 export const definitionSchema = v.object(definitionEntries);
@@ -234,6 +244,7 @@ export const definitionParts = {
   Layer: layer,
   Area: area,
   Geometry: geometry,
+  MarkerIcon: markerIcon,
   Action: action,
   AlphaHitMask: hitMask,
   AreaStyle: areaStyle,

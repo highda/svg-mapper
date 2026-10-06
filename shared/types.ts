@@ -68,10 +68,23 @@ export type MarkerAnchor =
   | "middle-left"
   | "middle-right";
 
+/**
+ * How a marker's size responds to the visitor's zoom (#219): `map` scales
+ * with the map; `screen` keeps the on-screen size it has at zoom 1 while the
+ * visitor zooms, still anchored to its point.
+ */
+export type MarkerScaleMode = "map" | "screen";
+
 export interface MarkerGeometry {
   x: number;
   y: number;
   anchor: MarkerAnchor;
+  /** Key of the drawn icon in `ClickMapDefinition.icons`; omitted (or unknown) draws the default pin. */
+  icon?: string;
+  /** Width in canvas units, aspect preserved. Defaults to 24 (the pin is 24 × 32). */
+  size?: number;
+  /** Defaults to "map". */
+  scaleMode?: MarkerScaleMode;
 }
 
 export type AreaType = "rect" | "circle" | "polygon" | "path" | "marker";
@@ -82,6 +95,22 @@ export type Geometry =
   | ({ type: "polygon" } & PolygonGeometry)
   | ({ type: "path" } & PathGeometry)
   | ({ type: "marker" } & MarkerGeometry);
+
+/**
+ * A marker icon (#219), drawn in a `width` × `height` box with its origin at
+ * 0,0 and scaled to the marker's `size`. Exactly one of `d` and `assetId`:
+ * path data is painted with the marker's style states (fill, stroke); an
+ * image asset cannot be recoloured, so its states paint only an outline.
+ */
+export interface MarkerIcon {
+  name: string;
+  width: number;
+  height: number;
+  /** SVG path data in the icon box. */
+  d?: string;
+  /** An image asset (PNG, WebP, JPEG or SVG) fitted to the icon box. */
+  assetId?: string;
+}
 
 // ---------------------------------------------------------------------------
 // Style
@@ -567,6 +596,8 @@ export interface ClickMapDefinition {
   popups: Popup[];
   sharedStyles: Record<string, SharedStyle>;
   customEvents: string[];
+  /** Marker icons by key, referenced by `MarkerGeometry.icon` (#219). Export keeps only used ones. */
+  icons?: Record<string, MarkerIcon>;
 }
 
 // ---------------------------------------------------------------------------

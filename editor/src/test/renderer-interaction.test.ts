@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { create, __setInlinedCSS } from "../../../renderer/src/renderer";
 import { createRectArea } from "../lib/area-utils";
 import { createNewProject, toDefinition } from "../lib/project";
+import { MARKER_PIN } from "@svg-mapper/shared";
 
 class ResizeObserverStub {
   static callback: ResizeObserverCallback | undefined;
@@ -621,9 +622,11 @@ describe("renderer interaction model", () => {
     project.views[0].layers = [{ id: "layer", name: "Layer", visible: true, locked: false, opacity: 1, areas: [area] }];
     create({ container: "#map", definition: toDefinition(project) });
 
+    // The default pin is drawn in its 24 x 32 icon box, tip on the anchor point (#219).
     const marker = areaElement(area.id);
-    expect(marker.tagName.toLowerCase()).toBe("path");
-    expect(marker.getAttribute("d")).toContain("M100,120");
+    expect(marker.tagName.toLowerCase()).toBe("g");
+    expect(marker.getAttribute("transform")).toBe("translate(88,88) scale(1)");
+    expect(marker.querySelector("path")!.getAttribute("d")).toBe(MARKER_PIN.d);
     expect(marker).toHaveAttribute("aria-label", "Reception");
   });
 

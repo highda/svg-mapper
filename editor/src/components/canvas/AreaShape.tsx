@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Area, CircleGeometry } from "@svg-mapper/shared";
-import { alphaMaskWorldPath, areaImagePlacement, assetDisplaySource, geometryBounds, imagePreserveAspectRatio, imageRotationTransform, isAreaHidden } from "@svg-mapper/shared";
+import { alphaMaskWorldPath, areaImagePlacement, assetDisplaySource, geometryBounds, imagePreserveAspectRatio, imageRotationTransform, isAreaHidden, markerBox, markerIcon, markerTransform, rectPathData } from "@svg-mapper/shared";
 import { geometryToSvgPath, getRectHandles, type RectHandle } from "../../lib/area-utils";
 import { useStore } from "../../store";
 import { useStylePreview } from "../../store/style-preview";
@@ -32,15 +32,21 @@ export function AreaShape({
 }: Props) {
   const [hovered, setHovered] = useState(false);
   const assets = useStore((state) => state.project.assets);
+  const icons = useStore((state) => state.project.icons);
   const previewState = useStylePreview((state) => state.state);
 
-  const d = geometryToSvgPath(area.geometry);
+  // A marker draws its icon in a box at map scale (#219); the box is its hit
+  // area, selection outline and resize frame, as in the renderer.
+  const marker = area.geometry.type === "marker" ? area.geometry : null;
+  const icon = marker ? markerIcon(marker, icons) : null;
+  const iconBox = marker && icon ? markerBox(marker, icon) : null;
+  const d = iconBox ? rectPathData(iconBox.x, iconBox.y, iconBox.width, iconBox.height) : geometryToSvgPath(area.geometry);
   if (!d) return null;
 
   const isRect = area.geometry.type === "rect";
   // A selected path resizes by its bounding box, with the rectangle's corner handles (#218).
   const pathBox = selected && !geometryLocked && area.geometry.type === "path" ? geometryBounds(area.geometry) : null;
-  const handleBox = isRect ? (area.geometry as Parameters<typeof getRectHandles>[0]) : pathBox;
+  const handleBox = isRect ? (area.geometry as Parameters<typeof getRectHandles>[0]) : pathBox ?? (selected && !geometryLocked ? iconBox : null);
   const isCircle = area.geometry.type === "circle";
   const isDisabled = area.disabled === true;
   const alwaysHL = area.alwaysHighlight === true;
@@ -76,22 +82,50 @@ export function AreaShape({
         <image href={assetDisplaySource(imageAsset.src)} x={rect.x} y={rect.y} width={rect.width} height={rect.height} opacity={area.image?.opacity ?? 1} transform={imageRotationTransform(placement)} preserveAspectRatio={imagePreserveAspectRatio(area.image?.fit)} style={{ pointerEvents: "none" }} />
       )}
       {/* Main area shape */}
-      <path
-        d={d}
-        fill={shownStyle.fill}
-        stroke={shownStyle.stroke}
-        strokeWidth={shownStyle.strokeWidth}
-        style={{ cursor: geometryLocked ? "pointer" : "move" }}
-        data-locked={geometryLocked ? "true" : undefined}
-        onPointerDown={(e) => {
-          // Disabled hotspots and locked content stay selectable so they can
-          // be inspected and unlocked; Canvas excludes locked geometry from moves.
-          e.stopPropagation();
-          onPointerDown(e, area.id);
-        }}
-        onPointerEnter={handlePointerEnter}
-        onPointerLeave={handlePointerLeave}
-      />
+      {marker && icon && iconBox ? (() => {
+        const iconAsset = icon.assetId !== undefined ? assets.find((asset) => asset.id === icon.assetId) : undefined;
+        // Strokes stay in canvas units whatever the icon's own scale.
+        const strokeWidth = shownStyle.strokeWidth / (iconBox.width / icon.width);
+        return (
+          <g
+            transform={markerTransform(marker, icon)}
+            fill={shownStyle.fill}
+            stroke={shownStyle.stroke}
+            strokeWidth={strokeWidth}
+            style={{ cursor: geometryLocked ? "pointer" : "move" }}
+            data-locked={geometryLocked ? "true" : undefined}
+            data-marker-icon={marker.icon ?? "pin"}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              onPointerDown(e, area.id);
+            }}
+            onPointerEnter={handlePointerEnter}
+            onPointerLeave={handlePointerLeave}
+          >
+            {iconAsset && <image href={assetDisplaySource(iconAsset.src)} width={icon.width} height={icon.height} preserveAspectRatio="none" />}
+            {/* Image icons cannot be recoloured: the style's stroke outlines the box instead. */}
+            <rect width={icon.width} height={icon.height} fill="transparent" stroke={iconAsset ? undefined : "none"} />
+            {!iconAsset && icon.d && <path d={icon.d} />}
+          </g>
+        );
+      })() : (
+        <path
+          d={d}
+          fill={shownStyle.fill}
+          stroke={shownStyle.stroke}
+          strokeWidth={shownStyle.strokeWidth}
+          style={{ cursor: geometryLocked ? "pointer" : "move" }}
+          data-locked={geometryLocked ? "true" : undefined}
+          onPointerDown={(e) => {
+            // Disabled hotspots and locked content stay selectable so they can
+            // be inspected and unlocked; Canvas excludes locked geometry from moves.
+            e.stopPropagation();
+            onPointerDown(e, area.id);
+          }}
+          onPointerEnter={handlePointerEnter}
+          onPointerLeave={handlePointerLeave}
+        />
+      )}
 
       {area.image?.hitMask?.debug && placement && (
         <path

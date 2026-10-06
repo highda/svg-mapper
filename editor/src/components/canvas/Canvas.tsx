@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Area, CircleGeometry } from "@svg-mapper/shared";
+import type { Area, CircleGeometry, ProjectFile } from "@svg-mapper/shared";
 import { assetDisplaySource, fitImageRect, geometryBounds } from "@svg-mapper/shared";
 import { canEditGeometry, useStore } from "../../store";
 import { AreaShape } from "./AreaShape";
@@ -12,6 +12,7 @@ import {
   createCircleArea,
   createMarkerArea,
   polygonPointsToString,
+  resizeMarker,
   resizeRect,
   resizePathToBounds,
   moveGeometry,
@@ -59,8 +60,8 @@ function contentPoint(
 }
 
 /** Label anchor: the centre of the same bounds the renderer uses. */
-function areaCenter(area: Area): { x: number; y: number; width: number } | null {
-  const b = geometryBounds(area.geometry);
+function areaCenter(area: Area, icons: ProjectFile["icons"]): { x: number; y: number; width: number } | null {
+  const b = geometryBounds(area.geometry, icons);
   return b ? { x: b.x + b.width / 2, y: b.y + b.height / 2, width: b.width } : null;
 }
 
@@ -126,6 +127,8 @@ export function Canvas() {
    */
   const resizedGeometry = (before: Area["geometry"], handle: RectHandle, dx: number, dy: number): Area["geometry"] | null => {
     if (before.type === "rect") return snapGeometry(resizeRect(before, handle, dx, dy));
+    // A marker keeps its anchor point and aspect ratio; only its size changes (#219).
+    if (before.type === "marker") return resizeMarker(before, project.icons, handle, dx, dy);
     if (before.type !== "path") return null;
     const bounds = getGeometryBbox(before);
     if (!bounds) return null;
@@ -290,7 +293,7 @@ export function Canvas() {
             .flatMap((candidateView) => candidateView.layers)
             .flatMap((layer) => layer.areas)
             .find((area) => area.id === saId);
-          const selectedBounds = selectedArea ? getGeometryBbox(selectedArea.geometry) : null;
+          const selectedBounds = selectedArea ? getGeometryBbox(selectedArea.geometry, useStore.getState().project.icons) : null;
           if (selectedBounds) bounds = selectedBounds;
         }
         setEditorState(calculateZoomToFit(bounds, cv, { width: svgW, height: svgH }));
@@ -825,7 +828,7 @@ export function Canvas() {
           .filter((layer) => layer.visible)
           .flatMap((layer) => layer.areas)
           .filter((area) => {
-            const bounds = getGeometryBbox(area.geometry);
+            const bounds = getGeometryBbox(area.geometry, project.icons);
             return bounds !== null
               && bounds.x <= x + width && bounds.x + bounds.width >= x
               && bounds.y <= y + height && bounds.y + bounds.height >= y;
@@ -1006,7 +1009,7 @@ export function Canvas() {
               {view.layers.filter((layer) => layer.visible).flatMap((layer) =>
                 layer.areas.map((area) => {
                   if (area.label?.visible === false) return null;
-                  const center = areaCenter(area);
+                  const center = areaCenter(area, project.icons);
                   if (!center) return null;
                   const settings = project.settings.areaLabels!;
                   const fontSize = settings.fontSize ?? 14;
