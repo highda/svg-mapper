@@ -1,39 +1,8 @@
 import * as esbuild from "esbuild";
 import { argv } from "process";
-import { copyFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "fs";
-import { createRequire } from "module";
-import { dirname, join } from "path";
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 
 const watch = argv.includes("--watch");
-
-/**
- * Shorten `private` member names of the renderer's own classes in the
- * minified bundle (esbuild mangleProps); property names are otherwise kept
- * verbatim and are a large share of the gzip size budget. A name is kept
- * whenever it appears anywhere in declarations of something the renderer does
- * not own: the DOM and JavaScript built-ins, the bundled packages, and all of
- * shared/ (map.json fields, create() options, events). So mangling can never
- * rename a property read from, or handed to, outside code.
- */
-function privateMembersPattern() {
-  const words = (text) => text.match(/[A-Za-z_$][\w$]*/g) ?? [];
-  const names = new Set();
-  for (const file of readdirSync("src")) {
-    if (!file.endsWith(".ts")) continue;
-    for (const match of readFileSync(join("src", file), "utf8").matchAll(/\bprivate\s+(?:readonly\s+)?([A-Za-z_$][\w$]*)/g)) names.add(match[1]);
-  }
-  const tsLib = dirname(createRequire(import.meta.url).resolve("typescript/lib/lib.d.ts"));
-  const declarations = (dir) => readdirSync(dir).filter((file) => /\.d\.[cm]?ts$/.test(file)).map((file) => join(dir, file));
-  const sources = [
-    ...declarations(tsLib),
-    ...["core", "dom", "utils"].flatMap((pkg) => declarations(`node_modules/@floating-ui/${pkg}/dist`)),
-    ...["dompurify", "valibot"].flatMap((pkg) => declarations(`../shared/node_modules/${pkg}/dist`)),
-    ...readdirSync("../shared").filter((file) => file.endsWith(".ts")).map((file) => join("../shared", file)),
-  ];
-  const reserved = new Set(sources.flatMap((file) => words(readFileSync(file, "utf8"))));
-  const mangled = [...names].filter((name) => name.length > 2 && !reserved.has(name));
-  return mangled.length ? new RegExp(`^(?:${mangled.join("|")})$`) : undefined;
-}
 
 // The Shadow DOM stylesheet is inlined minified; dist keeps the readable file.
 const rendererCss = esbuild.transformSync(readFileSync("clickmap-renderer.css", "utf8"), { loader: "css", minify: true }).code;
@@ -51,7 +20,6 @@ const opts = {
   // syntax. Keep in step with SUPPORTED_BROWSERS in editor/src/lib/export-package.ts.
   target: ["chrome99", "edge99", "firefox97", "safari16", "ios16"],
   minify: !watch,
-  mangleProps: watch ? undefined : privateMembersPattern(),
   sourcemap: watch ? "inline" : false,
   alias: {
     "@svg-mapper/shared": "../shared/index.ts",

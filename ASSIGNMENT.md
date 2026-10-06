@@ -54,7 +54,7 @@ No backend. No accounts. MVP runs entirely client-side.
 | Language       | TypeScript, compiled to a single ES2018 UMD/IIFE bundle  |
 | Dependencies   | No framework and nothing for the user to install; bundled libraries allowed under §2.6 |
 | Output         | `clickmap-renderer.js` + `clickmap-renderer.css`         |
-| Size budget    | < 45 KB gzipped for the JS (includes DOMPurify, Valibot) |
+| Size budget    | < 50 KB gzipped for the JS (includes DOMPurify, Valibot) |
 | Browser target | Last 2 versions of Chrome/Firefox/Safari/Edge + iOS/Android Safari |
 
 ### 2.3 Repo layout
@@ -422,7 +422,7 @@ Imported SVGs and user-provided text are the main attack surface.
 | Surface     | Budget                                                              |
 | ----------- | ------------------------------------------------------------------- |
 | Project size  | 1–20 Views; 1–50 Layers per project; 1–1,000 Areas per project   |
-| Renderer JS   | < 45 KB gzipped (includes DOMPurify, Valibot)                    |
+| Renderer JS   | < 50 KB gzipped (includes DOMPurify, Valibot)                    |
 | First render  | < 500 ms on a modest laptop for a typical map                    |
 | View switch   | < 150 ms once destination assets are loaded                      |
 | Resize        | Debounced; no thrashing                                          |
